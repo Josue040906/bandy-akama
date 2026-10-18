@@ -1,25 +1,37 @@
 package com.bandyakama.tool;
 
 
-import org.springframework.stereotype.Component;
-
-import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
-@Component
 public class ToolRegistry {
-    private final List<ToolDefinition> tools = new ArrayList<>();
+    private final ToolRepository toolRepository;
 
+    public ToolRegistry(ToolRepository toolRepository) {
+        this.toolRepository = toolRepository;
+    }
 
-    public void register(ToolDefinition tool) { tools.add(tool); }
+    public ToolDefinition register(ToolDefinition tool) {
+        tool.validate();
+        return toolRepository.save(tool);
+    }
 
-    public List<ToolDefinition> getAll() {  return List.copyOf(tools); }
+    public List<ToolDefinition> getAll() {
+        return toolRepository.findAll().stream()
+                .sorted(Comparator.comparing(ToolDefinition::getName))
+                .toList();
+    }
 
+    public List<ToolDefinition> getEnabled() {
+        return toolRepository.findEnabled();
+    }
 
     public Optional<ToolDefinition> findByName(String name) {
-        return tools.stream()
-                .filter(tool -> tool.getName().equals(name))
-                .findFirst();
+        return toolRepository.findByName(name);
+    }
+
+    public boolean delete(String name) {
+        return toolRepository.delete(name);
     }
 }
