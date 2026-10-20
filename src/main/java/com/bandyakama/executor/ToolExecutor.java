@@ -2,10 +2,15 @@ package com.bandyakama.executor;
 
 import com.bandyakama.tool.ToolDefinition;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -15,9 +20,27 @@ import java.util.Set;
 public class ToolExecutor {
     private final RestClient restClient;
 
-    public ToolExecutor(RestClient.Builder restClientBuilder) {
-        this.restClient = restClientBuilder.build();
+    @Autowired
+    public ToolExecutor(
+            RestClient.Builder restClientBuilder,
+            @Value("${bandy.tools.connect-timeout-seconds:5}") int connectTimeoutSeconds,
+            @Value("${bandy.tools.read-timeout-seconds:30}") int readTimeoutSeconds
+    ) {
+        HttpClient httpClient = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
+                .build();
+        JdkClientHttpRequestFactory requestFactory =
+                new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofSeconds(readTimeoutSeconds));
+        this.restClient = restClientBuilder
+                .requestFactory(requestFactory)
+                .build();
     }
+
+    public ToolExecutor(RestClient.Builder restClientBuilder) {
+        this(restClientBuilder, 5, 30);
+    }
+
     public Object execute(
             ToolDefinition tool,
             Map<String, Object> arguments
@@ -29,6 +52,15 @@ public class ToolExecutor {
             ToolDefinition tool,
             Map<String, Object> arguments,
             String authorization
+    ) {
+        return execute(tool, arguments, authorization, null);
+    }
+
+    public Object execute(
+            ToolDefinition tool,
+            Map<String, Object> arguments,
+            String authorization,
+            String idempotencyKey
     ) {
         validateArguments(tool, arguments);
 
@@ -74,6 +106,9 @@ public class ToolExecutor {
 
         if (authorization != null && !authorization.isBlank()) {
             request.header("Authorization", authorization);
+        }
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            request.header("Idempotency-Key", idempotencyKey);
         }
         if (!bodyArguments.isEmpty()) {
             request.body(bodyArguments);

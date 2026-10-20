@@ -12,6 +12,7 @@ import java.util.Base64;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class UserTokenValidatorTest {
@@ -19,7 +20,12 @@ class UserTokenValidatorTest {
             "0123456789abcdef0123456789abcdef";
 
     private final UserTokenValidator validator =
-            new UserTokenValidator(new ObjectMapper(), SECRET);
+            new UserTokenValidator(
+                    new ObjectMapper(),
+                    SECRET,
+                    "assistant-rh",
+                    "client-a,client-b"
+            );
 
     @Test
     void acceptsValidRhBearerTokens() {
@@ -59,16 +65,55 @@ class UserTokenValidatorTest {
         );
     }
 
+    @Test
+    void selectsOnlyAnAllowedSignedApplicationAudience() {
+        assertEquals(
+                "client-a",
+                validator.validate(
+                        "Bearer " + token(
+                                Instant.now().getEpochSecond() + 3600,
+                                SECRET,
+                                "client-a"
+                        )
+                ).applicationId()
+        );
+        assertThrows(
+                ResponseStatusException.class,
+                () -> validator.validate(
+                        "Bearer " + token(
+                                Instant.now().getEpochSecond() + 3600,
+                                SECRET,
+                                "unregistered-client"
+                        )
+                )
+        );
+    }
+
     private String token(long expiresAt, String signingSecret) {
+        return token(expiresAt, signingSecret, null);
+    }
+
+    private String token(
+            long expiresAt,
+            String signingSecret,
+            String audience
+    ) {
         try {
             String header = encode(
                     "{\"alg\":\"HS256\",\"typ\":\"JWT\"}"
                             .getBytes(StandardCharsets.UTF_8)
             );
-            String claims = encode(new ObjectMapper().writeValueAsBytes(
-                    Map.of("sub", "42", "iat", 1, "exp", expiresAt)
-            ));
-            String signingInput = header + "." + claims;
+            Map<String, Object> claims = new java.util.HashMap<>();
+            claims.put("sub", "42");
+            claims.put("iat", 1);
+            claims.put("exp", expiresAt);
+            if (audience != null) {
+                claims.put("aud", audience);
+            }
+            String claimsPart = encode(
+                    new ObjectMapper().writeValueAsBytes(claims)
+            );
+            String signingInput = header + "." + claimsPart;
             Mac mac = Mac.getInstance("HmacSHA256");
             mac.init(new SecretKeySpec(
                     signingSecret.getBytes(StandardCharsets.UTF_8),

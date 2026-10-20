@@ -13,6 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -73,6 +74,13 @@ class ToolRegistryTest {
         assertFalse(registry.findByName("disabledSearch").isPresent());
         assertFalse(registry.getEnabled().stream()
                 .anyMatch(item -> item.getName().equals("disabledSearch")));
+    }
+
+    @Test
+    void preventsRegisteredToolsFromShadowingConversationStateControl() {
+        ToolDefinition reserved = tool("clearConversationState", "POST");
+
+        assertThrows(IllegalArgumentException.class, () -> registry.register(reserved));
     }
 
     @Test
