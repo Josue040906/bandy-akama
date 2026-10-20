@@ -44,7 +44,7 @@ public class GeminiAssistant {
 
     public GeminiAssistant(
             @Value("${GEMINI_API_KEY:}") String apiKey,
-            @Value("${bandy.ai.model:gemini-2.5-flash}") String model,
+            @Value("${bandy.ai.model:gemini-3.8-flash}") String model,
             ToolRegistry toolRegistry,
             ToolExecutor toolExecutor,
             AssistantProfileRepository profileRepository
