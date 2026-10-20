@@ -65,7 +65,7 @@ The initial profile is inserted into PostgreSQL only when the profile table is e
 {
   "name": "Bandy Akama",
   "role": "Assistant RH conversationnel",
-  "instructions": "Le profil initial détaillé est défini dans src/main/resources/schema.sql et appliqué à la base active par scripts/update-assistant-profile.ps1."
+  "instructions": "Le profil initial est créé par src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql et le profil complet peut être appliqué par scripts/update-assistant-profile.ps1."
 }
 ```
 
@@ -168,7 +168,7 @@ Gemini receives the saved extractive summary, the last configured number of
 user/assistant messages, structured state from the most recent successful tool
 call, and up to five prior tool-result references. The assembled context is
 capped; the full transcript remains in PostgreSQL and is not resent. Summary
-updates are incremental and deterministic (older text turns are compacted);
+updates are incremental and deterministic (older text turns are compacted).
 For a continuing call to the same tool, Bandy merges `criteriaJson.filters` by
 their `field`: omitted filters remain active, a supplied field replaces its
 previous filter, and a filter with `remove:true` explicitly removes it before

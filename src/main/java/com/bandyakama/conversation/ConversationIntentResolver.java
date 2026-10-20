@@ -24,10 +24,14 @@ public class ConversationIntentResolver {
                     + "(?:hommes|femmes)\\s*[?!.]*$)"
     );
     private static final Pattern INDEPENDENT_INTENT = Pattern.compile(
-            "^(?:explique(?:-moi)?|decris(?:-moi)?|presente(?:-moi)?|"
+            "^(?:maintenant\\s+)?(?:explique(?:-moi)?|decris(?:-moi)?|"
+                    + "presente(?:-moi)?|"
                     + "comment\\s+(?:fonctionne|marche)|"
                     + "qu[' ]est-ce|quelle\\s+est\\s+la\\s+structure|"
                     + "nouvelle\\s+recherche|changeons\\s+de\\s+sujet)\\b"
+    );
+    private static final Pattern NEW_SEARCH = Pattern.compile(
+            "^maintenant\\s+(?:cherche|recherche|trouve|liste|compte)\\b"
     );
 
     public Decision resolve(String message, JsonNode activeState) {
@@ -36,9 +40,6 @@ public class ConversationIntentResolver {
         }
 
         String normalized = normalize(message);
-        if (INDEPENDENT_INTENT.matcher(normalized).find()) {
-            return Decision.NEW_INTENT;
-        }
         if (CONTINUATION.matcher(normalized).find()
                 || normalized.contains("meme direction")
                 || normalized.contains("meme service")
@@ -48,6 +49,10 @@ public class ConversationIntentResolver {
                 || normalized.contains("qui est le plus age")
                 || normalized.contains("la plus agee")) {
             return Decision.CONTINUATION;
+        }
+        if (INDEPENDENT_INTENT.matcher(normalized).find()
+                || NEW_SEARCH.matcher(normalized).find()) {
+            return Decision.NEW_INTENT;
         }
         if (looksLikeIndependentRequest(normalized)) {
             return Decision.NEW_INTENT;

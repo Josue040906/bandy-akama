@@ -52,6 +52,20 @@ class ConversationIntentResolverTest {
                 )
         );
         assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Maintenant, explique la structure du Service du Personnel.",
+                        activeState
+                )
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Maintenant, cherche les hommes du Service Financier.",
+                        activeState
+                )
+        );
+        assertEquals(
                 ConversationIntentResolver.Decision.CLARIFICATION_REQUIRED,
                 resolver.resolve("Et ensuite ?", activeState)
         );
