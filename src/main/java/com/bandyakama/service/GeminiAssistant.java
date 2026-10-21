@@ -3,15 +3,15 @@ package com.bandyakama.service;
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationStateMerger;
 import com.bandyakama.conversation.ConversationIntentResolver;
+import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
-import com.bandyakama.assistant.AssistantProfileRepository;
+import com.bandyakama.assistant.AssistantConfigurationSnapshot;
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
-import com.bandyakama.tool.ToolRegistry;
 import com.google.genai.Chat;
 import com.google.genai.Client;
 import com.google.genai.types.Content;
@@ -49,8 +49,7 @@ public class GeminiAssistant {
     private final Client client;
     private final String apiKey;
     private final String model;
-    private final AssistantProfileRepository profileRepository;
-    private final ToolRegistry toolRegistry;
+    private final AssistantConfigurationRepository configurationRepository;
     private final ToolExecutor toolExecutor;
     private final ConversationStateMerger stateMerger;
     private final PerformanceTelemetry performanceTelemetry;
@@ -64,9 +63,8 @@ public class GeminiAssistant {
             @Value("${bandy.ai.model:gemini-3.8-flash}") String model,
             @Value("${bandy.ai.max-tool-rounds:2}") int maxToolRounds,
             GeminiClientFactory geminiClientFactory,
-            ToolRegistry toolRegistry,
+            AssistantConfigurationRepository configurationRepository,
             ToolExecutor toolExecutor,
-            AssistantProfileRepository profileRepository,
             ConversationStateMerger stateMerger,
             PerformanceTelemetry performanceTelemetry,
             ObjectMapper objectMapper
@@ -84,9 +82,8 @@ public class GeminiAssistant {
         }
         this.maxToolRounds = maxToolRounds;
         this.model = model;
-        this.toolRegistry = toolRegistry;
+        this.configurationRepository = configurationRepository;
         this.toolExecutor = toolExecutor;
-        this.profileRepository = profileRepository;
         this.stateMerger = stateMerger;
         this.performanceTelemetry = performanceTelemetry;
         this.objectMapper = objectMapper;
@@ -183,20 +180,21 @@ public class GeminiAssistant {
         }
 
         long preparationStartedAt = System.nanoTime();
-        long profileLoadStartedAt = System.nanoTime();
-        AssistantProfile profile;
-        boolean profileLoaded = false;
+        long configurationLoadStartedAt = System.nanoTime();
+        AssistantConfigurationSnapshot configuration;
+        boolean configurationLoaded = false;
         try {
-            profile = profileRepository.get();
-            profileLoaded = true;
+            configuration = configurationRepository.get();
+            configurationLoaded = true;
         } finally {
             performanceTelemetry.stage(
                     requestId,
-                    "assistant_profile_load",
-                    profileLoadStartedAt,
-                    profileLoaded
+                    "assistant_configuration_load",
+                    configurationLoadStartedAt,
+                    configurationLoaded
             );
         }
+        AssistantProfile profile = configuration.profile();
         String systemInstruction = "Tu es " + profile.name() + ".\n"
                 + "Rôle : " + profile.role() + "\n"
                 + "Consignes :\n" + profile.instructions()
@@ -255,20 +253,7 @@ public class GeminiAssistant {
                 + "variantes. Effectue au plus une recherche approximative dédiée "
                 + "par demande; si aucun candidat ne convient ou si les résultats "
                 + "sont ambigus, demande une précision plutôt que de boucler.";
-        long toolCatalogStartedAt = System.nanoTime();
-        List<ToolDefinition> registeredTools;
-        boolean toolCatalogLoaded = false;
-        try {
-            registeredTools = toolRegistry.getEnabled();
-            toolCatalogLoaded = true;
-        } finally {
-            performanceTelemetry.stage(
-                    requestId,
-                    "tool_catalog_load",
-                    toolCatalogStartedAt,
-                    toolCatalogLoaded
-            );
-        }
+        List<ToolDefinition> registeredTools = configuration.enabledTools();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
                 tool.getName(),

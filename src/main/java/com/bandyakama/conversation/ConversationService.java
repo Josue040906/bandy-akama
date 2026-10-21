@@ -161,55 +161,86 @@ public class ConversationService {
                 )
         );
         if (request.completedResponse() != null) {
+            RequestBudget.current().ifPresent(RequestBudget::remainingMillis);
             return request.completedResponse().withConversationId(conversationId);
         }
 
-        ConversationIntentResolver.Decision decision = measured(
-                requestId,
-                "intent_resolution",
-                () -> intentResolver.resolve(message, request.activeState())
-        );
-        if (decision == ConversationIntentResolver.Decision.CLARIFICATION_REQUIRED) {
-            ChatResponse clarification = new ChatResponse(
-                    intentResolver.clarificationMessage(),
-                    java.util.List.of(),
-                    conversationId
-            );
-            measured(
+        try {
+            ConversationIntentResolver.Decision decision = measured(
                     requestId,
-                    "response_persistence",
-                    () -> repository.completeRequest(
+                    "intent_resolution",
+                    () -> intentResolver.resolve(message, request.activeState())
+            );
+            if (decision
+                    == ConversationIntentResolver.Decision.CLARIFICATION_REQUIRED) {
+                ChatResponse clarification = new ChatResponse(
+                        intentResolver.clarificationMessage(),
+                        java.util.List.of(),
+                        conversationId
+                );
+                measured(
+                        requestId,
+                        "response_persistence",
+                        () -> repository.completeRequest(
+                                conversationId,
+                                requestId,
+                                request.claimId(),
+                                clarification
+                        )
+                );
+                return clarification;
+            }
+
+            var greeting = ConversationIntentResolver.greetingResponse(message);
+            if (greeting.isPresent()) {
+                long greetingStartedAt = System.nanoTime();
+                ChatResponse response = new ChatResponse(
+                        greeting.get(),
+                        java.util.List.of(),
+                        conversationId
+                );
+                measured(
+                        requestId,
+                        "response_persistence",
+                        () -> repository.completeRequest(
+                                conversationId,
+                                requestId,
+                                request.claimId(),
+                                response
+                        )
+                );
+                performanceTelemetry.stage(
+                        requestId,
+                        "deterministic_greeting",
+                        greetingStartedAt,
+                        true
+                );
+                return response;
+            }
+
+            boolean resetState = decision
+                    == ConversationIntentResolver.Decision.NEW_INTENT;
+            JsonNode stateForRequest = decision
+                    == ConversationIntentResolver.Decision.CONTINUATION
+                    ? request.activeState()
+                    : null;
+            String classifiedContext = measured(
+                    requestId,
+                    "context_preparation",
+                    () -> repository.contextForRequest(
                             conversationId,
                             requestId,
-                            request.claimId(),
-                            clarification
+                            stateForRequest,
+                            decision
+                                    == ConversationIntentResolver.Decision.CONTINUATION
                     )
-            );
-            return clarification;
-        }
-
-        boolean resetState = decision
-                == ConversationIntentResolver.Decision.NEW_INTENT;
-        JsonNode stateForRequest = decision
-                == ConversationIntentResolver.Decision.CONTINUATION
-                ? request.activeState()
-                : null;
-        String classifiedContext = measured(
-                requestId,
-                "context_preparation",
-                () -> repository.contextForRequest(
-                        conversationId,
-                        requestId,
-                        stateForRequest,
-                        decision == ConversationIntentResolver.Decision.CONTINUATION
-                )
-        )
-                + "\n\nDécision de continuité prise par Bandy : "
-                + (decision == ConversationIntentResolver.Decision.CONTINUATION
-                ? "CONTINUATION. Conserve les filtres actifs non modifiés."
-                : "NOUVELLE INTENTION. Ignore tous les filtres et résultats précédents "
-                        + "pour décider des critères de cette demande.");
-        try {
+            )
+                    + "\n\nDécision de continuité prise par Bandy : "
+                    + (decision
+                    == ConversationIntentResolver.Decision.CONTINUATION
+                    ? "CONTINUATION. Conserve les filtres actifs non modifiés."
+                    : "NOUVELLE INTENTION. Ignore tous les filtres et résultats précédents "
+                            + "pour décider des critères de cette demande.");
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
@@ -220,7 +251,8 @@ public class ConversationService {
                             requestId,
                             stateForRequest
                     )
-            ).withConversationId(conversationId)
+            );
+            ChatResponse completedResponse = response.withConversationId(conversationId)
                     .withConversationStateReset(resetState);
             measured(
                     requestId,
@@ -229,10 +261,10 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             request.claimId(),
-                            response
+                            completedResponse
                     )
             );
-            return response;
+            return completedResponse;
         } catch (RuntimeException failure) {
             try {
                 repository.failRequest(
@@ -262,6 +294,7 @@ public class ConversationService {
         long startedAt = System.nanoTime();
         boolean succeeded = false;
         try {
+            RequestBudget.current().ifPresent(RequestBudget::remainingMillis);
             T result = operation.get();
             succeeded = true;
             return result;

@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -179,6 +180,31 @@ class ConversationApiTest {
                         "Access-Control-Allow-Headers",
                         org.hamcrest.Matchers.containsString("idempotency-key")
                 ));
+    }
+
+    @Test
+    void answersSimpleGreetingWithoutCallingTheAssistantModel() throws Exception {
+        UUID conversationId = createConversation("42");
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Bonjour Bandy !\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").value(
+                        "Bonjour ! Comment puis-je vous aider ?"
+                ));
+
+        verifyNoInteractions(assistant);
+        Integer persistedMessages = jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ?
+                """,
+                Integer.class,
+                conversationId
+        );
+        assertEquals(2, persistedMessages);
     }
 
     @Test
@@ -630,14 +656,14 @@ class ConversationApiTest {
                         .header("Authorization", bearerToken("42"))
                         .header("Idempotency-Key", requestId.toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"Bonjour\"}"))
+                        .content("{\"message\":\"Recherche RH\"}"))
                 .andExpect(status().is5xxServerError());
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
                         .header("Authorization", bearerToken("42"))
                         .header("Idempotency-Key", requestId.toString())
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"Bonjour\"}"))
+                        .content("{\"message\":\"Recherche RH\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Réponse disponible."));
 
@@ -946,7 +972,9 @@ class ConversationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"Bonjour\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Bonjour."))
+                .andExpect(jsonPath("$.message").value(
+                        "Bonjour ! Comment puis-je vous aider ?"
+                ))
                 .andExpect(jsonPath("$.conversationId").isNotEmpty())
                 .andReturn();
         UUID conversationId = UUID.fromString(

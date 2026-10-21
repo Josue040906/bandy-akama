@@ -41,11 +41,11 @@ Each synchronous Gemini SDK request is capped by
 backoff capped at two seconds. The default is one retry after the initial
 attempt. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
 per user turn; the default of two preserves a short multi-step sequence while
-preventing extended loops. The Gemini and registered-tool timeouts are bounded by the remaining turn
-budget, and automatic Gemini retries are disabled for a budgeted turn. The
-budget includes conversation preparation and persistence as well as model and
-tool work; it is not a hard cancellation guarantee for database operations or
-remote work that has already started. Registered backend calls also have a
+preventing extended loops. The Gemini and registered-tool timeouts are bounded
+by the remaining turn budget, and automatic Gemini retries are disabled for a
+budgeted turn. The budget is checked before each synchronous processing stage
+and includes conversation preparation and persistence, but it cannot interrupt
+a PostgreSQL statement already running. Registered backend calls also have a
 15-second default read timeout when no shorter budget remains.
 
 The application creates its tables and initial assistant profile on startup.
@@ -86,7 +86,10 @@ The initial profile is inserted into PostgreSQL only when the profile table is e
 }
 ```
 
-The initial profile is inserted by `src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql` only when the profile table is empty. The update script applies the full Bandy persona and behavior to an existing profile. The profile is loaded from the database for each chat request, so changes apply without restarting Bandy.
+The initial profile is inserted by `src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql` only when the profile table is empty. The update script applies the full Bandy persona and behavior to an existing profile. The profile is loaded from the database for each chat request, so changes apply
+without restarting Bandy. A single joined query now loads the profile and the
+enabled tool catalog with their parameters, avoiding separate profile, tool,
+and parameter round trips without introducing stale cross-instance caches.
 
 ## Tool catalogue
 
@@ -235,7 +238,9 @@ credential-redacted cause chain when one fails.
 `event=tool_call` records each registered
 tool execution without its arguments or result. `event=assistant_turn` reports
 the total assistant duration and model-call, tool-call, and tool-round counts.
-Separate stage events identify assistant profile and tool catalog loading.
+The `assistant_configuration_load` stage records the combined live profile and
+tool-catalog query. This keeps administrative changes immediately visible and
+avoids a process-local cache that could become stale across instances.
 `event=context_size` reports character counts for historical context, system
 instructions, the current message, and registered tool descriptions; these are
 payload-size indicators, not exact Gemini token counts. Durations are in

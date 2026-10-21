@@ -21,8 +21,10 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
@@ -386,10 +388,12 @@ public class ConversationRepository {
             ChatResponse response
     ) {
         requireActiveClaim(conversationId, idempotencyKey, claimId);
+        Set<String> sensitiveToolNames = sensitiveToolNames(response.toolResults());
         List<ChatResponse.ToolResult> persistentToolResults =
                 response.toolResults().stream()
-                        .filter(result -> !isSensitiveTool(result.name()))
+                        .filter(result -> !sensitiveToolNames.contains(result.name()))
                         .toList();
+        long nextSequence = nextSequence(conversationId);
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             String content = toJson(toolResult.result());
             ObjectNode metadata = objectMapper.createObjectNode();
@@ -401,7 +405,8 @@ public class ConversationRepository {
                     "TOOL",
                     content,
                     "TOOL_RESULT",
-                    toJson(metadata)
+                    toJson(metadata),
+                    nextSequence++
             );
         }
         ObjectNode assistantMetadata = objectMapper.createObjectNode();
@@ -421,7 +426,8 @@ public class ConversationRepository {
                 "ASSISTANT",
                 response.message(),
                 "TEXT",
-                toJson(assistantMetadata)
+                toJson(assistantMetadata),
+                nextSequence
         );
         updateMemory(
                 conversationId,
@@ -447,15 +453,25 @@ public class ConversationRepository {
         releaseRequest(conversationId, idempotencyKey, claimId);
     }
 
-    private boolean isSensitiveTool(String toolName) {
-        return Boolean.TRUE.equals(jdbcTemplate.queryForObject("""
-                SELECT COALESCE(
-                    (SELECT sensitive FROM bandy_tool WHERE name = ?),
-                    FALSE
-                )
-                """,
-                Boolean.class,
-                toolName
+    private Set<String> sensitiveToolNames(
+            List<ChatResponse.ToolResult> toolResults
+    ) {
+        List<String> toolNames = toolResults.stream()
+                .map(ChatResponse.ToolResult::name)
+                .distinct()
+                .toList();
+        if (toolNames.isEmpty()) {
+            return Set.of();
+        }
+        String placeholders = String.join(
+                ", ",
+                java.util.Collections.nCopies(toolNames.size(), "?")
+        );
+        return new HashSet<>(jdbcTemplate.query(
+                "SELECT name FROM bandy_tool WHERE sensitive = TRUE "
+                        + "AND name IN (" + placeholders + ")",
+                (resultSet, rowNumber) -> resultSet.getString("name"),
+                toolNames.toArray()
         ));
     }
 
@@ -521,23 +537,26 @@ public class ConversationRepository {
             List<ChatResponse.ToolResult> toolResults,
             boolean clearConversationState
     ) {
-        String state = jdbcTemplate.queryForObject("""
-                SELECT active_state::text FROM bandy_conversation_memory
-                WHERE conversation_id = ?
-                """,
-                String.class,
+        MemorySnapshot memory = jdbcTemplate.queryForObject("""
+                        SELECT summary, active_state::text AS active_state,
+                               result_references::text AS result_references,
+                               summarized_through_sequence
+                        FROM bandy_conversation_memory
+                        WHERE conversation_id = ?
+                        """,
+                (resultSet, rowNumber) -> new MemorySnapshot(
+                        resultSet.getString("summary"),
+                        resultSet.getString("active_state"),
+                        resultSet.getString("result_references"),
+                        resultSet.getLong("summarized_through_sequence")
+                ),
                 conversationId
         );
+        String state = memory.activeState();
         state = clearConversationState
                 ? "{}"
                 : toJson(readStoredJson(state));
-        ArrayNode references = readArray(jdbcTemplate.queryForObject("""
-                SELECT result_references::text FROM bandy_conversation_memory
-                WHERE conversation_id = ?
-                """,
-                String.class,
-                conversationId
-        ));
+        ArrayNode references = readArray(memory.resultReferences());
         if (clearConversationState) {
             references.removeAll();
         }
@@ -557,20 +576,8 @@ public class ConversationRepository {
             }
         }
 
-        String summary = jdbcTemplate.queryForObject("""
-                SELECT summary FROM bandy_conversation_memory
-                WHERE conversation_id = ?
-                """,
-                String.class,
-                conversationId
-        );
-        long summarizedThrough = jdbcTemplate.queryForObject("""
-                SELECT summarized_through_sequence FROM bandy_conversation_memory
-                WHERE conversation_id = ?
-                """,
-                Long.class,
-                conversationId
-        );
+        String summary = memory.summary();
+        long summarizedThrough = memory.summarizedThroughSequence();
         long cutoff = summaryCutoff(conversationId);
         if (cutoff > summarizedThrough) {
             List<String> olderMessages = jdbcTemplate.query("""
@@ -635,22 +642,19 @@ public class ConversationRepository {
             JsonNode activeStateOverride,
             boolean includeResultReferences
     ) {
-        String summary = jdbcTemplate.queryForObject("""
-                SELECT summary FROM bandy_conversation_memory
-                WHERE conversation_id = ?
-                """,
-                String.class,
-                conversationId
-        );
-        JsonNode resultReferences = includeResultReferences
-                ? readStoredJson(jdbcTemplate.queryForObject("""
-                        SELECT result_references::text
+        ContextMemory memory = jdbcTemplate.queryForObject("""
+                        SELECT summary, result_references::text AS result_references
                         FROM bandy_conversation_memory
                         WHERE conversation_id = ?
                         """,
-                        String.class,
-                        conversationId
-                ))
+                (resultSet, rowNumber) -> new ContextMemory(
+                        resultSet.getString("summary"),
+                        resultSet.getString("result_references")
+                ),
+                conversationId
+        );
+        JsonNode resultReferences = includeResultReferences
+                ? readStoredJson(memory.resultReferences())
                 : objectMapper.createArrayNode();
         List<String> recent = jdbcTemplate.query("""
                 SELECT role, content FROM bandy_conversation_message
@@ -705,7 +709,7 @@ public class ConversationRepository {
         appendContextBlock(
                 context,
                 "Résumé extractif des échanges plus anciens :",
-                summary,
+                memory.summary(),
                 maxContextCharacters
         );
         return context.length() <= maxContextCharacters
@@ -840,13 +844,36 @@ public class ConversationRepository {
             String messageType,
             String metadata
     ) {
-        long nextSequence = jdbcTemplate.queryForObject("""
+        insertMessage(
+                conversationId,
+                requestId,
+                role,
+                content,
+                messageType,
+                metadata,
+                nextSequence(conversationId)
+        );
+    }
+
+    private long nextSequence(UUID conversationId) {
+        return jdbcTemplate.queryForObject("""
                 SELECT COALESCE(MAX(sequence_number), 0) + 1
                 FROM bandy_conversation_message WHERE conversation_id = ?
                 """,
                 Long.class,
                 conversationId
         );
+    }
+
+    private void insertMessage(
+            UUID conversationId,
+            UUID requestId,
+            String role,
+            String content,
+            String messageType,
+            String metadata,
+            long sequenceNumber
+    ) {
         jdbcTemplate.update("""
                 INSERT INTO bandy_conversation_message (
                     id, conversation_id, sequence_number, role, content,
@@ -855,7 +882,7 @@ public class ConversationRepository {
                 """,
                 UUID.randomUUID(),
                 conversationId,
-                nextSequence,
+                sequenceNumber,
                 role,
                 content,
                 messageType,
@@ -1153,6 +1180,20 @@ public class ConversationRepository {
             ChatResponse completedResponse,
             UUID claimId,
             JsonNode activeState
+    ) {
+    }
+
+    private record MemorySnapshot(
+            String summary,
+            String activeState,
+            String resultReferences,
+            long summarizedThroughSequence
+    ) {
+    }
+
+    private record ContextMemory(
+            String summary,
+            String resultReferences
     ) {
     }
 

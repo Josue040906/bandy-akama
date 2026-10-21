@@ -1,5 +1,6 @@
 package com.bandyakama.executor;
 
+import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import com.sun.net.httpserver.HttpServer;
@@ -11,9 +12,11 @@ import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ToolExecutorTest {
@@ -88,6 +91,42 @@ class ToolExecutorTest {
                     requestId
             );
             assertEquals(requestId, receivedRequestId.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void doesNotStartToolHttpRequestAfterTurnBudgetExpires() throws IOException {
+        AtomicBoolean receivedRequest = new AtomicBoolean();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/api/agents", exchange -> {
+            receivedRequest.set(true);
+            byte[] responseBody = "[]".getBytes(StandardCharsets.UTF_8);
+            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try (RequestBudget.Scope ignored = RequestBudget.open(1)) {
+            Thread.sleep(5);
+            assertThrows(
+                    org.springframework.web.server.ResponseStatusException.class,
+                    () -> executor.execute(
+                            tool("http://127.0.0.1:"
+                                    + server.getAddress().getPort()
+                                    + "/api/agents"),
+                            Map.of("query", "agent")
+                    )
+            );
+            assertFalse(receivedRequest.get());
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Le test a été interrompu.", exception);
         } finally {
             server.stop(0);
         }
