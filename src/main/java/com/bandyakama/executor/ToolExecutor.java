@@ -116,6 +116,7 @@ public class ToolExecutor {
             }
             if (idempotencyKey != null && !idempotencyKey.isBlank()) {
                 request.header("Idempotency-Key", idempotencyKey);
+                request.header("X-Request-ID", idempotencyKey);
             }
             if (!bodyArguments.isEmpty()) {
                 request.body(bodyArguments);

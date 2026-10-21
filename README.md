@@ -246,6 +246,13 @@ are included in the measured SDK-call duration. Aggregate events from the
 deployed application logs to calculate percentiles. Restart Bandy after
 deployment to apply runtime settings and collect new events; historical latency
 measurements are not available from this instrumentation.
+For registered tool calls, Bandy forwards the same UUID as `X-Request-ID`.
+The RH API logs `rh_perf event=api_request` with method, status, and total
+request duration, plus `rh_perf event=db_query` for structured and approximate
+agent searches. The JDBC duration includes result transfer and row mapping; it
+is not PostgreSQL execution time alone. These events contain no route, SQL,
+arguments, or response data. Aggregate the application logs to calculate
+cross-service timings and percentiles.
 
 Enabled tool definitions and parameters are loaded in two database queries per
 assistant turn, rather than one parameter query per tool. The same loaded

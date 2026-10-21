@@ -2,12 +2,18 @@ package com.bandyakama.executor;
 
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
+import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ToolExecutorTest {
@@ -49,12 +55,54 @@ class ToolExecutorTest {
         );
     }
 
+    @Test
+    void forwardsCorrelationIdToRegisteredTool() throws IOException {
+        AtomicReference<String> receivedRequestId = new AtomicReference<>();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/api/agents", exchange -> {
+            receivedRequestId.set(
+                    exchange.getRequestHeaders().getFirst("X-Request-ID")
+            );
+            byte[] responseBody = "[]".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set(
+                    "Content-Type",
+                    "application/json"
+            );
+            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            String requestId = "60dfc6d3-04f9-4cc4-9d77-4279e0b4f06e";
+            executor.execute(
+                    tool("http://127.0.0.1:"
+                            + server.getAddress().getPort()
+                            + "/api/agents"),
+                    Map.of("query", "agent"),
+                    null,
+                    requestId
+            );
+            assertEquals(requestId, receivedRequestId.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
     private ToolDefinition tool() {
+        return tool("https://example.test/api/agents");
+    }
+
+    private ToolDefinition tool(String url) {
         ToolDefinition tool = new ToolDefinition(
                 "searchAgents",
                 "Searches for agents.",
                 "GET",
-                "https://example.test/api/agents",
+                url,
                 List.of(new ToolParameter(
                         "query",
                         "string",
