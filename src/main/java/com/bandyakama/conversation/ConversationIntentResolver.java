@@ -33,6 +33,19 @@ public class ConversationIntentResolver {
     private static final Pattern NEW_SEARCH = Pattern.compile(
             "^maintenant\\s+(?:cherche|recherche|trouve|liste|compte)\\b"
     );
+    private static final Pattern ORGANIZATION_SCOPE = Pattern.compile(
+            "\\b(?:direction|service|departement|structure|unite|bureau|"
+                    + "division|cellule)\\b"
+    );
+    private static final Pattern PERSONAL_PROFILE_QUESTION = Pattern.compile(
+            "\\b(?:que\\s+sais-tu\\s+(?:sur|de)\\s+moi|"
+                    + "qu[' ]est-ce\\s+que\\s+tu\\s+sais\\s+(?:sur|de)\\s+moi|"
+                    + "mon\\s+profil|mes\\s+informations|mon\\s+identite|"
+                    + "mon\\s+(?:nom|prenom|email)|"
+                    + "mon\\s+adresse\\s+e-?mail|"
+                    + "mon\\s+matricule|ma\\s+carriere|mon\\s+poste|"
+                    + "mon\\s+service|ma\\s+direction)\\b"
+    );
 
     public Decision resolve(String message, JsonNode activeState) {
         if (!hasActiveIntent(activeState)) {
@@ -40,14 +53,22 @@ public class ConversationIntentResolver {
         }
 
         String normalized = normalize(message);
-        if (CONTINUATION.matcher(normalized).find()
-                || normalized.contains("meme direction")
+        if (PERSONAL_PROFILE_QUESTION.matcher(normalized).find()) {
+            return Decision.NEW_INTENT;
+        }
+        if (normalized.contains("meme direction")
                 || normalized.contains("meme service")
                 || normalized.contains("meme departement")
                 || normalized.contains("leurs matricules")
                 || normalized.contains("leur matricule")
                 || normalized.contains("qui est le plus age")
                 || normalized.contains("la plus agee")) {
+            return Decision.CONTINUATION;
+        }
+        if (introducesDifferentOrganizationScope(normalized, activeState)) {
+            return Decision.NEW_INTENT;
+        }
+        if (CONTINUATION.matcher(normalized).find()) {
             return Decision.CONTINUATION;
         }
         if (INDEPENDENT_INTENT.matcher(normalized).find()
@@ -71,6 +92,30 @@ public class ConversationIntentResolver {
                 && !state.path("toolName").asText("").isBlank();
     }
 
+    private boolean introducesDifferentOrganizationScope(
+            String message,
+            JsonNode activeState
+    ) {
+        if (!ORGANIZATION_SCOPE.matcher(message).find()) {
+            return false;
+        }
+        JsonNode filters = activeState.path("criteria").path("filters");
+        if (!filters.isArray()) {
+            return false;
+        }
+        for (JsonNode filter : filters) {
+            String field = normalize(filter.path("field").asText(""));
+            if (field.matches(".*(direction|service|departement|structure|unite|"
+                    + "bureau|division|cellule).*")) {
+                String value = normalize(filter.path("value").asText(""));
+                if (!value.isBlank() && message.contains(value)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
     private boolean looksLikeIndependentRequest(String message) {
         return message.matches(
                 "^(?:cherche|recherche|trouve|liste|compte|donne|"
@@ -85,6 +130,8 @@ public class ConversationIntentResolver {
                 Normalizer.Form.NFD
         );
         return decomposed.replaceAll("\\p{M}+", "")
+                .replaceAll("[,;:]+", " ")
+                .replaceAll("\\s+", " ")
                 .strip();
     }
 

@@ -6,7 +6,10 @@ import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Repository
@@ -22,6 +25,7 @@ public class ToolRepository {
                 );
                 tool.setWhenToUse(resultSet.getString("when_to_use"));
                 tool.setEnabled(resultSet.getBoolean("enabled"));
+                tool.setSensitive(resultSet.getBoolean("sensitive"));
                 return tool;
             };
 
@@ -44,24 +48,26 @@ public class ToolRepository {
     }
 
     public List<ToolDefinition> findAll() {
-        return jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled "
+        List<ToolDefinition> tools = jdbcTemplate.query(
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
                         + "FROM bandy_tool ORDER BY name",
                 TOOL_ROW_MAPPER
-        ).stream().map(this::loadParameters).toList();
+        );
+        return loadParameters(tools);
     }
 
     public List<ToolDefinition> findEnabled() {
-        return jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled "
+        List<ToolDefinition> tools = jdbcTemplate.query(
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
                         + "FROM bandy_tool WHERE enabled = TRUE ORDER BY name",
                 TOOL_ROW_MAPPER
-        ).stream().map(this::loadParameters).toList();
+        );
+        return loadParameters(tools);
     }
 
     public Optional<ToolDefinition> findByName(String name) {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
                         + "FROM bandy_tool WHERE name = ? AND enabled = TRUE",
                 TOOL_ROW_MAPPER,
                 name
@@ -77,15 +83,16 @@ public class ToolRepository {
                 jdbcTemplate.update("""
                         INSERT INTO bandy_tool (
                             name, description, when_to_use, http_method, endpoint_url,
-                            enabled, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            enabled, sensitive, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """,
                         tool.getName(),
                         tool.getDescription(),
                         tool.getWhenToUse(),
                         tool.getMethod().toUpperCase(),
                         tool.getUrl(),
-                        tool.isEnabled()
+                        tool.isEnabled(),
+                        tool.isSensitive()
                 );
             } catch (DuplicateKeyException concurrentInsert) {
                 updateTool(tool);
@@ -124,6 +131,7 @@ public class ToolRepository {
                     http_method = ?,
                     endpoint_url = ?,
                     enabled = ?,
+                    sensitive = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE name = ?
                 """,
@@ -132,6 +140,7 @@ public class ToolRepository {
                 tool.getMethod().toUpperCase(),
                 tool.getUrl(),
                 tool.isEnabled(),
+                tool.isSensitive(),
                 tool.getName()
         );
     }
@@ -152,5 +161,42 @@ public class ToolRepository {
                 tool.getName()
         ));
         return tool;
+    }
+
+    private List<ToolDefinition> loadParameters(List<ToolDefinition> tools) {
+        if (tools.isEmpty()) {
+            return tools;
+        }
+
+        String placeholders = String.join(
+                ", ",
+                java.util.Collections.nCopies(tools.size(), "?")
+        );
+        Object[] toolNames = tools.stream()
+                .map(ToolDefinition::getName)
+                .toArray();
+        Map<String, List<ToolParameter>> parametersByTool = new HashMap<>();
+        tools.forEach(tool -> parametersByTool.put(
+                tool.getName(),
+                new ArrayList<>()
+        ));
+        jdbcTemplate.query(
+                "SELECT tool_name, name, type, description, location, required "
+                        + "FROM bandy_tool_parameter WHERE tool_name IN ("
+                        + placeholders + ") ORDER BY tool_name, position",
+                resultSet -> {
+                    ToolParameter parameter = PARAMETER_ROW_MAPPER.mapRow(
+                            resultSet,
+                            0
+                    );
+                    parametersByTool.get(resultSet.getString("tool_name"))
+                            .add(parameter);
+                },
+                toolNames
+        );
+        tools.forEach(tool -> tool.setParameters(
+                parametersByTool.get(tool.getName())
+        ));
+        return tools;
     }
 }

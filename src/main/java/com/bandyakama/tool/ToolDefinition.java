@@ -30,6 +30,8 @@ public class ToolDefinition {
 
     private boolean enabled = true;
 
+    private boolean sensitive;
+
     @NotBlank
     @Size(max = 2000)
     private String whenToUse;
@@ -71,6 +73,9 @@ public class ToolDefinition {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isSensitive() { return sensitive; }
+    public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
 
     public void validate() {
         if (name == null || !name.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {

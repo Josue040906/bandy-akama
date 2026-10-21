@@ -22,6 +22,17 @@ class ConversationMigrationTest {
         UUID requestId = UUID.randomUUID();
 
         jdbc.execute("""
+                CREATE TABLE bandy_tool (
+                    name VARCHAR(64) PRIMARY KEY,
+                    description VARCHAR(2000) NOT NULL,
+                    when_to_use VARCHAR(2000) NOT NULL,
+                    http_method VARCHAR(10) NOT NULL,
+                    endpoint_url VARCHAR(2048) NOT NULL,
+                    enabled BOOLEAN NOT NULL DEFAULT TRUE,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
+                )
+                """);
+        jdbc.execute("""
                 CREATE TABLE bandy_conversation (
                     id UUID PRIMARY KEY,
                     application_id VARCHAR(120) NOT NULL,
@@ -94,6 +105,7 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation", "active_claim_id"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "active_claim_id"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
+        assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
     }
 
     private boolean hasColumn(

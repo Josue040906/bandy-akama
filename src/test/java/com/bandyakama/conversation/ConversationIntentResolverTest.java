@@ -1,6 +1,7 @@
 package com.bandyakama.conversation;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -68,6 +69,60 @@ class ConversationIntentResolverTest {
         assertEquals(
                 ConversationIntentResolver.Decision.CLARIFICATION_REQUIRED,
                 resolver.resolve("Et ensuite ?", activeState)
+        );
+    }
+
+    @Test
+    void treatsAnExplicitlyDifferentOrganizationAsANewSearch() throws Exception {
+        JsonNode state = objectMapper.readTree("""
+                {
+                  "toolName": "searchEmployees",
+                  "criteria": {
+                    "filters": [
+                      {
+                        "field": "direction",
+                        "operator": "EQ",
+                        "value": "Direction Générale de l'Administration"
+                      },
+                      {
+                        "field": "sexe",
+                        "operator": "EQ",
+                        "value": "F"
+                      }
+                    ]
+                  }
+                }
+                """);
+
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Cherche les hommes dans le Service du Personnel.",
+                        state
+                )
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Et les hommes ?", state)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve(
+                        "Maintenant, cherche celles dans la même direction.",
+                        state
+                )
+        );
+    }
+
+    @Test
+    void classifiesPersonalProfileQuestionsAsIndependentIntents() {
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve("Que sais-tu sur moi ?", activeState)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve("Parle-moi de ma carrière.", activeState)
         );
     }
 }

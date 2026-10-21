@@ -29,7 +29,9 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -39,8 +41,10 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -132,6 +136,49 @@ class ConversationApiTest {
                 )
                         .header("Authorization", bearerToken("42", "client-b")))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void allowsConfiguredFrontendCorsPreflightForConversationHistory()
+            throws Exception {
+        mockMvc.perform(options("/api/conversations")
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "GET")
+                        .header("Access-Control-Request-Headers", "authorization"))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Methods",
+                        org.hamcrest.Matchers.containsString("GET")
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Headers",
+                        org.hamcrest.Matchers.containsString("authorization")
+                ));
+    }
+
+    @Test
+    void allowsIdempotencyHeaderOnConversationMessagePreflight()
+            throws Exception {
+        mockMvc.perform(options("/api/conversations/{id}/messages", UUID.randomUUID())
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "POST")
+                        .header(
+                                "Access-Control-Request-Headers",
+                                "authorization,content-type,idempotency-key"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Headers",
+                        org.hamcrest.Matchers.containsString("idempotency-key")
+                ));
     }
 
     @Test
@@ -307,12 +354,16 @@ class ConversationApiTest {
         );
         String independentFollowUpContext = context.getAllValues().get(2);
         assertTrue(independentFollowUpContext.contains(
-                "État structuré précédent (à modifier seulement si cette demande "
-                        + "le continue; une nouvelle intention indépendante doit "
-                        + "ignorer les filtres antérieurs) :\n{}"
+                "État structuré précédent (à conserver uniquement si la demande "
+                        + "continue cette intention) :\n{}"
         ));
-        assertTrue(independentFollowUpContext.contains("A-7"));
+        assertFalse(independentFollowUpContext.contains("A-7"));
         assertTrue(independentFollowUpContext.contains("comptabilité"));
+        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
+        assertEquals(0, readMemoryJson(
+                conversationId,
+                "result_references"
+        ).size());
     }
 
     @Test
@@ -381,6 +432,77 @@ class ConversationApiTest {
     }
 
     @Test
+    void aNewOrganizationSearchDoesNotReceiveThePreviousFilters()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Recherche dans la Direction générale.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"direction\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Direction Générale\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"}]}")
+                        ))
+                ),
+                new ChatResponse(
+                        "Recherche dans le Service du Personnel.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Service du Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"M\"}]}")
+                        ))
+                )
+        );
+
+        send(
+                conversationId,
+                "42",
+                "Cherche les femmes dans la Direction Générale."
+        );
+        send(
+                conversationId,
+                "42",
+                "Cherche les hommes dans le Service du Personnel."
+        );
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                states.capture()
+        );
+        assertNull(states.getAllValues().get(0));
+        assertNull(states.getAllValues().get(1));
+        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        JsonNode storedState = readMemoryJson(conversationId, "active_state");
+        String stateJson = storedState.toString();
+        assertTrue(stateJson.contains("Service du Personnel"), stateJson);
+        assertFalse(stateJson.contains("Direction Générale"), stateJson);
+        assertFalse(stateJson.contains("\"age\""), stateJson);
+    }
+
+    @Test
     void reconstructsMissingMemoryFromSavedToolMessages() throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -422,6 +544,72 @@ class ConversationApiTest {
         String rebuiltContext = context.getAllValues().get(1);
         assertTrue(rebuiltContext.contains("Personnel"));
         assertTrue(rebuiltContext.contains("R-9"));
+    }
+
+    @Test
+    void rebuildsSummaryAndHonorsIntentResetsAfterMemoryLoss() throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Un ancien agent a été trouvé.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(Map.of("matricule", "OLD-RESULT-123")),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"direction\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Administration\"}]}")
+                        ))
+                ),
+                new ChatResponse(
+                        "La comptabilité est un nouveau sujet.",
+                        List.of(),
+                        null,
+                        true
+                ),
+                new ChatResponse("Réponse trois.", List.of()),
+                new ChatResponse("Réponse quatre.", List.of()),
+                new ChatResponse("Réponse cinq.", List.of()),
+                new ChatResponse("Réponse six.", List.of()),
+                new ChatResponse("Réponse après reconstruction.", List.of())
+        );
+
+        send(conversationId, "42", "Recherche initiale de l'Administration.");
+        send(conversationId, "42", "Explique la comptabilité.");
+        send(conversationId, "42", "Question trois.");
+        send(conversationId, "42", "Question quatre.");
+        send(conversationId, "42", "Question cinq.");
+        send(conversationId, "42", "Question six.");
+        jdbcTemplate.update(
+                "DELETE FROM bandy_conversation_memory WHERE conversation_id = ?",
+                conversationId
+        );
+        send(conversationId, "42", "Peux-tu préciser ?");
+
+        var context = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant, times(7)).respond(
+                anyString(),
+                anyString(),
+                context.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        String rebuiltContext = context.getAllValues().get(6);
+
+        assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
+        assertTrue(rebuiltContext.contains("comptabilité"), rebuiltContext);
+        assertFalse(rebuiltContext.contains("OLD-RESULT-123"));
+        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
+        assertEquals(0, readMemoryJson(
+                conversationId,
+                "result_references"
+        ).size());
     }
 
     @Test
@@ -594,6 +782,135 @@ class ConversationApiTest {
     }
 
     @Test
+    void keepsStructuredStateAndResultIdentifiersWithinContextLimit()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "J’ai trouvé un agent.",
+                List.of(new ChatResponse.ToolResult(
+                        "searchEmployees",
+                        List.of(Map.of(
+                                "matricule", "KEEP-001",
+                                "details", "d".repeat(7000)
+                        )),
+                        Map.of("criteriaJson",
+                                "{\"filters\":[{\"field\":\"service\","
+                                        + "\"operator\":\"EQ\","
+                                        + "\"value\":\"Service du Personnel\"}]}")
+                ))
+        ));
+
+        send(conversationId, "42", "Cherche un agent du Personnel.");
+
+        JsonNode activeState = objectMapper.readTree(jdbcTemplate.queryForObject("""
+                SELECT active_state::text FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversationId
+        ));
+        ConversationRepository constrainedRepository =
+                new ConversationRepository(
+                        jdbcTemplate,
+                        objectMapper,
+                        8,
+                        4000,
+                        1800
+                );
+        String context = constrainedRepository.contextForRequest(
+                conversationId,
+                UUID.randomUUID(),
+                activeState,
+                true
+        );
+
+        assertTrue(context.length() <= 1800);
+        assertTrue(context.contains("Service du Personnel"), context);
+        assertTrue(context.contains("KEEP-001"), context);
+    }
+
+    @Test
+    void doesNotPersistSensitiveToolPayloadsInConversationMemoryOrReplay()
+            throws Exception {
+        jdbcTemplate.update(
+                "DELETE FROM bandy_tool WHERE name = 'getMyProfile'"
+        );
+        jdbcTemplate.update("""
+                INSERT INTO bandy_tool (
+                    name, description, when_to_use, http_method, endpoint_url,
+                    enabled, sensitive
+                ) VALUES (
+                    'getMyProfile', 'Self profile', 'Only for profile questions',
+                    'GET', 'http://localhost/profile', TRUE, TRUE
+                )
+                """);
+        UUID conversationId = createConversation("42");
+        UUID requestId = UUID.randomUUID();
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Votre profil est chargé.",
+                List.of(new ChatResponse.ToolResult(
+                        "getMyProfile",
+                        Map.of("email", "private@example.test"),
+                        Map.of()
+                ))
+        ));
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", requestId.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Que sais-tu sur moi ?\"}"))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", requestId.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Que sais-tu sur moi ?\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toolResults.length()").value(0));
+
+        assertEquals(2, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ?
+                """,
+                Integer.class,
+                conversationId
+        ));
+        assertEquals(0, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ? AND content LIKE '%private@example.test%'
+                """,
+                Integer.class,
+                conversationId
+        ));
+        assertEquals(0, readMemoryJson(
+                conversationId,
+                "result_references"
+        ).size());
+        String savedResponse = jdbcTemplate.queryForObject("""
+                SELECT response_json FROM bandy_conversation_request
+                WHERE conversation_id = ? AND idempotency_key = ?
+                """,
+                String.class,
+                conversationId,
+                requestId
+        );
+        assertFalse(savedResponse.contains("private@example.test"));
+    }
+
+    @Test
     void renamesArchivesAndRejectsFurtherMessages() throws Exception {
         UUID conversationId = createConversation("42");
         mockMvc.perform(patch("/api/conversations/{id}", conversationId)
@@ -681,6 +998,20 @@ class ConversationApiTest {
                                 Map.of("message", message)
                         )))
                 .andExpect(status().isOk());
+    }
+
+    private JsonNode readMemoryJson(UUID conversationId, String field)
+            throws Exception {
+        String stored = jdbcTemplate.queryForObject(
+                "SELECT " + field + "::text FROM bandy_conversation_memory "
+                        + "WHERE conversation_id = ?",
+                String.class,
+                conversationId
+        );
+        JsonNode parsed = objectMapper.readTree(stored);
+        return parsed.isTextual()
+                ? objectMapper.readTree(parsed.textValue())
+                : parsed;
     }
 
     private String bearerToken(String subject) {

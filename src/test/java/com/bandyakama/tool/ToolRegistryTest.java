@@ -47,6 +47,18 @@ class ToolRegistryTest {
         assertEquals("GET", loaded.getMethod());
         assertEquals("query", loaded.getParameters().get(0).getName());
         assertTrue(loaded.isEnabled());
+        assertFalse(loaded.isSensitive());
+    }
+
+    @Test
+    void persistsSensitiveToolConfiguration() {
+        ToolDefinition tool = tool("selfProfile", "GET");
+        tool.setSensitive(true);
+        registry.register(tool);
+
+        assertTrue(registry.findByName("selfProfile")
+                .orElseThrow()
+                .isSensitive());
     }
 
     @Test

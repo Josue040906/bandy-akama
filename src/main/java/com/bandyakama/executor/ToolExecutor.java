@@ -1,6 +1,7 @@
 package com.bandyakama.executor;
 
 import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.observability.PerformanceTelemetry;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,12 +20,14 @@ import java.util.Set;
 @Service
 public class ToolExecutor {
     private final RestClient restClient;
+    private final PerformanceTelemetry performanceTelemetry;
 
     @Autowired
     public ToolExecutor(
             RestClient.Builder restClientBuilder,
             @Value("${bandy.tools.connect-timeout-seconds:5}") int connectTimeoutSeconds,
-            @Value("${bandy.tools.read-timeout-seconds:30}") int readTimeoutSeconds
+            @Value("${bandy.tools.read-timeout-seconds:15}") int readTimeoutSeconds,
+            PerformanceTelemetry performanceTelemetry
     ) {
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
@@ -35,10 +38,11 @@ public class ToolExecutor {
         this.restClient = restClientBuilder
                 .requestFactory(requestFactory)
                 .build();
+        this.performanceTelemetry = performanceTelemetry;
     }
 
     public ToolExecutor(RestClient.Builder restClientBuilder) {
-        this(restClientBuilder, 5, 30);
+        this(restClientBuilder, 5, 30, new PerformanceTelemetry());
     }
 
     public Object execute(
@@ -62,58 +66,71 @@ public class ToolExecutor {
             String authorization,
             String idempotencyKey
     ) {
-        validateArguments(tool, arguments);
+        long startedAt = System.nanoTime();
+        boolean succeeded = false;
+        try {
+            validateArguments(tool, arguments);
 
-        var uriBuilder = UriComponentsBuilder.fromUriString(tool.getUrl());
-        Map<String, Object> pathArguments = new HashMap<>();
-        Map<String, Object> queryArguments = new HashMap<>();
-        Map<String, Object> bodyArguments = new HashMap<>();
-        for (var parameter : tool.getParameters()) {
-            if (!arguments.containsKey(parameter.getName())) {
-                continue;
+            var uriBuilder = UriComponentsBuilder.fromUriString(tool.getUrl());
+            Map<String, Object> pathArguments = new HashMap<>();
+            Map<String, Object> queryArguments = new HashMap<>();
+            Map<String, Object> bodyArguments = new HashMap<>();
+            for (var parameter : tool.getParameters()) {
+                if (!arguments.containsKey(parameter.getName())) {
+                    continue;
+                }
+                String location = parameter.getLocation();
+                if (location == null || location.isBlank()) {
+                    location = "GET".equalsIgnoreCase(tool.getMethod())
+                            ? "query"
+                            : "body";
+                }
+                switch (location.toLowerCase()) {
+                    case "path" -> pathArguments.put(
+                            parameter.getName(),
+                            arguments.get(parameter.getName())
+                    );
+                    case "query" -> queryArguments.put(
+                            parameter.getName(),
+                            arguments.get(parameter.getName())
+                    );
+                    case "body" -> bodyArguments.put(
+                            parameter.getName(),
+                            arguments.get(parameter.getName())
+                    );
+                    default -> throw new IllegalArgumentException(
+                            "Emplacement de paramètre non pris en charge : " + location
+                    );
+                }
             }
-            String location = parameter.getLocation();
-            if (location == null || location.isBlank()) {
-                location = "GET".equalsIgnoreCase(tool.getMethod())
-                        ? "query"
-                        : "body";
-            }
-            switch (location.toLowerCase()) {
-                case "path" -> pathArguments.put(
-                        parameter.getName(),
-                        arguments.get(parameter.getName())
-                );
-                case "query" -> queryArguments.put(
-                        parameter.getName(),
-                        arguments.get(parameter.getName())
-                );
-                case "body" -> bodyArguments.put(
-                        parameter.getName(),
-                        arguments.get(parameter.getName())
-                );
-                default -> throw new IllegalArgumentException(
-                        "Emplacement de paramètre non pris en charge : " + location
-                );
-            }
-        }
-        queryArguments.forEach(uriBuilder::queryParam);
+            queryArguments.forEach(uriBuilder::queryParam);
 
-        var request = restClient.method(
-                HttpMethod.valueOf(
-                        tool.getMethod().toUpperCase()
-                )
-        ).uri(uriBuilder.buildAndExpand(pathArguments).encode().toUri());
+            var request = restClient.method(
+                    HttpMethod.valueOf(
+                            tool.getMethod().toUpperCase()
+                    )
+            ).uri(uriBuilder.buildAndExpand(pathArguments).encode().toUri());
 
-        if (authorization != null && !authorization.isBlank()) {
-            request.header("Authorization", authorization);
+            if (authorization != null && !authorization.isBlank()) {
+                request.header("Authorization", authorization);
+            }
+            if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+                request.header("Idempotency-Key", idempotencyKey);
+            }
+            if (!bodyArguments.isEmpty()) {
+                request.body(bodyArguments);
+            }
+            Object result = request.retrieve().body(Object.class);
+            succeeded = true;
+            return result;
+        } finally {
+            performanceTelemetry.toolCall(
+                    idempotencyKey,
+                    tool == null ? "unknown" : tool.getName(),
+                    startedAt,
+                    succeeded
+            );
         }
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            request.header("Idempotency-Key", idempotencyKey);
-        }
-        if (!bodyArguments.isEmpty()) {
-            request.body(bodyArguments);
-        }
-        return request.retrieve().body(Object.class);
     }
 
     private void validateArguments(

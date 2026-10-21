@@ -14,6 +14,9 @@ to `.env`, and fill in the local values:
 | `BANDY_DB_PASSWORD` | Database password |
 | `GEMINI_API_KEY` | Required Google Gemini API key |
 | `GEMINI_MODEL` | Optional model; defaults to `gemini-3.8-flash` |
+| `BANDY_GEMINI_TIMEOUT_MILLIS` | Maximum duration of one Gemini HTTP attempt; defaults to `15000` |
+| `BANDY_GEMINI_RETRY_ATTEMPTS` | Gemini HTTP attempts including the first call; defaults to `2` |
+| `BANDY_MAX_TOOL_ROUNDS` | Maximum sequential tool rounds per user turn; defaults to `2` |
 | `BANDY_APPLICATION_ID` | Server-side consumer identifier for conversation isolation; defaults to `assistant-rh` |
 | `BANDY_ALLOWED_APPLICATION_IDS` | Comma-separated JWT `aud` allowlist for multi-application deployments |
 | `BANDY_REGISTRATION_KEY` | Required secret for administration and calls from trusted backends |
@@ -23,13 +26,23 @@ to `.env`, and fill in the local values:
 | `BANDY_CONTEXT_MAX_SUMMARY_CHARACTERS` | Maximum extractive summary size; defaults to `4000` |
 | `BANDY_CONTEXT_MAX_CHARACTERS` | Maximum assembled historical context; defaults to `18000` |
 | `BANDY_TOOL_CONNECT_TIMEOUT_SECONDS` | Registered-tool connection timeout; defaults to `5` |
-| `BANDY_TOOL_READ_TIMEOUT_SECONDS` | Registered-tool response timeout; defaults to `30` |
+| `BANDY_TOOL_READ_TIMEOUT_SECONDS` | Registered-tool response timeout; defaults to `15` |
 
 Keep `.env` local; it is ignored by Git. `GEMINI_API_KEY` belongs in this
 Bandy project, not in `assistant-rh-api`. The RH backend and Bandy must use the
 same `JWT_SECRET` to validate existing user sessions. This secret stays in
 server-side configuration: the browser sends the signed-in user's bearer
 token, never the JWT signing secret itself.
+
+Each synchronous Gemini SDK request is capped by
+`BANDY_GEMINI_TIMEOUT_MILLIS`. The SDK retry policy is explicitly bounded by
+`BANDY_GEMINI_RETRY_ATTEMPTS` (1-5 total attempts) and a short exponential
+backoff capped at two seconds. The default is one retry after the initial
+attempt. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
+per user turn; the default of two preserves a short multi-step sequence while
+preventing extended loops. These are per-call/per-round bounds, not a strict
+overall deadline: a turn can still take longer when it uses multiple tools.
+Registered backend calls also have a 15-second default read timeout.
 
 The application creates its tables and initial assistant profile on startup.
 It does not create the PostgreSQL database itself. Start the projects separately
@@ -101,7 +114,13 @@ backend URL:
 ```
 
 The `.\scripts\register-rh-tools.ps1` helper registers or updates this tool and
-includes the complete field/operator guidance for Gemini.
+includes the complete field/operator guidance for Gemini. It also registers
+`searchEmployeesApproximately` against
+`GET /api/recherche/agents/approximative?query=...` for a person name with
+uncertain spelling or typos. Prefer that single fuzzy lookup over repeated
+`CONTAINS` searches with guessed spellings; use `searchEmployees` for
+multi-criteria searches. If the approximate tool returns no reliable candidate,
+ask for clarification instead of looping through name variants.
 
 ## Connecting the frontend and RH backend
 
@@ -110,6 +129,17 @@ Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's publi
 The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH function endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
 
 Gemini receives the active tool descriptions and argument schemas, selects tools from natural-language intent, and supplies structured criteria. Bandy forwards the user's bearer token to the tool endpoint, executes the HTTP call, and sends the result back to Gemini to compose the answer. The RH backend validates every field and operator against an allowlist and constructs parameterized SQL; model-generated SQL is never accepted.
+
+The RH tools also include `getMyProfile`, which reads only the authenticated
+agent's professional profile and career path; the caller cannot choose a user
+ID or matricule. Its response includes name, account email, matricule, current
+assignment, employment type, and career steps, but excludes birth date, address,
+phone number, national ID, and photo. The profile tool is marked sensitive: its
+raw structured result is used for the immediate answer but is omitted from
+Bandy's saved tool messages, result references, idempotency replay payload, and
+public tool-result list. The assistant's user-facing answer remains in the
+conversation history. Run `.\scripts\register-rh-tools.ps1` after deploying
+both services to register or refresh the search and self-profile tools.
 
 Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
 
@@ -164,23 +194,66 @@ current `assistant-rh-api` token contract does not add that application
 audience, so shared multi-application use requires updating its token issuer
 and deployments to keep the audience allowlist synchronized.
 
-Gemini receives the saved extractive summary, the last configured number of
-user/assistant messages, structured state from the most recent successful tool
-call, and up to five prior tool-result references. The assembled context is
-capped; the full transcript remains in PostgreSQL and is not resent. Summary
-updates are incremental and deterministic (older text turns are compacted).
+Gemini receives a bounded context assembled from the saved extractive summary,
+recent user/assistant turns, structured state, and up to five prior tool-result
+references when the request continues the same intent. A new independent intent
+receives neither the previous filters nor its result references, while the
+conversation transcript remains available as history. The context budget
+prioritizes active state and usable result references over the older summary;
+the full transcript remains in PostgreSQL and is not resent. Summary updates
+are incremental and deterministic (older text turns are compacted), and a
+missing memory record can be rebuilt from saved messages, including intent
+resets.
 For a continuing call to the same tool, Bandy merges `criteriaJson.filters` by
 their `field`: omitted filters remain active, a supplied field replaces its
 previous filter, and a filter with `remove:true` explicitly removes it before
 the backend call. Arguments do not carry across different tool names. The backend classifies common French follow-ups and explicit new requests before
 calling Gemini; ambiguous short messages trigger a clarification instead of
-carrying filters into an uncertain request. This deterministic language rule
-set is intentionally conservative and should be extended with localized test
-cases when adding supported languages.
+carrying filters into an uncertain request. A newly named organizational scope
+that differs from the active scope starts a new intent rather than inheriting
+old filters. This deterministic language rule set is intentionally conservative
+and should be extended with localized test cases when adding supported
+languages.
 Tool calls continue to use the registered HTTP contract, forward the caller's
 bearer token and idempotency key, and now use bounded connection/read timeouts.
 The current `searchEmployees` endpoint is a read-only POST. Any future
 state-changing RH tool must also enforce `Idempotency-Key` on the RH side.
+
+### Performance telemetry
+
+Bandy writes structured `bandy_perf` INFO events to its application log.
+`event=stage` records conversation creation, request/memory setup, intent
+resolution, context preparation, assistant preparation, persistence, and total
+conversation-service time. `event=model_call` records the duration and outcome
+of each synchronous Gemini SDK call; `event=model_call_failure` records the
+exception class, bounded credential-redacted error message, and a limited
+credential-redacted cause chain when one fails.
+`event=tool_call` records each registered
+tool execution without its arguments or result. `event=assistant_turn` reports
+the total assistant duration and model-call, tool-call, and tool-round counts.
+Separate stage events identify assistant profile and tool catalog loading.
+`event=context_size` reports character counts for historical context, system
+instructions, the current message, and registered tool descriptions; these are
+payload-size indicators, not exact Gemini token counts. Durations are in
+microseconds and share the technical idempotency/request UUID for correlation.
+
+These events contain no prompt text, bearer token, tool arguments, tool results,
+or user identity. Gemini failure diagnostics redact common API-key and bearer
+token formats, and do not include full exception stack traces.
+`gemini_max_attempts` reports the configured SDK limit; the
+SDK does not expose the actual retries taken for an individual call, and they
+are included in the measured SDK-call duration. Aggregate events from the
+deployed application logs to calculate percentiles. Restart Bandy after
+deployment to apply runtime settings and collect new events; historical latency
+measurements are not available from this instrumentation.
+
+Enabled tool definitions and parameters are loaded in two database queries per
+assistant turn, rather than one parameter query per tool. The same loaded
+definitions are used to validate and execute the model's tool calls for that
+turn, avoiding a second database lookup for each call.
+An identical tool name and argument set requested again within the same turn
+reuses its first result instead of repeating the backend request; this is
+limited to that turn and is reported as `tool_cache_hit`.
 
 ### Client integration changes
 
