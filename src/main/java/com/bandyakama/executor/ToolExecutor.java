@@ -2,6 +2,7 @@ package com.bandyakama.executor;
 
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.observability.PerformanceTelemetry;
+import com.bandyakama.observability.RequestBudget;
 import org.springframework.stereotype.Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,12 +16,16 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Service
 public class ToolExecutor {
     private final RestClient restClient;
+    private final RestClient.Builder restClientBuilder;
+    private final HttpClient httpClient;
     private final PerformanceTelemetry performanceTelemetry;
+    private final int readTimeoutMillis;
 
     @Autowired
     public ToolExecutor(
@@ -29,16 +34,20 @@ public class ToolExecutor {
             @Value("${bandy.tools.read-timeout-seconds:15}") int readTimeoutSeconds,
             PerformanceTelemetry performanceTelemetry
     ) {
-        HttpClient httpClient = HttpClient.newBuilder()
+        this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
                 .build();
         JdkClientHttpRequestFactory requestFactory =
-                new JdkClientHttpRequestFactory(httpClient);
+                new JdkClientHttpRequestFactory(this.httpClient);
         requestFactory.setReadTimeout(Duration.ofSeconds(readTimeoutSeconds));
+        this.restClientBuilder = restClientBuilder;
         this.restClient = restClientBuilder
                 .requestFactory(requestFactory)
                 .build();
         this.performanceTelemetry = performanceTelemetry;
+        this.readTimeoutMillis = Math.toIntExact(
+                Duration.ofSeconds(readTimeoutSeconds).toMillis()
+        );
     }
 
     public ToolExecutor(RestClient.Builder restClientBuilder) {
@@ -70,6 +79,7 @@ public class ToolExecutor {
         boolean succeeded = false;
         try {
             validateArguments(tool, arguments);
+            RestClient requestClient = requestClientWithinBudget();
 
             var uriBuilder = UriComponentsBuilder.fromUriString(tool.getUrl());
             Map<String, Object> pathArguments = new HashMap<>();
@@ -105,7 +115,7 @@ public class ToolExecutor {
             }
             queryArguments.forEach(uriBuilder::queryParam);
 
-            var request = restClient.method(
+            var request = requestClient.method(
                     HttpMethod.valueOf(
                             tool.getMethod().toUpperCase()
                     )
@@ -132,6 +142,23 @@ public class ToolExecutor {
                     succeeded
             );
         }
+    }
+
+    private RestClient requestClientWithinBudget() {
+        Optional<RequestBudget> activeBudget = RequestBudget.current();
+        if (activeBudget.isEmpty()) {
+            return restClient;
+        }
+        int timeoutMillis = Math.min(
+                readTimeoutMillis,
+                activeBudget.get().remainingMillis()
+        );
+        JdkClientHttpRequestFactory requestFactory =
+                new JdkClientHttpRequestFactory(httpClient);
+        requestFactory.setReadTimeout(Duration.ofMillis(timeoutMillis));
+        return restClientBuilder.clone()
+                .requestFactory(requestFactory)
+                .build();
     }
 
     private void validateArguments(

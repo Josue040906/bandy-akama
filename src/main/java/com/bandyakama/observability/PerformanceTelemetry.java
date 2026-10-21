@@ -167,6 +167,7 @@ public class PerformanceTelemetry {
             int timeoutMillis,
             int retryAttempts,
             int maxToolRounds,
+            int turnBudgetMillis,
             boolean succeeded
     ) {
         LOGGER.info(
@@ -174,7 +175,7 @@ public class PerformanceTelemetry {
                         + "model_calls={} tool_calls={} tool_cache_hits={} "
                         + "tool_rounds={} "
                         + "gemini_timeout_ms={} gemini_max_attempts={} "
-                        + "max_tool_rounds={} outcome={}",
+                        + "max_tool_rounds={} turn_budget_ms={} outcome={}",
                 requestId,
                 elapsedMicros(startedAtNanos),
                 modelCalls,
@@ -184,6 +185,7 @@ public class PerformanceTelemetry {
                 timeoutMillis,
                 retryAttempts,
                 maxToolRounds,
+                turnBudgetMillis,
                 outcome(succeeded)
         );
     }

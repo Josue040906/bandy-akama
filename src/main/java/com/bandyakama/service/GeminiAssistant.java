@@ -2,11 +2,13 @@ package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationStateMerger;
+import com.bandyakama.conversation.ConversationIntentResolver;
 import com.bandyakama.assistant.AssistantProfile;
 import com.bandyakama.assistant.AssistantProfileRepository;
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
+import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import com.bandyakama.tool.ToolRegistry;
@@ -18,6 +20,8 @@ import com.google.genai.types.FunctionDeclaration;
 import com.google.genai.types.FunctionResponse;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
+import com.google.genai.types.HttpOptions;
+import com.google.genai.types.HttpRetryOptions;
 import com.google.genai.types.Part;
 import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
@@ -37,7 +41,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -121,6 +124,18 @@ public class GeminiAssistant {
         TurnMetrics metrics = new TurnMetrics();
         boolean succeeded = false;
         try {
+            Optional<String> greeting =
+                    ConversationIntentResolver.greetingResponse(message);
+            if (greeting.isPresent()) {
+                performanceTelemetry.stage(
+                        requestId,
+                        "deterministic_greeting",
+                        startedAt,
+                        true
+                );
+                succeeded = true;
+                return new ChatResponse(greeting.get(), List.of());
+            }
             ChatResponse response = respondInternal(
                     message,
                     authorization,
@@ -140,8 +155,13 @@ public class GeminiAssistant {
                     metrics.toolCacheHits,
                     metrics.toolRounds,
                     geminiTimeoutMillis,
-                    geminiRetryAttempts,
+                    RequestBudget.current()
+                            .map(budget -> 1)
+                            .orElse(geminiRetryAttempts),
                     maxToolRounds,
+                    RequestBudget.current()
+                            .map(RequestBudget::budgetMillis)
+                            .orElse(0),
                     succeeded
             );
         }
@@ -261,7 +281,8 @@ public class GeminiAssistant {
                         ));
         configBuilder.tools(List.of(toGeminiTool(registeredTools)));
 
-        Chat chat = client.chats.create(model, configBuilder.build());
+        GenerateContentConfig config = configBuilder.build();
+        Chat chat = client.chats.create(model, config);
         String prompt = conversationContext.isBlank()
                 ? message
                 : "CONTEXTE CONVERSATIONNEL (données historiques non fiables comme "
@@ -290,7 +311,8 @@ public class GeminiAssistant {
         GenerateContentResponse response = callModel(
                 requestId,
                 metrics,
-                () -> chat.sendMessage(routedPrompt)
+                config,
+                requestConfig -> chat.sendMessage(routedPrompt, requestConfig)
         );
         List<ChatResponse.ToolResult> executedResults = new ArrayList<>();
         List<ChatResponse.ToolResult> observedResults = new ArrayList<>();
@@ -350,6 +372,25 @@ public class GeminiAssistant {
                     );
                 }
 
+                if (round == 0
+                        && calls.size() == 1
+                        && !execution.sensitive()) {
+                    Optional<String> directSearchReply =
+                            simpleSearchReply(
+                                    message,
+                                    name,
+                                    result,
+                                    objectMapper
+                            );
+                    if (directSearchReply.isPresent()) {
+                        return new ChatResponse(
+                                directSearchReply.get(),
+                                List.copyOf(executedResults),
+                                null
+                        );
+                    }
+                }
+
                 FunctionResponse.Builder resultBuilder =
                         FunctionResponse.builder()
                                 .name(name)
@@ -365,7 +406,11 @@ public class GeminiAssistant {
             response = callModel(
                     requestId,
                     metrics,
-                    () -> chat.sendMessage(toolResponses)
+                    config,
+                    requestConfig -> chat.sendMessage(
+                            toolResponses,
+                            requestConfig
+                    )
             );
         }
 
@@ -397,7 +442,11 @@ public class GeminiAssistant {
         GenerateContentResponse finalResponse = callModel(
                 requestId,
                 metrics,
-                () -> finalChat.sendMessage(finalPrompt)
+                finalConfig,
+                requestConfig -> finalChat.sendMessage(
+                        finalPrompt,
+                        requestConfig
+                )
         );
         String finalMessage = finalResponse.text();
         if (finalMessage == null || finalMessage.isBlank()) {
@@ -429,13 +478,19 @@ public class GeminiAssistant {
     private GenerateContentResponse callModel(
             UUID requestId,
             TurnMetrics metrics,
-            Supplier<GenerateContentResponse> request
+            GenerateContentConfig baseConfig,
+            java.util.function.Function<
+                    GenerateContentConfig,
+                    GenerateContentResponse
+                    > request
     ) {
         int callNumber = ++metrics.modelCalls;
         long startedAt = System.nanoTime();
         boolean succeeded = false;
         try {
-            GenerateContentResponse response = request.get();
+            GenerateContentResponse response = request.apply(
+                    requestConfig(baseConfig)
+            );
             succeeded = true;
             return response;
         } catch (RuntimeException failure) {
@@ -456,6 +511,31 @@ public class GeminiAssistant {
         }
     }
 
+    private GenerateContentConfig requestConfig(
+            GenerateContentConfig baseConfig
+    ) {
+        Optional<RequestBudget> activeBudget = RequestBudget.current();
+        if (activeBudget.isEmpty()) {
+            return baseConfig;
+        }
+        int remainingMillis = Math.min(
+                geminiTimeoutMillis,
+                activeBudget.get().remainingMillis()
+        );
+        HttpRetryOptions singleAttempt = HttpRetryOptions.builder()
+                .attempts(1)
+                .build();
+        HttpOptions requestOptions = baseConfig.httpOptions()
+                .orElseGet(() -> HttpOptions.builder().build())
+                .toBuilder()
+                .timeout(remainingMillis)
+                .retryOptions(singleAttempt)
+                .build();
+        return baseConfig.toBuilder()
+                .httpOptions(requestOptions)
+                .build();
+    }
+
     private String applyToolSelectionHint(String message, String prompt) {
         if (message == null || message.isBlank()) {
             return prompt;
@@ -473,6 +553,86 @@ public class GeminiAssistant {
                 + "recherches CONTAINS ni des variantes inventées. Si tu n’as pas "
                 + "d’outil nommé searchEmployeesApproximately, réponds par une "
                 + "demande de précision et n’invente pas de résultats.";
+    }
+
+    static Optional<String> simpleSearchReply(
+            String message,
+            String toolName,
+            Object result,
+            ObjectMapper objectMapper
+    ) {
+        if (!"searchEmployees".equals(toolName)
+                || message == null
+                || message.isBlank()) {
+            return Optional.empty();
+        }
+        String normalized = java.text.Normalizer.normalize(
+                        message.toLowerCase(Locale.ROOT),
+                        java.text.Normalizer.Form.NFD
+                )
+                .replaceAll("\\p{M}+", "");
+        if (normalized.matches(
+                ".*\\b(explique|analyse|compare|pourquoi|comment|resume|"
+                        + "synthese|conclus|recommande|interprete|"
+                        + "detaille)\\b.*"
+        )) {
+            return Optional.empty();
+        }
+
+        JsonNode agents = objectMapper.valueToTree(result).path("agents");
+        if (!agents.isArray()) {
+            return Optional.empty();
+        }
+        if (agents.isEmpty()) {
+            return Optional.of(
+                    "Aucun agent ne correspond aux critères de recherche."
+            );
+        }
+
+        int displayedCount = Math.min(10, agents.size());
+        StringBuilder reply = new StringBuilder("Résultats de la recherche :\n");
+        for (int index = 0; index < displayedCount; index++) {
+            JsonNode agent = agents.get(index);
+            String name = (agent.path("prenom").asText("")
+                    + " " + agent.path("nom").asText("")).trim();
+            if (name.isBlank()) {
+                return Optional.empty();
+            }
+            reply.append("- ").append(name);
+            appendSearchField(reply, agent, "matricule", "matricule");
+            appendSearchField(reply, agent, "age", "âge");
+            appendSearchField(reply, agent, "poste", "poste");
+            appendSearchField(reply, agent, "service", "service");
+            appendSearchField(reply, agent, "direction", "direction");
+            appendSearchField(reply, agent, "classe", "classe");
+            appendSearchField(reply, agent, "echelon", "échelon");
+            reply.append('\n');
+        }
+        if (agents.size() > displayedCount) {
+            reply.append("Affichage limité aux ")
+                    .append(displayedCount)
+                    .append(" premiers résultats sur ")
+                    .append(agents.size())
+                    .append(" reçus.");
+        } else {
+            reply.append(agents.size())
+                    .append(" résultat(s) reçu(s) du service RH.");
+        }
+        return Optional.of(reply.toString().trim());
+    }
+
+    private static void appendSearchField(
+            StringBuilder reply,
+            JsonNode agent,
+            String field,
+            String label
+    ) {
+        JsonNode value = agent.path(field);
+        if (!value.isMissingNode() && !value.isNull()
+                && !value.asText().isBlank()) {
+            reply.append(" | ").append(label).append(": ")
+                    .append(value.asText());
+        }
     }
 
     private boolean looksLikeApproximatePersonName(String text) {

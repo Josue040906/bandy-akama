@@ -5,6 +5,7 @@ import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.regex.Pattern;
 
 @Component
@@ -48,6 +49,9 @@ public class ConversationIntentResolver {
     );
 
     public Decision resolve(String message, JsonNode activeState) {
+        if (greetingResponse(message).isPresent()) {
+            return Decision.CONTINUATION;
+        }
         if (!hasActiveIntent(activeState)) {
             return Decision.NEW_INTENT;
         }
@@ -79,6 +83,26 @@ public class ConversationIntentResolver {
             return Decision.NEW_INTENT;
         }
         return Decision.CLARIFICATION_REQUIRED;
+    }
+
+    public static Optional<String> greetingResponse(String message) {
+        if (message == null) {
+            return Optional.empty();
+        }
+        String normalized = normalize(message);
+        String greeting = normalized.replaceAll("[!.?]+$", "").strip();
+        if (normalized.matches(
+                "^(?:bonjour|bonsoir|salut|coucou|hello|hi|hey|salama|"
+                        + "manao ahoana)(?:\\s+(?:bandy(?: akama)?|assistant))?"
+                        + "[!.?]*$"
+        )) {
+            return Optional.of(
+                    greeting.equals("salama") || greeting.equals("manao ahoana")
+                            ? "Salama ! Inona no azoko anampiana anao ?"
+                            : "Bonjour ! Comment puis-je vous aider ?"
+            );
+        }
+        return Optional.empty();
     }
 
     public String clarificationMessage() {
@@ -124,13 +148,14 @@ public class ConversationIntentResolver {
         );
     }
 
-    private String normalize(String message) {
+    private static String normalize(String message) {
         String decomposed = Normalizer.normalize(
                 message.toLowerCase(Locale.ROOT),
                 Normalizer.Form.NFD
         );
         return decomposed.replaceAll("\\p{M}+", "")
                 .replaceAll("[,;:]+", " ")
+                .replaceAll("\\s+([?!.])", "$1")
                 .replaceAll("\\s+", " ")
                 .strip();
     }

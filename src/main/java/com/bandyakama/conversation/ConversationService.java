@@ -2,10 +2,12 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.observability.PerformanceTelemetry;
+import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,17 +20,26 @@ public class ConversationService {
     private final GeminiAssistant assistant;
     private final ConversationIntentResolver intentResolver;
     private final PerformanceTelemetry performanceTelemetry;
+    private final int turnBudgetMillis;
 
     public ConversationService(
             ConversationRepository repository,
             GeminiAssistant assistant,
             ConversationIntentResolver intentResolver,
-            PerformanceTelemetry performanceTelemetry
+            PerformanceTelemetry performanceTelemetry,
+            @Value("${bandy.ai.turn-budget-millis:30000}")
+            int turnBudgetMillis
     ) {
         this.repository = repository;
         this.assistant = assistant;
         this.intentResolver = intentResolver;
         this.performanceTelemetry = performanceTelemetry;
+        if (turnBudgetMillis < 1) {
+            throw new IllegalArgumentException(
+                    "Le budget de requête doit être positif."
+            );
+        }
+        this.turnBudgetMillis = turnBudgetMillis;
     }
 
     public Conversation create(UserIdentity identity) {
@@ -104,7 +115,7 @@ public class ConversationService {
                 : idempotencyKey;
         long requestStartedAt = System.nanoTime();
         boolean succeeded = false;
-        try {
+        try (RequestBudget.Scope ignored = RequestBudget.open(turnBudgetMillis)) {
             UUID effectiveConversationId = conversationId == null
                     ? measured(
                             effectiveRequestId,

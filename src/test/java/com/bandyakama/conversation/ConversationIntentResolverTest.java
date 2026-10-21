@@ -125,4 +125,32 @@ class ConversationIntentResolverTest {
                 resolver.resolve("Parle-moi de ma carrière.", activeState)
         );
     }
+
+    @Test
+    void keepsActiveSearchStateWhenTheUserSendsOnlyAGreeting() {
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Bonjour Bandy !", activeState)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Salama", activeState)
+        );
+        assertEquals(
+                "Bonjour ! Comment puis-je vous aider ?",
+                ConversationIntentResolver.greetingResponse("Bonjour Bandy !")
+                        .orElseThrow()
+        );
+        assertEquals(
+                "Salama ! Inona no azoko anampiana anao ?",
+                ConversationIntentResolver.greetingResponse("Manao ahoana ?")
+                        .orElseThrow()
+        );
+        assertEquals(
+                java.util.Optional.empty(),
+                ConversationIntentResolver.greetingResponse(
+                        "Bonjour, cherche les agentes."
+                )
+        );
+    }
 }

@@ -17,6 +17,7 @@ to `.env`, and fill in the local values:
 | `BANDY_GEMINI_TIMEOUT_MILLIS` | Maximum duration of one Gemini HTTP attempt; defaults to `15000` |
 | `BANDY_GEMINI_RETRY_ATTEMPTS` | Gemini HTTP attempts including the first call; defaults to `2` |
 | `BANDY_MAX_TOOL_ROUNDS` | Maximum sequential tool rounds per user turn; defaults to `2` |
+| `BANDY_TURN_BUDGET_MILLIS` | Overall processing budget for one conversation turn; defaults to `30000` |
 | `BANDY_APPLICATION_ID` | Server-side consumer identifier for conversation isolation; defaults to `assistant-rh` |
 | `BANDY_ALLOWED_APPLICATION_IDS` | Comma-separated JWT `aud` allowlist for multi-application deployments |
 | `BANDY_REGISTRATION_KEY` | Required secret for administration and calls from trusted backends |
@@ -40,9 +41,12 @@ Each synchronous Gemini SDK request is capped by
 backoff capped at two seconds. The default is one retry after the initial
 attempt. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
 per user turn; the default of two preserves a short multi-step sequence while
-preventing extended loops. These are per-call/per-round bounds, not a strict
-overall deadline: a turn can still take longer when it uses multiple tools.
-Registered backend calls also have a 15-second default read timeout.
+preventing extended loops. The Gemini and registered-tool timeouts are bounded by the remaining turn
+budget, and automatic Gemini retries are disabled for a budgeted turn. The
+budget includes conversation preparation and persistence as well as model and
+tool work; it is not a hard cancellation guarantee for database operations or
+remote work that has already started. Registered backend calls also have a
+15-second default read timeout when no shorter budget remains.
 
 The application creates its tables and initial assistant profile on startup.
 It does not create the PostgreSQL database itself. Start the projects separately
@@ -124,7 +128,7 @@ ask for clarification instead of looping through name variants.
 
 ## Connecting the frontend and RH backend
 
-Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's public base URL; the default is `http://localhost:8090`. The frontend calls Bandy's `/api/chat` directly and sends the user's RH bearer token. Configure Bandy's `JWT_SECRET` to the same signing secret as `assistant-rh-api` so Bandy can validate the existing user token. Add the frontend origin to `BANDY_CORS_ALLOWED_ORIGINS` (comma-separated for multiple origins).
+Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's public base URL; the default is `http://localhost:8090`. The conversation UI creates conversations through `POST /api/conversations`, then sends messages as `{"message":"…"}` to `POST /api/conversations/{id}/messages`, including the user's RH bearer token. Configure Bandy's `JWT_SECRET` to the same signing secret as `assistant-rh-api` so Bandy can validate the existing user token. Add the frontend origin to `BANDY_CORS_ALLOWED_ORIGINS` (comma-separated for multiple origins).
 
 The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH function endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
 
