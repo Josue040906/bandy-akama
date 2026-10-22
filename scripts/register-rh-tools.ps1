@@ -69,8 +69,8 @@ $profileTool = @{
 
 $approximateSearchTool = @{
     name = 'searchEmployeesApproximately'
-    description = 'Recherche un agent à partir de son nom saisi approximativement ou comportant une faute de frappe.'
-    whenToUse = 'Utiliser cet outil pour retrouver une personne lorsque l’utilisateur donne un nom ou prénom approximatif, mentionne une faute de frappe, ou que la recherche exacte ne trouve aucun agent. Transmettre le nom complet tel que fourni dans query, sans le corriger ni en inventer une autre variante. Cet outil compare les noms et prénoms avec une tolérance aux fautes. Ne pas l’utiliser pour une recherche par âge, sexe, affectation ou critères multiples : utiliser searchEmployees. Ne pas enchaîner des recherches en modifiant le nom au hasard. Si aucun candidat fiable n’est retourné ou si plusieurs personnes correspondent, présenter la clarification nécessaire sans inventer de correspondance.'
+    description = 'Recherche et classe les candidats agents par similarité de nom, avec filtres optionnels de service, poste ou direction.'
+    whenToUse = 'Utiliser cet outil pour retrouver une personne lorsque l’utilisateur donne un nom ou prénom approximatif, mentionne une faute de frappe, ou que la recherche exacte ne trouve aucun agent. Transmettre le nom comme query, sans le corriger ni inventer une variante. L’outil renvoie les deux meilleurs candidats disponibles, triés par score_correspondance, ainsi que leur score de similarité de 0 à 1 (ce n’est pas une probabilité d’identité). Si l’utilisateur ajoute un service, poste ou direction dans la même recherche, conserver le query original et ne transmettre que le ou les filtres ajoutés; ils s’appliquent en plus du nom. Pour supprimer un filtre existant, transmettre une chaîne vide. Ne pas enchaîner des recherches en modifiant le nom au hasard. Si aucun candidat n’est retourné, demander une précision; si plusieurs candidats sont retournés, les présenter avec leur score et laisser l’utilisateur choisir, sans confirmer son identité.'
     method = 'GET'
     url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/approximative"
     enabled = $true
@@ -80,6 +80,27 @@ $approximateSearchTool = @{
             type = 'string'
             description = 'Nom ou prénom de la personne exactement comme fourni par l’utilisateur, même s’il semble contenir une faute.'
             required = $true
+            location = 'query'
+        },
+        @{
+            name = 'service'
+            type = 'string'
+            description = 'Filtre facultatif de service, ajouté lors d’un suivi de la même recherche.'
+            required = $false
+            location = 'query'
+        },
+        @{
+            name = 'poste'
+            type = 'string'
+            description = 'Filtre facultatif de poste, ajouté lors d’un suivi de la même recherche.'
+            required = $false
+            location = 'query'
+        },
+        @{
+            name = 'direction'
+            type = 'string'
+            description = 'Filtre facultatif de direction, ajouté lors d’un suivi de la même recherche.'
+            required = $false
             location = 'query'
         }
     )

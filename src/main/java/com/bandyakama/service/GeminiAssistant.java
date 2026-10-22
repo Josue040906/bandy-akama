@@ -243,7 +243,7 @@ public class GeminiAssistant {
                 + "searchEmployeesApproximately est disponible. N’invente jamais "
                 + "une variante de nom ni des orthographes alternatives. Réalise "
                 + "au plus un appel approximatif par demande. Si aucun résultat "
-                + "n’est fiable, demande une précision et n’enchaîne pas "
+                + "n’est retourné, demande une précision et n’enchaîne pas "
                 + "de recherches répétées."
                 + "\n\nRecherche d’agents : lorsqu’un outil dédié de recherche "
                 + "approximative est enregistré et que le nom fourni comporte une "
@@ -252,7 +252,23 @@ public class GeminiAssistant {
                 + "relance pas plusieurs recherches CONTAINS en inventant des "
                 + "variantes. Effectue au plus une recherche approximative dédiée "
                 + "par demande; si aucun candidat ne convient ou si les résultats "
-                + "sont ambigus, demande une précision plutôt que de boucler.";
+                + "sont ambigus, demande une précision plutôt que de boucler. "
+                + "Présente au moins les deux candidats les mieux classés "
+                + "lorsqu’ils sont disponibles et indique leur score réel en "
+                + "pourcentage. Explique que ce score est une similarité textuelle, "
+                + "pas une probabilité d’identité. Demande à l’utilisateur de "
+                + "confirmer un candidat ou d’ajouter un service, un poste ou une "
+                + "direction; ne confirme jamais son identité sans sa validation."
+                + "\n\nSuivi d’une recherche approximative : si l’utilisateur "
+                + "ajoute un service, un poste ou une direction, conserve le query "
+                + "initial exact et appelle searchEmployeesApproximately avec ce "
+                + "même nom et les filtres ajoutés. Ces filtres se combinent avec "
+                + "le nom. Pour supprimer un filtre de service, poste ou direction, "
+                + "transmets une valeur vide pour ce filtre. Pour un autre type de "
+                + "critère, utilise la recherche "
+                + "structurée en reprenant uniquement les critères pertinents du "
+                + "candidat précédent. Une nouvelle intention indépendante ne "
+                + "doit hériter d’aucun filtre ni résultat précédent.";
         List<ToolDefinition> registeredTools = configuration.enabledTools();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
@@ -360,6 +376,20 @@ public class GeminiAssistant {
                 if (round == 0
                         && calls.size() == 1
                         && !execution.sensitive()) {
+                    Optional<String> approximateSearchReply =
+                            simpleApproximateSearchReply(
+                                    message,
+                                    name,
+                                    result,
+                                    objectMapper
+                            );
+                    if (approximateSearchReply.isPresent()) {
+                        return new ChatResponse(
+                                approximateSearchReply.get(),
+                                List.copyOf(executedResults),
+                                null
+                        );
+                    }
                     Optional<String> directSearchReply =
                             simpleSearchReply(
                                     message,
@@ -603,6 +633,72 @@ public class GeminiAssistant {
             reply.append(agents.size())
                     .append(" résultat(s) reçu(s) du service RH.");
         }
+        return Optional.of(reply.toString().trim());
+    }
+
+    static Optional<String> simpleApproximateSearchReply(
+            String message,
+            String toolName,
+            Object result,
+            ObjectMapper objectMapper
+    ) {
+        if (!"searchEmployeesApproximately".equals(toolName)
+                || message == null
+                || message.isBlank()) {
+            return Optional.empty();
+        }
+
+        JsonNode agents = objectMapper.valueToTree(result).path("agents");
+        if (!agents.isArray()) {
+            return Optional.empty();
+        }
+        if (agents.isEmpty()) {
+            return Optional.of(
+                    "Je n’ai trouvé aucun candidat suffisamment proche. "
+                            + "Pouvez-vous ajouter ou corriger une information "
+                            + "comme le nom, le service, le poste ou la direction ?"
+            );
+        }
+
+        int displayedCount = Math.min(5, agents.size());
+        StringBuilder reply = new StringBuilder(
+                "Voici les candidats les plus proches selon la similarité "
+                        + "du nom (ce score n’est pas une probabilité d’identité) :\n"
+        );
+        for (int index = 0; index < displayedCount; index++) {
+            JsonNode agent = agents.get(index);
+            String name = (agent.path("prenom").asText("")
+                    + " " + agent.path("nom").asText("")).trim();
+            if (name.isBlank()) {
+                return Optional.empty();
+            }
+
+            reply.append("- ").append(name);
+            JsonNode score = agent.path("score_correspondance");
+            if (score.isNumber()
+                    && Double.isFinite(score.asDouble())
+                    && score.asDouble() >= 0
+                    && score.asDouble() <= 1) {
+                reply.append(" | similarité : ")
+                        .append(Math.round(score.asDouble() * 100))
+                        .append('%');
+            }
+            appendSearchField(reply, agent, "poste", "poste");
+            appendSearchField(reply, agent, "service", "service");
+            appendSearchField(reply, agent, "direction", "direction");
+            reply.append('\n');
+        }
+
+        if (agents.size() > displayedCount) {
+            reply.append("Affichage des ")
+                    .append(displayedCount)
+                    .append(" premiers candidats sur ")
+                    .append(agents.size())
+                    .append(". ");
+        }
+        reply.append("L’un de ces agents correspond-il à votre recherche ? "
+                + "Sinon, indiquez un service, un poste ou une direction pour "
+                + "affiner la recherche.");
         return Optional.of(reply.toString().trim());
     }
 

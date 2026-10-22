@@ -124,10 +124,17 @@ The `.\scripts\register-rh-tools.ps1` helper registers or updates this tool and
 includes the complete field/operator guidance for Gemini. It also registers
 `searchEmployeesApproximately` against
 `GET /api/recherche/agents/approximative?query=...` for a person name with
-uncertain spelling or typos. Prefer that single fuzzy lookup over repeated
+uncertain spelling or typos. The endpoint returns the two highest-ranked
+candidates when available, even when their score is below the usual match
+threshold, and includes `score_correspondance` from 0 to 1. This is a textual
+similarity score, not an identity probability. Optional `service`, `poste`,
+and `direction` filters let a follow-up narrow the same name search without
+guessing alternate spellings. Prefer that single fuzzy lookup over repeated
 `CONTAINS` searches with guessed spellings; use `searchEmployees` for
-multi-criteria searches. If the approximate tool returns no reliable candidate,
-ask for clarification instead of looping through name variants.
+multi-criteria searches. If the approximate tool returns no candidate,
+ask for clarification instead of looping through name variants. Low-scoring
+results remain ranked suggestions, not confirmed identities; present their
+scores and invite the user to confirm or add a service, position, or direction.
 
 ## Connecting the frontend and RH backend
 

@@ -266,14 +266,26 @@ public class ConversationService {
             );
             return completedResponse;
         } catch (RuntimeException failure) {
+            boolean budgetExpired = RequestBudget.current()
+                    .map(RequestBudget::isExpired)
+                    .orElse(false);
             try {
-                repository.failRequest(
-                        conversationId,
-                        requestId,
-                        request.claimId()
-                );
+                try (RequestBudget.Scope ignored = RequestBudget.suspend()) {
+                    repository.failRequest(
+                            conversationId,
+                            requestId,
+                            request.claimId()
+                    );
+                }
             } catch (RuntimeException cleanupFailure) {
                 failure.addSuppressed(cleanupFailure);
+            }
+            if (budgetExpired) {
+                throw new ResponseStatusException(
+                        HttpStatus.GATEWAY_TIMEOUT,
+                        "Le délai maximal de traitement de la demande est dépassé.",
+                        failure
+                );
             }
             if (failure instanceof ResponseStatusException statusFailure) {
                 throw statusFailure;

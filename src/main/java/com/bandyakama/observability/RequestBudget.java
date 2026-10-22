@@ -35,8 +35,18 @@ public final class RequestBudget {
         return Optional.ofNullable(CURRENT.get());
     }
 
+    public static Scope suspend() {
+        RequestBudget previous = CURRENT.get();
+        CURRENT.remove();
+        return new Scope(previous);
+    }
+
     public int budgetMillis() {
         return budgetMillis;
+    }
+
+    public boolean isExpired() {
+        return deadlineNanos - System.nanoTime() <= 0;
     }
 
     public int remainingMillis() {

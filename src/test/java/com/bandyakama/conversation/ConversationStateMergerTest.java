@@ -91,6 +91,26 @@ class ConversationStateMergerTest {
         assertEquals(Map.of("topic", "Personnel"), merged);
     }
 
+    @Test
+    void keepsTheOriginalNameWhenAddingApproximateSearchFilters()
+            throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "searchEmployeesApproximately",
+                  "arguments": {"query": "RAKOTO"}
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "searchEmployeesApproximately",
+                Map.of("query", "RAKOTO", "service", "Finances")
+        );
+
+        assertEquals("RAKOTO", merged.get("query"));
+        assertEquals("Finances", merged.get("service"));
+    }
+
     private JsonNode filter(JsonNode criteria, String field) {
         for (JsonNode filter : criteria.path("filters")) {
             if (field.equals(filter.path("field").asText())) {

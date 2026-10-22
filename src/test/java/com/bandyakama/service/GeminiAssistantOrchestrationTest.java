@@ -77,4 +77,49 @@ class GeminiAssistantOrchestrationTest {
                 mapper
         ).isEmpty());
     }
+
+    @Test
+    void formatsTopApproximateAgentsWithTheirRealSimilarityScores() {
+        String reply = GeminiAssistant.simpleApproximateSearchReply(
+                "Cherche l’agent Rakoto",
+                "searchEmployeesApproximately",
+                Map.of(
+                        "total", 2,
+                        "agents", List.of(
+                                Map.of(
+                                        "prenom", "Miora",
+                                        "nom", "RAKOTO",
+                                        "score_correspondance", 0.87,
+                                        "service", "Finances"
+                                ),
+                                Map.of(
+                                        "prenom", "Mialy",
+                                        "nom", "RAKOTONDRABE",
+                                        "score_correspondance", 0.63,
+                                        "poste", "Gestionnaire"
+                                )
+                        )
+                ),
+                new ObjectMapper()
+        ).orElseThrow();
+
+        assertTrue(reply.contains("Miora RAKOTO | similarité : 87%"));
+        assertTrue(reply.contains("Mialy RAKOTONDRABE | similarité : 63%"));
+        assertTrue(reply.contains("Finances"));
+        assertTrue(reply.contains("ce score n’est pas une probabilité d’identité"));
+        assertTrue(reply.contains("affiner la recherche"));
+    }
+
+    @Test
+    void asksForMoreInformationWhenApproximateSearchHasNoCandidates() {
+        String reply = GeminiAssistant.simpleApproximateSearchReply(
+                "Cherche l’agent Rakoto",
+                "searchEmployeesApproximately",
+                Map.of("total", 0, "agents", List.of()),
+                new ObjectMapper()
+        ).orElseThrow();
+
+        assertTrue(reply.contains("aucun candidat"));
+        assertTrue(reply.contains("service"));
+    }
 }
