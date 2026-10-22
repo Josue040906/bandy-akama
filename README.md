@@ -43,10 +43,10 @@ attempt. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
 per user turn; the default of two preserves a short multi-step sequence while
 preventing extended loops. The Gemini and registered-tool timeouts are bounded
 by the remaining turn budget, and automatic Gemini retries are disabled for a
-budgeted turn. The budget is checked before each synchronous processing stage
-and includes conversation preparation and persistence, but it cannot interrupt
-a PostgreSQL statement already running. Registered backend calls also have a
-15-second default read timeout when no shorter budget remains.
+budgeted turn. PostgreSQL statements receive a JDBC query timeout bounded by
+the remaining budget (rounded up to whole seconds, as required by JDBC); an
+expired budget prevents the next statement from running. Registered backend
+calls also have a 15-second default read timeout when no shorter budget remains.
 
 The application creates its tables and initial assistant profile on startup.
 It does not create the PostgreSQL database itself. Start the projects separately

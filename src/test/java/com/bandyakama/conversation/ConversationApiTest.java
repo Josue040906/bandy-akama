@@ -761,6 +761,75 @@ class ConversationApiTest {
     }
 
     @Test
+    void processesDifferentConversationsConcurrently() throws Exception {
+        UUID firstConversation = createConversation("42");
+        UUID secondConversation = createConversation("42");
+        CountDownLatch bothRequestsStarted = new CountDownLatch(2);
+        CountDownLatch releaseAssistant = new CountDownLatch(1);
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenAnswer(invocation -> {
+            bothRequestsStarted.countDown();
+            if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Timed out waiting for the test.");
+            }
+            return new ChatResponse(
+                    "Réponse à " + invocation.getArgument(0),
+                    List.of()
+            );
+        });
+
+        CompletableFuture<MvcResult> firstRequest = sendAsync(
+                firstConversation,
+                "Première demande"
+        );
+        CompletableFuture<MvcResult> secondRequest = sendAsync(
+                secondConversation,
+                "Deuxième demande"
+        );
+
+        try {
+            assertTrue(bothRequestsStarted.await(5, TimeUnit.SECONDS));
+        } finally {
+            releaseAssistant.countDown();
+        }
+
+        assertEquals(
+                200,
+                firstRequest.get(5, TimeUnit.SECONDS).getResponse().getStatus()
+        );
+        assertEquals(
+                200,
+                secondRequest.get(5, TimeUnit.SECONDS).getResponse().getStatus()
+        );
+    }
+
+    private CompletableFuture<MvcResult> sendAsync(
+            UUID conversationId,
+            String message
+    ) {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return mockMvc.perform(post(
+                                "/api/conversations/{id}/messages",
+                                conversationId
+                        )
+                                .header("Authorization", bearerToken("42"))
+                                .header("Idempotency-Key", UUID.randomUUID().toString())
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"message\":\"" + message + "\"}"))
+                        .andReturn();
+            } catch (Exception exception) {
+                throw new IllegalStateException(exception);
+            }
+        });
+    }
+
+    @Test
     void buildsAnIncrementalSummaryAndRejectsInvalidPaging() throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
