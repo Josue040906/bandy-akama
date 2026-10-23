@@ -2,14 +2,28 @@ package com.bandyakama.service;
 
 import com.google.genai.types.GenerateContentConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bandyakama.assistant.AssistantConfigurationRepository;
+import com.bandyakama.assistant.AssistantConfigurationSnapshot;
+import com.bandyakama.assistant.AssistantProfile;
+import com.bandyakama.conversation.ConversationStateMerger;
+import com.bandyakama.executor.ToolExecutor;
+import com.bandyakama.gemini.GeminiClientFactory;
+import com.bandyakama.observability.PerformanceTelemetry;
+import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolParameter;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class GeminiAssistantOrchestrationTest {
     @Test
@@ -121,5 +135,189 @@ class GeminiAssistantOrchestrationTest {
 
         assertTrue(reply.contains("aucun candidat"));
         assertTrue(reply.contains("service"));
+    }
+
+    @Test
+    void executesExplicitApproximateSearchWithoutCallingGemini() {
+        AssistantConfigurationRepository configurationRepository =
+                mock(AssistantConfigurationRepository.class);
+        ToolExecutor toolExecutor = mock(ToolExecutor.class);
+        GeminiClientFactory clientFactory = mock(GeminiClientFactory.class);
+        when(clientFactory.timeoutMillis()).thenReturn(15_000);
+        when(clientFactory.retryAttempts()).thenReturn(1);
+        ToolDefinition tool = approximateSearchTool();
+        when(configurationRepository.get()).thenReturn(configuration(tool));
+        when(toolExecutor.execute(
+                eq(tool),
+                eq(Map.of(
+                        "query", "Hery RANDRIAKOTOMANGAA",
+                        "service", "Finances"
+                )),
+                eq("Bearer session-token"),
+                eq("c19354f2-b803-4f62-9c74-3f6cfe6f55a1")
+        )).thenReturn(Map.of(
+                "total", 2,
+                "agents", List.of(
+                        Map.of(
+                                "id", 1,
+                                "prenom", "Hery",
+                                "nom", "RANDRIAKOTOMANGA",
+                                "service", "Finances",
+                                "score_correspondance", 0.95
+                        ),
+                        Map.of(
+                                "id", 2,
+                                "prenom", "Hery",
+                                "nom", "RAKOTOMALALA",
+                                "service", "Finances",
+                                "score_correspondance", 0.63
+                        )
+                )
+        ));
+
+        GeminiAssistant assistant = new GeminiAssistant(
+                "",
+                "model",
+                2,
+                clientFactory,
+                configurationRepository,
+                toolExecutor,
+                mock(ConversationStateMerger.class),
+                mock(PerformanceTelemetry.class),
+                new ObjectMapper()
+        );
+        String message = "Recherche approximativement l’agent Hery "
+                + "RANDRIAKOTOMANGAA du service Finances, il y a peut-être "
+                + "une faute.";
+
+        var response = assistant.respond(
+                message,
+                "Bearer session-token",
+                "",
+                UUID.fromString("c19354f2-b803-4f62-9c74-3f6cfe6f55a1"),
+                null
+        );
+
+        assertTrue(response.message().contains("95%"));
+        assertTrue(response.message().contains("63%"));
+        assertEquals(1, response.toolResults().size());
+        verify(toolExecutor).execute(
+                eq(tool),
+                eq(Map.of(
+                        "query", "Hery RANDRIAKOTOMANGAA",
+                        "service", "Finances"
+                )),
+                eq("Bearer session-token"),
+                eq("c19354f2-b803-4f62-9c74-3f6cfe6f55a1")
+        );
+    }
+
+    @Test
+    void executesFilterFollowUpAgainstTheSameAgentQueryWithoutGemini()
+            throws Exception {
+        AssistantConfigurationRepository configurationRepository =
+                mock(AssistantConfigurationRepository.class);
+        ToolExecutor toolExecutor = mock(ToolExecutor.class);
+        GeminiClientFactory clientFactory = mock(GeminiClientFactory.class);
+        when(clientFactory.timeoutMillis()).thenReturn(15_000);
+        when(clientFactory.retryAttempts()).thenReturn(1);
+        ToolDefinition tool = approximateSearchTool();
+        when(configurationRepository.get()).thenReturn(configuration(tool));
+        when(toolExecutor.execute(
+                eq(tool),
+                eq(Map.of(
+                        "query", "Hery RANDRIAKOTOMANGAA",
+                        "service", "Finances",
+                        "poste", "gestionnaire"
+                )),
+                eq("Bearer session-token"),
+                eq("46a6a20c-41b2-4f9f-90cb-562bc1fb4f0a")
+        )).thenReturn(Map.of(
+                "total", 1,
+                "agents", List.of(Map.of(
+                        "id", 1,
+                        "prenom", "Hery",
+                        "nom", "RANDRIAKOTOMANGA",
+                        "service", "Finances",
+                        "poste", "Gestionnaire",
+                        "score_correspondance", 0.95
+                ))
+        ));
+
+        GeminiAssistant assistant = new GeminiAssistant(
+                "",
+                "model",
+                2,
+                clientFactory,
+                configurationRepository,
+                toolExecutor,
+                mock(ConversationStateMerger.class),
+                mock(PerformanceTelemetry.class),
+                new ObjectMapper()
+        );
+        var previousState = new ObjectMapper().readTree("""
+                {
+                  "toolName": "searchEmployeesApproximately",
+                  "arguments": {
+                    "query": "Hery RANDRIAKOTOMANGAA",
+                    "service": "Finances"
+                  }
+                }
+                """);
+
+        var response = assistant.respond(
+                "Et si tu filtres par le poste de gestionnaire ?",
+                "Bearer session-token",
+                "Historique d’une recherche approximative d’agent.",
+                UUID.fromString("46a6a20c-41b2-4f9f-90cb-562bc1fb4f0a"),
+                previousState
+        );
+
+        assertTrue(response.message().contains("95%"));
+        verify(toolExecutor).execute(
+                eq(tool),
+                eq(Map.of(
+                        "query", "Hery RANDRIAKOTOMANGAA",
+                        "service", "Finances",
+                        "poste", "gestionnaire"
+                )),
+                eq("Bearer session-token"),
+                eq("46a6a20c-41b2-4f9f-90cb-562bc1fb4f0a")
+        );
+    }
+
+    private AssistantConfigurationSnapshot configuration(ToolDefinition tool) {
+        return new AssistantConfigurationSnapshot(
+                new AssistantProfile("Bandy", "Assistant RH", "Répondre utilement."),
+                List.of(tool)
+        );
+    }
+
+    private ToolDefinition approximateSearchTool() {
+        ToolDefinition tool = new ToolDefinition(
+                "searchEmployeesApproximately",
+                "Recherche approximative d’agents.",
+                "GET",
+                "http://localhost/api/recherche/agents/approximative",
+                List.of(
+                        parameter("query", true),
+                        parameter("service", false),
+                        parameter("poste", false),
+                        parameter("direction", false)
+                )
+        );
+        tool.setWhenToUse("Recherche de noms approximatifs.");
+        return tool;
+    }
+
+    private ToolParameter parameter(String name, boolean required) {
+        ToolParameter parameter = new ToolParameter(
+                name,
+                "string",
+                "Filtre " + name,
+                required
+        );
+        parameter.setLocation("query");
+        return parameter;
     }
 }

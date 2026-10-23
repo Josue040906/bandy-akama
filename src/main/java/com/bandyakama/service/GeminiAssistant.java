@@ -172,13 +172,6 @@ public class GeminiAssistant {
             JsonNode initialState,
             TurnMetrics metrics
     ) {
-        if (apiKey.isBlank()) {
-            throw new ResponseStatusException(
-                    HttpStatus.SERVICE_UNAVAILABLE,
-                    "Configurez GEMINI_API_KEY pour activer l’assistant."
-            );
-        }
-
         long preparationStartedAt = System.nanoTime();
         long configurationLoadStartedAt = System.nanoTime();
         AssistantConfigurationSnapshot configuration;
@@ -194,6 +187,26 @@ public class GeminiAssistant {
                     configurationLoaded
             );
         }
+
+        Optional<ChatResponse> approximateSearchResponse =
+                executeDeterministicApproximateSearch(
+                        message,
+                        authorization,
+                        requestId,
+                        initialState,
+                        configuration,
+                        metrics
+                );
+        if (approximateSearchResponse.isPresent()) {
+            return approximateSearchResponse.get();
+        }
+        if (apiKey.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Configurez GEMINI_API_KEY pour activer l’assistant."
+            );
+        }
+
         AssistantProfile profile = configuration.profile();
         String systemInstruction = "Tu es " + profile.name() + ".\n"
                 + "Rôle : " + profile.role() + "\n"
@@ -472,6 +485,90 @@ public class GeminiAssistant {
                 finalMessage,
                 List.copyOf(executedResults)
         );
+    }
+
+    private Optional<ChatResponse> executeDeterministicApproximateSearch(
+            String message,
+            String authorization,
+            UUID requestId,
+            JsonNode initialState,
+            AssistantConfigurationSnapshot configuration,
+            TurnMetrics metrics
+    ) {
+        Optional<Map<String, Object>> parsedArguments =
+                ApproximateAgentSearchRequest.resolve(message, initialState);
+        if (parsedArguments.isEmpty()) {
+            return Optional.empty();
+        }
+
+        ToolDefinition definition = configuration.enabledTools().stream()
+                .filter(tool -> "searchEmployeesApproximately".equals(
+                        tool.getName()
+                ))
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.SERVICE_UNAVAILABLE,
+                        "La recherche approximative n’est pas enregistrée dans Bandy."
+                ));
+        List<String> undeclaredArguments = parsedArguments.get().keySet()
+                .stream()
+                .filter(name -> definition.getParameters().stream()
+                        .noneMatch(parameter -> name.equals(parameter.getName())))
+                .toList();
+        if (!undeclaredArguments.isEmpty()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "La définition searchEmployeesApproximately est obsolète. "
+                            + "Réenregistrez les outils RH dans Bandy."
+            );
+        }
+
+        long startedAt = System.nanoTime();
+        boolean succeeded = false;
+        try {
+            Object result = toolExecutor.execute(
+                    definition,
+                    parsedArguments.get(),
+                    authorization,
+                    requestId == null ? null : requestId.toString()
+            );
+            metrics.toolCalls++;
+            metrics.toolRounds++;
+            Optional<String> formattedReply = simpleApproximateSearchReply(
+                    message,
+                    definition.getName(),
+                    result,
+                    objectMapper
+            );
+            if (formattedReply.isEmpty()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Le service RH a renvoyé un résultat de recherche invalide."
+                );
+            }
+            succeeded = true;
+            return Optional.of(new ChatResponse(
+                    formattedReply.get(),
+                    List.of(new ChatResponse.ToolResult(
+                            definition.getName(),
+                            result,
+                            parsedArguments.get()
+                    ))
+            ));
+        } catch (RestClientException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Le service RH n’a pas pu exécuter la recherche approximative.",
+                    exception
+            );
+        } finally {
+            performanceTelemetry.stage(
+                    requestId,
+                    "deterministic_approximate_agent_search",
+                    startedAt,
+                    succeeded
+            );
+        }
     }
 
     static GenerateContentConfig finalResponseConfig(

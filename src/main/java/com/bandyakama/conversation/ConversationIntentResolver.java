@@ -34,6 +34,11 @@ public class ConversationIntentResolver {
     private static final Pattern NEW_SEARCH = Pattern.compile(
             "^maintenant\\s+(?:cherche|recherche|trouve|liste|compte)\\b"
     );
+    private static final Pattern APPROXIMATE_SEARCH_FOLLOW_UP = Pattern.compile(
+            "^(?:et\\b|ajoute\\b|ajouter\\b|filtre\\b|filtrer\\b|"
+                    + "dans\\s+le\\s+meme\\b|avec\\s+le\\s+meme\\b).*"
+                    + "\\b(?:service|poste|direction)\\b.*$"
+    );
     private static final Pattern ORGANIZATION_SCOPE = Pattern.compile(
             "\\b(?:direction|service|departement|structure|unite|bureau|"
                     + "division|cellule)\\b"
@@ -67,6 +72,13 @@ public class ConversationIntentResolver {
                 || normalized.contains("leur matricule")
                 || normalized.contains("qui est le plus age")
                 || normalized.contains("la plus agee")) {
+            return Decision.CONTINUATION;
+        }
+        if ("searchEmployeesApproximately".equals(
+                activeState.path("toolName").asText()
+        ) && APPROXIMATE_SEARCH_FOLLOW_UP
+                .matcher(normalized)
+                .matches()) {
             return Decision.CONTINUATION;
         }
         if (introducesDifferentOrganizationScope(normalized, activeState)) {

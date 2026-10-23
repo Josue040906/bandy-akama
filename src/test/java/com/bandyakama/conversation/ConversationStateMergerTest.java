@@ -111,6 +111,34 @@ class ConversationStateMergerTest {
         assertEquals("Finances", merged.get("service"));
     }
 
+    @Test
+    void classifiesApproximateSearchFilterFollowUpsAsContinuations()
+            throws Exception {
+        ConversationIntentResolver resolver =
+                new ConversationIntentResolver();
+        JsonNode activeState = objectMapper.readTree("""
+                {
+                  "toolName": "searchEmployeesApproximately",
+                  "arguments": {"query": "RAKOTO"}
+                }
+                """);
+
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve(
+                        "Et si tu filtres par le poste de gestionnaire ?",
+                        activeState
+                )
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Explique les missions du service RH.",
+                        activeState
+                )
+        );
+    }
+
     private JsonNode filter(JsonNode criteria, String field) {
         for (JsonNode filter : criteria.path("filters")) {
             if (field.equals(filter.path("field").asText())) {

@@ -129,7 +129,11 @@ candidates when available, even when their score is below the usual match
 threshold, and includes `score_correspondance` from 0 to 1. This is a textual
 similarity score, not an identity probability. Optional `service`, `poste`,
 and `direction` filters let a follow-up narrow the same name search without
-guessing alternate spellings. Prefer that single fuzzy lookup over repeated
+guessing alternate spellings. Explicit approximate-name requests and their
+service/poste/direction follow-ups are routed deterministically to this RH tool
+without a Gemini call, so temporary Gemini availability errors do not block
+this workflow. General chat and other tool selection still use Gemini. Prefer
+that single fuzzy lookup over repeated
 `CONTAINS` searches with guessed spellings; use `searchEmployees` for
 multi-criteria searches. If the approximate tool returns no candidate,
 ask for clarification instead of looping through name variants. Low-scoring
@@ -144,16 +148,21 @@ The RH backend owns only RH data and endpoints. It does not call Bandy, store a 
 
 Gemini receives the active tool descriptions and argument schemas, selects tools from natural-language intent, and supplies structured criteria. Bandy forwards the user's bearer token to the tool endpoint, executes the HTTP call, and sends the result back to Gemini to compose the answer. The RH backend validates every field and operator against an allowlist and constructs parameterized SQL; model-generated SQL is never accepted.
 
-The RH tools also include `getMyProfile`, which reads only the authenticated
-agent's professional profile and career path; the caller cannot choose a user
-ID or matricule. Its response includes name, account email, matricule, current
-assignment, employment type, and career steps, but excludes birth date, address,
-phone number, national ID, and photo. The profile tool is marked sensitive: its
-raw structured result is used for the immediate answer but is omitted from
-Bandy's saved tool messages, result references, idempotency replay payload, and
-public tool-result list. The assistant's user-facing answer remains in the
-conversation history. Run `.\scripts\register-rh-tools.ps1` after deploying
-both services to register or refresh the search and self-profile tools.
+The RH tools also include reference-list and career-rule lookups, organization
+counts, current employees by position, the configured highest academic diploma,
+recent assignments, the authenticated user's activities, and `getMyProfile`.
+The assistant insights endpoints are read-only and require an active SPERS
+account. The diploma ranking uses the configured `ordre_academique`; it does
+not guess an order from diploma labels. Activity and profile tools derive the
+user from the forwarded RH bearer token. Personal-data tools are marked
+sensitive: their raw structured results are used for the immediate answer but
+are omitted from Bandy's saved tool messages, result references, idempotency
+replay payload, and public tool-result list. The assistant's user-facing answer
+remains in conversation history. The frontend excludes internal `TOOL` messages
+from the visible transcript, so raw JSON tool payloads are not presented as
+assistant replies. Run `.\scripts\register-rh-tools.ps1` and
+`.\scripts\update-assistant-profile.ps1` after deploying both services to
+register the RH tools and apply their usage and response-formatting guidance.
 
 Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
 
