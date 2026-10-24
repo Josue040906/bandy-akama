@@ -112,6 +112,71 @@ class ConversationStateMergerTest {
     }
 
     @Test
+    void mergesSearchAgentCriteriaAndAllowsTheFollowUpToSwitchToCount()
+            throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Direction X\\"}]}",
+                    "resultMode": "LIST"
+                  }
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\","
+                                + "\"value\":40}]}",
+                        "resultMode",
+                        "COUNT"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree(
+                (String) merged.get("criteriaJson")
+        );
+
+        assertEquals(2, criteria.path("filters").size());
+        assertEquals(
+                "Direction X",
+                filter(criteria, "direction").path("value").asText()
+        );
+        assertEquals(
+                40,
+                filter(criteria, "age").path("value").asInt()
+        );
+        assertEquals("COUNT", merged.get("resultMode"));
+    }
+
+    @Test
+    void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
+        ConversationIntentResolver resolver =
+                new ConversationIntentResolver();
+        JsonNode activeState = objectMapper.readTree("""
+                {"toolName":"search_agents","arguments":{"criteriaJson":"{}"}}
+                """);
+
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Combien sont-ils ?", activeState)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Et ceux qui ont plus de 40 ans ?", activeState)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Explique-moi la procédure de reclassement.",
+                        activeState
+                )
+        );
+    }
+
+    @Test
     void classifiesApproximateSearchFilterFollowUpsAsContinuations()
             throws Exception {
         ConversationIntentResolver resolver =

@@ -448,7 +448,7 @@ class ConversationApiTest {
 
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("sans rappeler l’outil"));
+        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
         assertTrue(academicContext.contains("CONTINUATION"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,

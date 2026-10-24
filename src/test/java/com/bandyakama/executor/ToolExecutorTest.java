@@ -106,6 +106,77 @@ class ToolExecutorTest {
     }
 
     @Test
+    void forwardsPostBodyAsJsonWithoutMovingCriteriaIntoTheUrl()
+            throws IOException {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> body = new AtomicReference<>();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/api/search", exchange -> {
+            method.set(exchange.getRequestMethod());
+            path.set(exchange.getRequestURI().getRawPath());
+            body.set(new String(
+                    exchange.getRequestBody().readAllBytes(),
+                    StandardCharsets.UTF_8
+            ));
+            byte[] responseBody = "{\"count\":4}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            ToolParameter criteria = new ToolParameter(
+                    "criteriaJson",
+                    "string",
+                    "Structured search criteria",
+                    true
+            );
+            criteria.setLocation("body");
+            ToolParameter mode = new ToolParameter(
+                    "resultMode",
+                    "string",
+                    "List or count",
+                    false
+            );
+            mode.setLocation("body");
+            ToolDefinition postTool = new ToolDefinition(
+                    "search_agents",
+                    "Search agents",
+                    "POST",
+                    "http://127.0.0.1:"
+                            + server.getAddress().getPort()
+                            + "/api/search",
+                    List.of(criteria, mode)
+            );
+            postTool.setWhenToUse("Use when searching agents.");
+
+            Object result = executor.execute(
+                    postTool,
+                    Map.of(
+                            "criteriaJson",
+                            "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\",\"value\":40}]}",
+                            "resultMode",
+                            "COUNT"
+                    )
+            );
+
+            assertEquals("POST", method.get());
+            assertEquals("/api/search", path.get());
+            assertTrue(body.get().contains("\"resultMode\":\"COUNT\""));
+            assertTrue(body.get().contains("\"criteriaJson\":"));
+            assertEquals(Map.of("count", 4), result);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void doesNotStartToolHttpRequestAfterTurnBudgetExpires() throws IOException {
         AtomicBoolean receivedRequest = new AtomicBoolean();
         HttpServer server = HttpServer.create(

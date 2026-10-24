@@ -8,7 +8,6 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AssistantConfigurationRepositoryTest {
@@ -32,7 +31,7 @@ class AssistantConfigurationRepositoryTest {
                     new AssistantProfile("Assistant", "Reusable", "Instructions"),
                     snapshot.profile()
             );
-            assertEquals(1, snapshot.enabledTools().size());
+            assertEquals(3, snapshot.enabledTools().size());
             assertEquals(
                     "get_agent_profile",
                     snapshot.enabledTools().get(0).getName()
@@ -42,14 +41,15 @@ class AssistantConfigurationRepositoryTest {
                     "nom_agent",
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
-            assertFalse(snapshot.enabledTools().get(0).isSensitive());
+            assertTrue(snapshot.enabledTools().get(0).isSensitive());
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
             );
             jdbcTemplate.update(
                     "UPDATE bandy_tool SET enabled = FALSE "
-                            + "WHERE name = 'get_agent_profile'"
+                            + "WHERE name IN ('get_agent_profile', "
+                            + "'search_agents', 'get_organization_info')"
             );
 
             statementsBeforeSnapshot = jdbcTemplate.queryCount();
@@ -130,7 +130,11 @@ class AssistantConfigurationRepositoryTest {
                 (name, description, when_to_use, http_method, endpoint_url,
                  enabled, sensitive) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
-                 'GET', 'http://localhost/profile', TRUE, FALSE),
+                 'GET', 'http://localhost/profile', TRUE, TRUE),
+                ('search_agents', 'Agent search', 'For agent searches',
+                 'POST', 'http://localhost/search', TRUE, TRUE),
+                ('get_organization_info', 'Organization', 'For organization questions',
+                 'GET', 'http://localhost/organization', TRUE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
                  'http://localhost/legacy', TRUE, TRUE)
                 """);
@@ -140,6 +144,14 @@ class AssistantConfigurationRepositoryTest {
                 VALUES
                 ('get_agent_profile', 'nom_agent', 'string', 'Agent name',
                  'query', TRUE, 1),
+                ('search_agents', 'criteriaJson', 'string', 'Search criteria',
+                 'body', TRUE, 1),
+                ('search_agents', 'resultMode', 'string', 'Result mode',
+                 'body', FALSE, 2),
+                ('get_organization_info', 'query', 'string', 'Organization query',
+                 'query', TRUE, 1),
+                ('get_organization_info', 'scope', 'string', 'Scope',
+                 'query', FALSE, 2),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
                  'query', TRUE, 1)
                 """);

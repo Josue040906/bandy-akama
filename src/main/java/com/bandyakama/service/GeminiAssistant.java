@@ -48,6 +48,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -271,7 +272,7 @@ public class GeminiAssistant {
         String systemInstruction = AssistantPromptBuilder.buildSystemInstruction(
                 profile
         );
-        List<ToolDefinition> registeredTools = selectAgentProfileTool(
+        List<ToolDefinition> registeredTools = selectAllowedTools(
                 configuration.enabledTools()
         );
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
@@ -353,6 +354,7 @@ public class GeminiAssistant {
                 );
         List<ChatResponse.ToolResult> executedResults = new ArrayList<>();
         List<ChatResponse.ToolResult> observedResults = new ArrayList<>();
+        List<ChatResponse.ToolState> toolStates = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
         JsonNode activeState = initialState;
@@ -366,7 +368,9 @@ public class GeminiAssistant {
                 return new ChatResponse(
                         response.text(),
                         List.copyOf(executedResults),
-                        null
+                        null,
+                        false,
+                        List.copyOf(toolStates)
                 );
             }
 
@@ -397,16 +401,21 @@ public class GeminiAssistant {
                         result,
                         effectiveArguments
                 ));
+                toolStates.add(new ChatResponse.ToolState(
+                        name,
+                        effectiveArguments,
+                        "get_agent_profile".equals(name) ? result : null
+                ));
+                activeState = stateMerger.stateAfterToolCall(
+                        name,
+                        effectiveArguments
+                );
                 if (!execution.sensitive()) {
                     executedResults.add(new ChatResponse.ToolResult(
                             name,
                             result,
                             effectiveArguments
                     ));
-                    activeState = stateMerger.stateAfterToolCall(
-                            name,
-                            effectiveArguments
-                    );
                 }
 
                 FunctionResponse.Builder resultBuilder =
@@ -452,7 +461,9 @@ public class GeminiAssistant {
             return new ChatResponse(
                     response.text(),
                     List.copyOf(executedResults),
-                    null
+                    null,
+                    false,
+                    List.copyOf(toolStates)
             );
         }
 
@@ -502,7 +513,10 @@ public class GeminiAssistant {
         }
         return new ChatResponse(
                 finalMessage,
-                List.copyOf(executedResults)
+                List.copyOf(executedResults),
+                null,
+                false,
+                List.copyOf(toolStates)
         );
     }
 
@@ -774,15 +788,27 @@ public class GeminiAssistant {
                 .build();
     }
 
-    static List<ToolDefinition> selectAgentProfileTool(
+    static List<ToolDefinition> selectAllowedTools(
             List<ToolDefinition> availableTools
     ) {
         if (availableTools == null) {
             return List.of();
         }
+        Set<String> allowedNames = Set.of(
+                "get_agent_profile",
+                "search_agents",
+                "get_organization_info"
+        );
         return availableTools.stream()
-                .filter(tool -> "get_agent_profile".equals(tool.getName()))
-                .limit(1)
+                .filter(tool -> allowedNames.contains(tool.getName()))
+                .collect(java.util.stream.Collectors.toMap(
+                        ToolDefinition::getName,
+                        tool -> tool,
+                        (first, ignored) -> first,
+                        java.util.LinkedHashMap::new
+                ))
+                .values()
+                .stream()
                 .toList();
     }
 
@@ -854,7 +880,7 @@ public class GeminiAssistant {
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
                     invocationCache.get(name, arguments),
-                    definition.isSensitive()
+                    definition.isSensitive() || isSensitiveReadTool(name)
             );
         }
 
@@ -866,7 +892,10 @@ public class GeminiAssistant {
                     requestId == null ? null : requestId.toString()
             );
             invocationCache.put(name, arguments, result);
-            return new ToolExecutionResult(result, definition.isSensitive());
+            return new ToolExecutionResult(
+                    result,
+                    definition.isSensitive() || isSensitiveReadTool(name)
+            );
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
@@ -879,9 +908,10 @@ public class GeminiAssistant {
             if (profileLookupResult.isPresent()) {
                 return new ToolExecutionResult(
                         profileLookupResult.get(),
-                        definition.isSensitive()
+                        definition.isSensitive() || isSensitiveReadTool(name)
                 );
             }
+
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     "Le service métier associé à l’outil n’a pas pu traiter la demande.",
@@ -894,6 +924,10 @@ public class GeminiAssistant {
                     exception
             );
         }
+    }
+
+    private boolean isSensitiveReadTool(String name) {
+        return Set.of("get_agent_profile", "search_agents").contains(name);
     }
 
     static Optional<Map<String, Object>> profileLookupError(

@@ -20,7 +20,10 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Rôle : Assistant RH"));
         assertTrue(instruction.contains("Consignes configurées."));
         assertTrue(instruction.contains("get_agent_profile"));
-        assertTrue(instruction.contains("N’invente aucune donnée."));
+        assertTrue(instruction.contains("search_agents"));
+        assertTrue(instruction.contains("resultMode=COUNT"));
+        assertTrue(instruction.contains("get_organization_info"));
+        assertTrue(instruction.contains("N’invente ni agent"));
         assertTrue(instruction.contains(
                 "Ne demande jamais si l’utilisateur veut poursuivre"
         ));

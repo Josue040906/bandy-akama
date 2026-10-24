@@ -10,10 +10,11 @@ public record ChatResponse(
         String message,
         List<ToolResult> toolResults,
         UUID conversationId,
-        @JsonIgnore boolean resetConversationState
+        @JsonIgnore boolean resetConversationState,
+        @JsonIgnore List<ToolState> toolStates
 ) {
     public ChatResponse(String message, List<ToolResult> toolResults) {
-        this(message, toolResults, null, false);
+        this(message, toolResults, null, false, List.of());
     }
 
     public ChatResponse(
@@ -21,15 +22,40 @@ public record ChatResponse(
             List<ToolResult> toolResults,
             UUID conversationId
     ) {
-        this(message, toolResults, conversationId, false);
+        this(message, toolResults, conversationId, false, List.of());
+    }
+
+    public ChatResponse(
+            String message,
+            List<ToolResult> toolResults,
+            UUID conversationId,
+            boolean resetConversationState
+    ) {
+        this(message, toolResults, conversationId, resetConversationState, List.of());
     }
 
     public ChatResponse withConversationId(UUID id) {
-        return new ChatResponse(message, toolResults, id, resetConversationState);
+        return new ChatResponse(
+                message,
+                toolResults,
+                id,
+                resetConversationState,
+                toolStates
+        );
     }
 
     public ChatResponse withConversationStateReset(boolean reset) {
-        return new ChatResponse(message, toolResults, conversationId, reset);
+        return new ChatResponse(message, toolResults, conversationId, reset, toolStates);
+    }
+
+    public record ToolState(
+            String name,
+            Map<String, Object> arguments,
+            Object result
+    ) {
+        public ToolState(String name, Map<String, Object> arguments) {
+            this(name, arguments, null);
+        }
     }
 
     public record ToolResult(

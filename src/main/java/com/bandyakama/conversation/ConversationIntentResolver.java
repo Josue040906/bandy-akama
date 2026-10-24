@@ -21,8 +21,14 @@ public class ConversationIntentResolver {
                     + "meme\\b|maintenant\\s+(?:ceux|celles|les|la|le|"
                     + "hommes|femmes)\\b|"
                     + "(?:moins|plus)\\s+de\\s+\\d+\\b|"
+                    + "(?:au\\s+moins|au\\s+plus)\\s+\\d+\\b|"
                     + "\\d+\\s+ans?\\b|"
                     + "(?:hommes|femmes)\\s*[?!.]*$)"
+    );
+    private static final Pattern COUNT_FOLLOW_UP = Pattern.compile(
+            "^(?:et\\s+)?(?:combien\\b|quel\\s+est\\s+le\\s+nombre\\b|"
+                    + "donne[- ]moi\\s+le\\s+nombre\\b|compte[- ]les\\b|"
+                    + "quel\\s+est\\s+leur\\s+effectif\\b)"
     );
     private static final Pattern INDEPENDENT_INTENT = Pattern.compile(
             "^(?:maintenant\\s+)?(?:explique(?:-moi)?|decris(?:-moi)?|"
@@ -90,6 +96,21 @@ public class ConversationIntentResolver {
                     || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
                     ? Decision.NEW_INTENT
                     : Decision.CONTINUATION;
+        }
+        if ("search_agents".equals(activeState.path("toolName").asText())) {
+            if (EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
+                    || INDEPENDENT_INTENT.matcher(normalized).find()
+                    || NEW_SEARCH.matcher(normalized).find()) {
+                return Decision.NEW_INTENT;
+            }
+            if (COUNT_FOLLOW_UP.matcher(normalized).find()
+                    || CONTINUATION.matcher(normalized).find()
+                    || APPROXIMATE_SEARCH_FOLLOW_UP
+                    .matcher(normalized)
+                    .matches()) {
+                return Decision.CONTINUATION;
+            }
+            return Decision.NEW_INTENT;
         }
         if (INDEPENDENT_INTENT.matcher(normalized).find()) {
             return Decision.NEW_INTENT;

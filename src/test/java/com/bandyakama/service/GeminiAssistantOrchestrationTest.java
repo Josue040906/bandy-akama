@@ -46,17 +46,24 @@ class GeminiAssistantOrchestrationTest {
 
 
     @Test
-    void exposesOnlyTheGlobalAgentProfileToolToGemini() {
+    void exposesOnlyTheExplicitlyAllowedToolsToGemini() {
         ToolDefinition oldSearchTool = namedTool("searchEmployees");
         ToolDefinition profileTool = namedTool("get_agent_profile");
+        ToolDefinition searchTool = namedTool("search_agents");
+        ToolDefinition organizationTool = namedTool("get_organization_info");
 
         assertEquals(
-                List.of(profileTool),
-                GeminiAssistant.selectAgentProfileTool(
-                        List.of(oldSearchTool, profileTool)
+                List.of(profileTool, searchTool, organizationTool),
+                GeminiAssistant.selectAllowedTools(
+                        List.of(
+                                oldSearchTool,
+                                profileTool,
+                                searchTool,
+                                organizationTool
+                        )
                 )
         );
-        assertTrue(GeminiAssistant.selectAgentProfileTool(
+        assertTrue(GeminiAssistant.selectAllowedTools(
                 List.of(oldSearchTool)
         ).isEmpty());
     }
@@ -136,20 +143,24 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
-    void ignoresLegacyIntentSpecificToolsWhenSelectingTheProfileTool() {
+    void ignoresLegacyIntentSpecificToolsWhenSelectingAllowedTools() {
         ToolDefinition legacySearchTool = namedTool("searchEmployeesApproximately");
         ToolDefinition legacyPersonalProfileTool = namedTool("getMyProfile");
         ToolDefinition profileTool = namedTool("get_agent_profile");
+        ToolDefinition searchTool = namedTool("search_agents");
+        ToolDefinition organizationTool = namedTool("get_organization_info");
 
         assertEquals(
-                List.of(profileTool),
-                GeminiAssistant.selectAgentProfileTool(List.of(
+                List.of(profileTool, searchTool, organizationTool),
+                GeminiAssistant.selectAllowedTools(List.of(
                         legacySearchTool,
                         legacyPersonalProfileTool,
-                        profileTool
+                        profileTool,
+                        searchTool,
+                        organizationTool
                 ))
         );
-        assertTrue(GeminiAssistant.selectAgentProfileTool(List.of(
+        assertTrue(GeminiAssistant.selectAllowedTools(List.of(
                 legacySearchTool,
                 legacyPersonalProfileTool
         )).isEmpty());

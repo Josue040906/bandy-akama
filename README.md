@@ -47,11 +47,12 @@ more than Standard (Google currently documents a 75-100% premium). Keep
 `standard` unless the Google Cloud billing owner has approved that charge.
 Priority is supported only for compatible models and accounts; validate it
 with a measured pilot before production use.
-Gemini receives only the `get_agent_profile` function declaration. The
-registration script removes legacy intent-specific tools, while Bandy also
-filters the runtime schema so stale database registrations cannot expand the
-prompt. The profile JSON is reused from the conversation context for follow-up
-questions. Responses are streamed as SSE `token`, `done`, or `error` events.
+Gemini receives only the explicitly allowed `search_agents`,
+`get_agent_profile` and `get_organization_info` function declarations. The
+runtime filters stale database registrations so they cannot expand the model
+schema. Agent search and profile results are not persisted as raw conversation
+references; the active search criteria are retained for follow-up questions.
+Responses are streamed as SSE `token`, `done` or `error` events.
 
 To compare the configured Flash model with stable Gemini 3.5 Flash-Lite without
 changing Bandy's production model, run `.\scripts\benchmark-gemini-models.ps1`.
@@ -134,8 +135,17 @@ Manage tools using `GET /api/tools`, `POST /api/tools`, `PUT /api/tools/{name}` 
 
 Supported argument types are `string`, `integer`, `number` and `boolean`; locations are `query`, `path` and `body`. GET arguments default to query parameters; other methods default to JSON body parameters. Path placeholders must be required parameters declared with `"location":"path"`. Supported methods are GET, POST, PUT, PATCH and DELETE.
 
-The assistant uses one RH tool to fetch a concise global agent profile by
-exact full name or matricule:
+The assistant uses three read-only RH capabilities:
+
+- `search_agents` sends a structured `criteriaJson` string and a `resultMode`
+  (`LIST` or `COUNT`) in the JSON body to
+  `POST /api/recherche/agents/criteres`. The API validates up to 10 filters,
+  limits list pages to 50 agents, and executes exact counts in the backend.
+  Supported criteria include employee attributes, current work assignment and
+  diploma level/domain/institution. A `niveau_diplome` and `domaine_etude`
+  combination is matched against the same diploma record.
+- `get_agent_profile` retrieves the concise professional profile by exact full
+  name or matricule:
 
 ```json
 {
@@ -145,6 +155,7 @@ exact full name or matricule:
   "method": "GET",
   "url": "http://localhost:8080/api/profil/agent/assistant",
   "enabled": true,
+  "sensitive": true,
   "parameters": [
     {
       "name": "nom_agent",
@@ -157,13 +168,20 @@ exact full name or matricule:
 }
 ```
 
-`.\scripts\register-rh-tools.ps1` registers or updates this tool. It leaves
-other registered tools unchanged unless `-RemoveLegacyTools` is supplied;
-that switch removes all tools except `get_agent_profile`. The registration
-step requires a reachable Bandy instance and the registration key. The RH API
-rejects partial-name matches and returns a conflict when multiple agents share
-the same exact name, so Bandy can ask for a matricule instead of selecting
-someone arbitrarily.
+- `get_organization_info` calls the protected, read-only
+  `GET /api/assistant/organization?query=…&scope=…` route. It returns the real
+  direction → service → post hierarchy and available descriptions, capped at
+  100 rows with an explicit truncation flag. It does not synthesize missing
+  responsibilities.
+
+`.\scripts\register-rh-tools.ps1` registers or updates these three tools and
+verifies their parameter names and configured HTTP method/URL. Other tool
+definitions are reported and left unchanged unless `-RemoveLegacyTools` is
+explicitly supplied; that switch removes only tools outside the three managed
+names. The registration step requires a reachable Bandy instance and the
+registration key. The RH API rejects partial-name profile matches and returns
+a conflict when multiple agents share the same exact name, so Bandy can ask
+for a matricule instead of choosing arbitrarily.
 
 ## Connecting the frontend and RH backend
 
@@ -171,12 +189,16 @@ Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's publi
 
 The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH profile endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
 
-Gemini receives only the `get_agent_profile` schema. It calls the tool for
-agent-specific questions, then answers from the returned profile; a profile
-already present in the current conversation can be reused without another
-lookup. This is targeted retrieval of structured RH data, not vector-database
-or document-search RAG. Run `.\scripts\update-assistant-profile.ps1` after
-deploying Bandy to apply the assistant's response guidance.
+Gemini receives only the three explicitly allowlisted schemas. It uses the
+profile tool for identified-agent details, the search tool for structured
+queries and exact counts, and the organization tool for documented hierarchy.
+Raw agent search/profile results are treated as sensitive: Bandy retains the
+criteria needed for continuity, not complete CVs in conversation references.
+This is targeted retrieval of structured RH data, not vector-database or
+document-search RAG. Run `.\scripts\register-rh-tools.ps1` after deploying
+both APIs to register the tool definitions, then run
+`.\scripts\update-assistant-profile.ps1` to apply the assistant's response
+guidance.
 
 Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
 
