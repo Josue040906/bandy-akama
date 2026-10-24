@@ -29,7 +29,8 @@ public class AssistantConfigurationRepository {
                    parameter.location AS parameter_location,
                    parameter.required AS parameter_required
             FROM bandy_assistant_profile p
-            LEFT JOIN bandy_tool t ON t.enabled = TRUE
+            LEFT JOIN bandy_tool t
+                   ON t.enabled = TRUE AND t.name = 'get_agent_profile'
             LEFT JOIN bandy_tool_parameter parameter
                    ON parameter.tool_name = t.name
             WHERE p.id = 1

@@ -41,15 +41,22 @@ public class PerformanceTelemetry {
     public void modelCallFailure(
             UUID requestId,
             int callNumber,
+            String model,
+            String serviceTier,
+            Integer providerStatus,
             Throwable failure,
             String apiKey
     ) {
         LOGGER.warn(
                 "bandy_perf event=model_call_failure request_id={} "
-                        + "call_number={} exception_class={} error_message={} "
-                        + "cause_chain={}",
+                        + "call_number={} model={} service_tier={} "
+                        + "provider_status={} exception_class={} "
+                        + "error_message={} cause_chain={}",
                 requestId,
                 callNumber,
+                model,
+                serviceTier,
+                providerStatus == null ? "none" : providerStatus,
                 failure.getClass().getName(),
                 safeErrorMessage(failure.getMessage(), apiKey),
                 safeCauseChain(failure, apiKey)
@@ -99,16 +106,63 @@ public class PerformanceTelemetry {
     public void modelCall(
             UUID requestId,
             int callNumber,
+            String model,
+            String serviceTier,
+            Integer providerStatus,
             long startedAtNanos,
             boolean succeeded
     ) {
         LOGGER.info(
                 "bandy_perf event=model_call request_id={} call_number={} "
+                        + "model={} service_tier={} provider_status={} "
                         + "duration_us={} outcome={}",
                 requestId,
                 callNumber,
+                model,
+                serviceTier,
+                providerStatus == null ? "none" : providerStatus,
                 elapsedMicros(startedAtNanos),
                 outcome(succeeded)
+        );
+    }
+
+    public void modelUsage(
+            UUID requestId,
+            int callNumber,
+            int inputTokens,
+            int outputTokens,
+            int thinkingTokens,
+            int cachedInputTokens
+    ) {
+        LOGGER.info(
+                "bandy_perf event=model_usage request_id={} call_number={} "
+                        + "input_tokens={} output_tokens={} thinking_tokens={} "
+                        + "cached_input_tokens={}",
+                requestId,
+                callNumber,
+                inputTokens,
+                outputTokens,
+                thinkingTokens,
+                cachedInputTokens
+        );
+    }
+
+    public void modelConfiguration(
+            UUID requestId,
+            String model,
+            String serviceTier,
+            String thinkingLevel,
+            int maxOutputTokens
+    ) {
+        LOGGER.info(
+                "bandy_perf event=model_configuration request_id={} model={} "
+                        + "service_tier={} thinking_level={} "
+                        + "max_output_tokens={}",
+                requestId,
+                model,
+                serviceTier,
+                thinkingLevel,
+                maxOutputTokens
         );
     }
 
@@ -168,6 +222,9 @@ public class PerformanceTelemetry {
             int retryAttempts,
             int maxToolRounds,
             int turnBudgetMillis,
+            int inputTokens,
+            int outputTokens,
+            int thinkingTokens,
             boolean succeeded
     ) {
         LOGGER.info(
@@ -175,7 +232,9 @@ public class PerformanceTelemetry {
                         + "model_calls={} tool_calls={} tool_cache_hits={} "
                         + "tool_rounds={} "
                         + "gemini_timeout_ms={} gemini_max_attempts={} "
-                        + "max_tool_rounds={} turn_budget_ms={} outcome={}",
+                        + "max_tool_rounds={} turn_budget_ms={} "
+                        + "input_tokens={} output_tokens={} thinking_tokens={} "
+                        + "outcome={}",
                 requestId,
                 elapsedMicros(startedAtNanos),
                 modelCalls,
@@ -186,6 +245,27 @@ public class PerformanceTelemetry {
                 retryAttempts,
                 maxToolRounds,
                 turnBudgetMillis,
+                inputTokens,
+                outputTokens,
+                thinkingTokens,
+                outcome(succeeded)
+        );
+    }
+
+    public void toolCall(
+            String requestId,
+            String toolName,
+            long startedAtNanos,
+            Integer httpStatus,
+            boolean succeeded
+    ) {
+        LOGGER.info(
+                "bandy_perf event=tool_call request_id={} tool={} "
+                        + "http_status={} duration_us={} outcome={}",
+                requestId == null ? "untracked" : requestId,
+                toolName,
+                httpStatus == null ? "none" : httpStatus,
+                elapsedMicros(startedAtNanos),
                 outcome(succeeded)
         );
     }

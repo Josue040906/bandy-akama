@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.function.Supplier;
+import java.util.function.Consumer;
 import java.util.UUID;
 
 @Service
@@ -103,12 +104,56 @@ public class ConversationService {
         );
     }
 
+    public void delete(UUID conversationId, UserIdentity identity) {
+        repository.delete(
+                conversationId,
+                identity.applicationId(),
+                identity.ownerId()
+        );
+    }
+
     public ChatResponse sendMessage(
             UUID conversationId,
             UserIdentity identity,
             String message,
             String authorization,
             UUID idempotencyKey
+    ) {
+        return sendMessage(
+                conversationId,
+                identity,
+                message,
+                authorization,
+                idempotencyKey,
+                null
+        );
+    }
+
+    public ChatResponse sendMessageStreaming(
+            UUID conversationId,
+            UserIdentity identity,
+            String message,
+            String authorization,
+            UUID idempotencyKey,
+            Consumer<String> tokenConsumer
+    ) {
+        return sendMessage(
+                conversationId,
+                identity,
+                message,
+                authorization,
+                idempotencyKey,
+                tokenConsumer
+        );
+    }
+
+    private ChatResponse sendMessage(
+            UUID conversationId,
+            UserIdentity identity,
+            String message,
+            String authorization,
+            UUID idempotencyKey,
+            Consumer<String> tokenConsumer
     ) {
         UUID effectiveRequestId = idempotencyKey == null
                 ? UUID.randomUUID()
@@ -128,7 +173,8 @@ public class ConversationService {
                     effectiveRequestId,
                     identity,
                     message,
-                    authorization
+                    authorization,
+                    tokenConsumer
             );
             succeeded = true;
             return response;
@@ -147,7 +193,8 @@ public class ConversationService {
             UUID requestId,
             UserIdentity identity,
             String message,
-            String authorization
+            String authorization,
+            Consumer<String> tokenConsumer
     ) {
         ConversationRepository.RequestStart request = measured(
                 requestId,
@@ -171,26 +218,6 @@ public class ConversationService {
                     "intent_resolution",
                     () -> intentResolver.resolve(message, request.activeState())
             );
-            if (decision
-                    == ConversationIntentResolver.Decision.CLARIFICATION_REQUIRED) {
-                ChatResponse clarification = new ChatResponse(
-                        intentResolver.clarificationMessage(),
-                        java.util.List.of(),
-                        conversationId
-                );
-                measured(
-                        requestId,
-                        "response_persistence",
-                        () -> repository.completeRequest(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                clarification
-                        )
-                );
-                return clarification;
-            }
-
             var greeting = ConversationIntentResolver.greetingResponse(message);
             if (greeting.isPresent()) {
                 long greetingStartedAt = System.nanoTime();
@@ -218,6 +245,28 @@ public class ConversationService {
                 return response;
             }
 
+            var newQuestion = ConversationIntentResolver.newQuestionResponse(
+                    message
+            );
+            if (newQuestion.isPresent()) {
+                ChatResponse response = new ChatResponse(
+                        newQuestion.get(),
+                        java.util.List.of(),
+                        conversationId
+                ).withConversationStateReset(true);
+                measured(
+                        requestId,
+                        "response_persistence",
+                        () -> repository.completeRequest(
+                                conversationId,
+                                requestId,
+                                request.claimId(),
+                                response
+                        )
+                );
+                return response;
+            }
+
             boolean resetState = decision
                     == ConversationIntentResolver.Decision.NEW_INTENT;
             JsonNode stateForRequest = decision
@@ -227,7 +276,7 @@ public class ConversationService {
             String classifiedContext = measured(
                     requestId,
                     "context_preparation",
-                    () -> repository.contextForRequest(
+                    () -> repository.contextForModelRequest(
                             conversationId,
                             requestId,
                             stateForRequest,
@@ -238,19 +287,32 @@ public class ConversationService {
                     + "\n\nDécision de continuité prise par Bandy : "
                     + (decision
                     == ConversationIntentResolver.Decision.CONTINUATION
-                    ? "CONTINUATION. Conserve les filtres actifs non modifiés."
-                    : "NOUVELLE INTENTION. Ignore tous les filtres et résultats précédents "
-                            + "pour décider des critères de cette demande.");
+                    ? "CONTINUATION. Utilise le fil complet pour déterminer si la "
+                            + "demande actuelle se rattache au sujet précédent. "
+                            + "Réutilise les données déjà chargées seulement si elles "
+                            + "répondent à cette demande."
+                    : "NOUVELLE INTENTION explicitement détectée. Ignore les "
+                            + "filtres et résultats précédents pour décider des "
+                            + "critères de cette demande.");
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
-                    () -> assistant.respond(
-                            message,
-                            authorization,
-                            classifiedContext,
-                            requestId,
-                            stateForRequest
-                    )
+                    () -> tokenConsumer == null
+                            ? assistant.respond(
+                                    message,
+                                    authorization,
+                                    classifiedContext,
+                                    requestId,
+                                    stateForRequest
+                            )
+                            : assistant.respond(
+                                    message,
+                                    authorization,
+                                    classifiedContext,
+                                    requestId,
+                                    stateForRequest,
+                                    tokenConsumer
+                            )
             );
             ChatResponse completedResponse = response.withConversationId(conversationId)
                     .withConversationStateReset(resetState);

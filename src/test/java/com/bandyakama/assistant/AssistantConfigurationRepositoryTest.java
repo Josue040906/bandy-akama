@@ -8,6 +8,7 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AssistantConfigurationRepositoryTest {
@@ -32,19 +33,23 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.profile()
             );
             assertEquals(1, snapshot.enabledTools().size());
-            assertEquals("lookup", snapshot.enabledTools().get(0).getName());
-            assertEquals(2, snapshot.enabledTools().get(0).getParameters().size());
             assertEquals(
-                    "first",
+                    "get_agent_profile",
+                    snapshot.enabledTools().get(0).getName()
+            );
+            assertEquals(1, snapshot.enabledTools().get(0).getParameters().size());
+            assertEquals(
+                    "nom_agent",
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
-            assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertFalse(snapshot.enabledTools().get(0).isSensitive());
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
             );
             jdbcTemplate.update(
-                    "UPDATE bandy_tool SET enabled = FALSE WHERE name = 'lookup'"
+                    "UPDATE bandy_tool SET enabled = FALSE "
+                            + "WHERE name = 'get_agent_profile'"
             );
 
             statementsBeforeSnapshot = jdbcTemplate.queryCount();
@@ -124,15 +129,19 @@ class AssistantConfigurationRepositoryTest {
                 INSERT INTO bandy_tool
                 (name, description, when_to_use, http_method, endpoint_url,
                  enabled, sensitive) VALUES
-                ('lookup', 'Look up records', 'When asked', 'GET',
-                 'http://localhost/lookup', TRUE, TRUE)
+                ('get_agent_profile', 'Agent profile', 'For agent questions',
+                 'GET', 'http://localhost/profile', TRUE, FALSE),
+                ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
+                 'http://localhost/legacy', TRUE, TRUE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
                 (tool_name, name, type, description, location, required, position)
                 VALUES
-                ('lookup', 'second', 'string', 'Second parameter', 'query', FALSE, 2),
-                ('lookup', 'first', 'integer', 'First parameter', 'query', TRUE, 1)
+                ('get_agent_profile', 'nom_agent', 'string', 'Agent name',
+                 'query', TRUE, 1),
+                ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
+                 'query', TRUE, 1)
                 """);
     }
 

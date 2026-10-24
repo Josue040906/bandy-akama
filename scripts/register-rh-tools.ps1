@@ -1,3 +1,7 @@
+param(
+    [switch]$RemoveLegacyTools
+)
+
 $ErrorActionPreference = 'Stop'
 
 $bandyApiUrl = $env:BANDY_API_URL
@@ -255,6 +259,24 @@ $careerTargetsTool = @{
     parameters = @()
 }
 
+$agentProfileTool = @{
+    name = 'get_agent_profile'
+    description = 'Récupère le profil professionnel concis d’un agent identifié par son nom ou matricule.'
+    whenToUse = 'Pour une question sur l’âge, les diplômes, le parcours, le poste actuel ou les informations professionnelles d’un agent. Utiliser le profil déjà présent dans le contexte de la conversation sans refaire cet appel. Passer le nom ou le matricule fourni par l’utilisateur, sans inventer de correspondance.'
+    method = 'GET'
+    url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent/assistant"
+    enabled = $true
+    parameters = @(
+        @{
+            name = 'nom_agent'
+            type = 'string'
+            description = 'Nom complet ou matricule exact de l’agent.'
+            required = $true
+            location = 'query'
+        }
+    )
+}
+
 $headers = @{
     'X-Bandy-Registration-Key' = $registrationKey
 }
@@ -264,24 +286,8 @@ $existingTools = Invoke-RestMethod `
     -Method Get `
     -Headers $headers `
     -TimeoutSec 15
-foreach ($definition in @(
-    $tool,
-    $approximateSearchTool,
-    $profileTool,
-    $organizationOverviewTool,
-    $positionCountTool,
-    $positionsTool,
-    $servicesTool,
-    $directionsTool,
-    $gradesTool,
-    $highestDegreeTool,
-    $recentAssignmentsTool,
-    $myActivitiesTool,
-    $referenceTablesTool,
-    $diplomaReferencesTool,
-    $careerRulesTool,
-    $careerTargetsTool
-)) {
+
+foreach ($definition in @($agentProfileTool)) {
     if ($definition.whenToUse.Length -gt 2000) {
         throw "Tool instructions for $($definition.name) exceed the 2000-character API limit."
     }
@@ -321,9 +327,7 @@ foreach ($definition in @(
 
     $registeredParameters = @($result.parameters | ForEach-Object { $_.name })
     $expectedParameters = switch ($definition.name) {
-        'searchEmployees' { @('criteriaJson') }
-        'searchEmployeesApproximately' { @('query', 'service', 'poste', 'direction') }
-        'countEmployeesByPosition' { @('query') }
+        'get_agent_profile' { @('nom_agent') }
         default { @() }
     }
     if ($expectedParameters.Count -gt 0) {
@@ -337,4 +341,28 @@ foreach ($definition in @(
     } else {
         Write-Output "Registered tool: $($result.name) ($method)"
     }
+}
+
+if ($RemoveLegacyTools) {
+    foreach ($legacyTool in @($existingTools | Where-Object {
+        $_.name -ne $agentProfileTool.name
+    })) {
+        try {
+            Invoke-RestMethod `
+                -Uri "$toolsUri/$($legacyTool.name)" `
+                -Method Delete `
+                -Headers $headers `
+                -TimeoutSec 15
+        } catch {
+            $statusCode = if ($_.Exception.Response) {
+                [int]$_.Exception.Response.StatusCode
+            } else {
+                'unavailable'
+            }
+            throw "Removal of legacy tool $($legacyTool.name) failed (HTTP $statusCode): $($_.Exception.Message)"
+        }
+        Write-Output "Removed legacy tool: $($legacyTool.name)"
+    }
+} else {
+    Write-Output "Legacy tools were left unchanged. Re-run with -RemoveLegacyTools to remove them."
 }

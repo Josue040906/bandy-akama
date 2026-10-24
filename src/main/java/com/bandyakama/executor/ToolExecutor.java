@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.http.HttpClient;
@@ -77,6 +78,7 @@ public class ToolExecutor {
     ) {
         long startedAt = System.nanoTime();
         boolean succeeded = false;
+        Integer httpStatus = null;
         try {
             validateArguments(tool, arguments);
             RestClient requestClient = requestClientWithinBudget();
@@ -134,11 +136,15 @@ public class ToolExecutor {
             Object result = request.retrieve().body(Object.class);
             succeeded = true;
             return result;
+        } catch (RestClientResponseException exception) {
+            httpStatus = exception.getStatusCode().value();
+            throw exception;
         } finally {
             performanceTelemetry.toolCall(
                     idempotencyKey,
                     tool == null ? "unknown" : tool.getName(),
                     startedAt,
+                    httpStatus,
                     succeeded
             );
         }

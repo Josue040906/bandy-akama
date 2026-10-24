@@ -24,6 +24,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -32,25 +33,33 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.reset;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@SpringBootTest(properties =
-        "bandy.conversations.allowed-application-ids=client-a,client-b")
+@SpringBootTest(properties = {
+        "bandy.conversations.allowed-application-ids=client-a,client-b",
+        "bandy.conversations.context.recent-messages=10"
+})
 @AutoConfigureMockMvc
 class ConversationApiTest {
     private static final String SECRET =
@@ -121,6 +130,75 @@ class ConversationApiTest {
     }
 
     @Test
+    void streamsConversationResponsesAsServerSentEvents() throws Exception {
+        UUID conversationId = createConversation("42");
+        MvcResult pending = mockMvc.perform(post(
+                        "/api/conversations/{id}/messages/stream",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .content("{\"message\":\"Bonjour\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(pending))
+                .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.TEXT_EVENT_STREAM
+                ))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("event: done")
+                ));
+        verifyNoInteractions(assistant);
+    }
+
+    @Test
+    void forwardsGeneratedTokensBeforeTheFinalConversationEvent()
+            throws Exception {
+        doAnswer(invocation -> {
+            Consumer<String> tokenConsumer = invocation.getArgument(5);
+            tokenConsumer.accept("Le parcours ");
+            tokenConsumer.accept("est stable.");
+            return new ChatResponse("Le parcours est stable.", List.of());
+        }).when(assistant).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                nullable(UUID.class),
+                nullable(JsonNode.class),
+                any(Consumer.class)
+        );
+
+        UUID conversationId = createConversation("42");
+        MvcResult pending = mockMvc.perform(post(
+                        "/api/conversations/{id}/messages/stream",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", UUID.randomUUID().toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_EVENT_STREAM)
+                        .content("{\"message\":\"Quel est le parcours de Mialy RAKOTO ?\"}"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+
+        mockMvc.perform(asyncDispatch(pending))
+                .andExpect(status().isOk())
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("event: token")
+                ))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Le parcours ")
+                ))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("event: done")
+                ));
+    }
+
+    @Test
     void scopesSameUserByTheSignedClientApplicationAudience() throws Exception {
         UUID clientAConversation = createConversation("42", "client-a");
 
@@ -154,6 +232,34 @@ class ConversationApiTest {
                 .andExpect(header().string(
                         "Access-Control-Allow-Methods",
                         org.hamcrest.Matchers.containsString("GET")
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Headers",
+                        org.hamcrest.Matchers.containsString("authorization")
+                ));
+    }
+
+    @Test
+    void allowsDeletePreflightForConversationHistory()
+            throws Exception {
+        mockMvc.perform(options(
+                        "/api/conversations/{id}",
+                        UUID.randomUUID()
+                )
+                        .header("Origin", "http://localhost:5173")
+                        .header("Access-Control-Request-Method", "DELETE")
+                        .header(
+                                "Access-Control-Request-Headers",
+                                "authorization"
+                        ))
+                .andExpect(status().isOk())
+                .andExpect(header().string(
+                        "Access-Control-Allow-Origin",
+                        "http://localhost:5173"
+                ))
+                .andExpect(header().string(
+                        "Access-Control-Allow-Methods",
+                        org.hamcrest.Matchers.containsString("DELETE")
                 ))
                 .andExpect(header().string(
                         "Access-Control-Allow-Headers",
@@ -258,6 +364,160 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
+        );
+    }
+
+    @Test
+    void reusesTheLoadedAgentProfileForIdentityCorrectionAndAcademicFollowUp()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Je n’ai pas trouvé cet agent.",
+                        List.of(new ChatResponse.ToolResult(
+                                "get_agent_profile",
+                                Map.of("found", false),
+                                Map.of("nom_agent", "Josué TSIVOERY")
+                        ))
+                ),
+                new ChatResponse(
+                        "Le profil de TSIVOERY Josué Césaire est chargé.",
+                        List.of(new ChatResponse.ToolResult(
+                                "get_agent_profile",
+                                Map.of(
+                                        "found", true,
+                                        "agent", Map.of(
+                                                "nom", "TSIVOERY",
+                                                "prenom", "Josué Césaire",
+                                                "diplomes", List.of(Map.of(
+                                                        "intitule",
+                                                        "Licence en Gestion RH",
+                                                        "annee", 2025
+                                                ))
+                                        )
+                                ),
+                                Map.of(
+                                        "nom_agent",
+                                        "TSIVOERY Josué Césaire"
+                                )
+                        ))
+                ),
+                new ChatResponse(
+                        "Il appartient à la catégorie III.",
+                        List.of()
+                ),
+                new ChatResponse(
+                        "Il assure la gestion des dossiers du personnel.",
+                        List.of()
+                )
+        );
+
+        send(conversationId, "42", "Parle-moi de Josué TSIVOERY.");
+        send(
+                conversationId,
+                "42",
+                "Je crois qu’on l’appelle TSIVOERY Josué Césaire."
+        );
+        MvcResult categoryFollowUp = send(
+                conversationId,
+                "42",
+                "Sait-tu à quelle catégorie il appartient"
+        );
+        MvcResult unexpectedFollowUp = send(
+                conversationId,
+                "42",
+                "Et quelles responsabilités exerce-t-il au quotidien ?"
+        );
+
+        var requestedMessages = org.mockito.ArgumentCaptor.forClass(String.class);
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
+        verify(assistant, times(4)).respond(
+                requestedMessages.capture(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                states.capture()
+        );
+
+        String academicContext = contexts.getAllValues().get(2);
+        assertTrue(academicContext.contains("Licence en Gestion RH"));
+        assertTrue(academicContext.contains("sans rappeler l’outil"));
+        assertTrue(academicContext.contains("CONTINUATION"));
+        var parsedHistory = ConversationPromptContext.parse(
+                academicContext,
+                objectMapper
+        ).history();
+        assertTrue(parsedHistory.stream().anyMatch(turn ->
+                turn.role().equals("user")
+                        && turn.content().contains("Parle-moi de Josué")
+        ));
+        assertTrue(parsedHistory.stream().anyMatch(turn ->
+                turn.role().equals("assistant")
+                        && turn.content().contains("Je n’ai pas trouvé")
+        ));
+        assertTrue(parsedHistory.stream().anyMatch(turn ->
+                turn.role().equals("user")
+                        && turn.content().contains("Je crois qu’on l’appelle")
+        ));
+        assertTrue(parsedHistory.stream().anyMatch(turn ->
+                turn.role().equals("assistant")
+                        && turn.content().contains("profil de TSIVOERY")
+        ));
+        assertEquals(
+                "Sait-tu à quelle catégorie il appartient",
+                requestedMessages.getAllValues().get(2)
+        );
+        String unexpectedContext = contexts.getAllValues().get(3);
+        assertTrue(unexpectedContext.contains("Licence en Gestion RH"));
+        assertTrue(unexpectedContext.contains("CONTINUATION"));
+        var unexpectedHistory = ConversationPromptContext.parse(
+                unexpectedContext,
+                objectMapper
+        ).history();
+        assertTrue(unexpectedHistory.stream().anyMatch(turn ->
+                turn.role().equals("user")
+                        && turn.content().contains("à quelle catégorie")
+        ));
+        assertEquals(
+                "Et quelles responsabilités exerce-t-il au quotidien ?",
+                requestedMessages.getAllValues().get(3)
+        );
+        assertEquals(
+                "get_agent_profile",
+                states.getAllValues().get(1).path("toolName").asText()
+        );
+        assertEquals(
+                "get_agent_profile",
+                states.getAllValues().get(2).path("toolName").asText()
+        );
+        assertEquals(
+                "get_agent_profile",
+                states.getAllValues().get(3).path("toolName").asText()
+        );
+        assertEquals(
+                "Il appartient à la catégorie III.",
+                objectMapper.readTree(
+                        categoryFollowUp.getResponse().getContentAsString()
+                ).path("message").asText()
+        );
+        assertEquals(
+                0,
+                objectMapper.readTree(
+                        categoryFollowUp.getResponse().getContentAsString()
+                ).path("toolResults").size()
+        );
+        assertEquals(
+                "Il assure la gestion des dossiers du personnel.",
+                objectMapper.readTree(
+                        unexpectedFollowUp.getResponse().getContentAsString()
+                ).path("message").asText()
         );
     }
 
@@ -390,6 +650,58 @@ class ConversationApiTest {
                 conversationId,
                 "result_references"
         ).size());
+    }
+
+    @Test
+    void explicitNewQuestionResetsStateWithoutCallingTheAssistant()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "J’ai trouvé l’agent.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(Map.of("matricule", "A-7")),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"}]}")
+                        ))
+                ),
+                new ChatResponse("Voici une réponse indépendante.", List.of())
+        );
+
+        send(conversationId, "42", "Cherche les agents du Personnel.");
+        var acknowledgement = send(
+                conversationId,
+                "42",
+                "Une nouvelle question"
+        );
+        send(conversationId, "42", "Combien y a-t-il de directions ?");
+
+        assertEquals(
+                "Bien sûr. Quelle est votre nouvelle question ?",
+                objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
+                        .path("message").asText()
+        );
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
+        assertFalse(
+                readMemoryJson(conversationId, "result_references")
+                        .toString().contains("A-7")
+        );
     }
 
     @Test
@@ -843,7 +1155,7 @@ class ConversationApiTest {
                 List.of()
         ));
 
-        for (int index = 0; index < 5; index++) {
+        for (int index = 0; index < 10; index++) {
             String message = index == 0
                     ? "Ancien sujet 0 contact admin@example.org, matricule "
                             + "RH1234567, téléphone 0341234567"
@@ -853,22 +1165,42 @@ class ConversationApiTest {
         send(conversationId, "42", "Dernière demande de suite");
 
         var context = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(assistant, times(6)).respond(
+        verify(assistant, times(11)).respond(
                 anyString(),
                 anyString(),
                 context.capture(),
                 any(UUID.class),
                 nullable(JsonNode.class)
         );
-        assertTrue(context.getAllValues().get(5)
+        String finalContext = context.getAllValues().get(10);
+        assertTrue(finalContext
                 .contains("Résumé extractif des échanges plus anciens"));
-        assertTrue(context.getAllValues().get(5).contains("Ancien sujet 0"));
-        assertTrue(context.getAllValues().get(5).contains("[email]"));
-        assertTrue(context.getAllValues().get(5).contains("[identifiant]"));
-        assertTrue(context.getAllValues().get(5).contains("[numero]"));
-        assertTrue(!context.getAllValues().get(5).contains("admin@example.org"));
-        assertTrue(!context.getAllValues().get(5).contains("RH1234567"));
-        assertTrue(!context.getAllValues().get(5).contains("0341234567"));
+        assertTrue(finalContext.contains("Ancien sujet 0"));
+        assertTrue(finalContext.contains("Ancien sujet 4"));
+        assertTrue(finalContext.contains("Ancien sujet 5"));
+        assertTrue(finalContext.contains("Ancien sujet 9"));
+        assertTrue(finalContext.contains("[email]"));
+        assertTrue(finalContext.contains("[identifiant]"));
+        assertTrue(finalContext.contains("[numero]"));
+        assertFalse(finalContext.contains("admin@example.org"));
+        assertFalse(finalContext.contains("RH1234567"));
+        assertFalse(finalContext.contains("0341234567"));
+        var recentHistory = ConversationPromptContext.parse(
+                finalContext,
+                objectMapper
+        ).history();
+        assertEquals(10, recentHistory.size());
+        assertEquals("user", recentHistory.get(0).role());
+        assertEquals("assistant", recentHistory.get(1).role());
+        assertTrue(recentHistory.stream().anyMatch(turn ->
+                turn.content().equals("Ancien sujet 5")
+        ));
+        assertTrue(recentHistory.stream().anyMatch(turn ->
+                turn.content().equals("Ancien sujet 9")
+        ));
+        assertFalse(recentHistory.stream().anyMatch(turn ->
+                turn.content().equals("Ancien sujet 4")
+        ));
 
         mockMvc.perform(get("/api/conversations")
                         .header("Authorization", bearerToken("42"))
@@ -928,6 +1260,30 @@ class ConversationApiTest {
         assertTrue(context.length() <= 1800);
         assertTrue(context.contains("Service du Personnel"), context);
         assertTrue(context.contains("KEEP-001"), context);
+    }
+
+    @Test
+    void rejectsConversationWindowsOutsideEightToTenMessages() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ConversationRepository(
+                        jdbcTemplate,
+                        objectMapper,
+                        7,
+                        4000,
+                        18000
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new ConversationRepository(
+                        jdbcTemplate,
+                        objectMapper,
+                        11,
+                        4000,
+                        18000
+                )
+        );
     }
 
     @Test
@@ -1013,6 +1369,10 @@ class ConversationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"label\":\"Recherche agents\"}"))
                 .andExpect(status().isNoContent());
+        mockMvc.perform(get("/api/conversations/{id}", conversationId)
+                        .header("Authorization", bearerToken("42")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.label").value("Recherche agents"));
 
         mockMvc.perform(post("/api/conversations/{id}/archive", conversationId)
                         .header("Authorization", bearerToken("42")))
@@ -1023,6 +1383,84 @@ class ConversationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"Bonjour\"}"))
                 .andExpect(status().isConflict());
+    }
+
+    @Test
+    void permanentlyDeletesOwnedConversationAndCascadesItsHistory()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
+        send(conversationId, "42", "Question conservée.");
+
+        mockMvc.perform(delete(
+                        "/api/conversations/{id}",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("43")))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(delete(
+                        "/api/conversations/{id}",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42")))
+                .andExpect(status().isNoContent());
+
+        assertEquals(0, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ?
+                """,
+                Integer.class,
+                conversationId
+        ));
+        assertEquals(0, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                Integer.class,
+                conversationId
+        ));
+        mockMvc.perform(get(
+                        "/api/conversations/{id}",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42")))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void rejectsDeletionWhileConversationIsProcessing() throws Exception {
+        UUID conversationId = createConversation("42");
+        java.sql.Timestamp processingUntil =
+                java.sql.Timestamp.from(Instant.now().plusSeconds(60));
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation
+                SET active_request_id = ?, processing_until = ?
+                WHERE id = ?
+                """,
+                UUID.randomUUID(),
+                processingUntil,
+                conversationId
+        );
+
+        mockMvc.perform(delete(
+                        "/api/conversations/{id}",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42")))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get(
+                        "/api/conversations/{id}",
+                        conversationId
+                )
+                        .header("Authorization", bearerToken("42")))
+                .andExpect(status().isOk());
     }
 
     @Test
@@ -1086,15 +1524,19 @@ class ConversationApiTest {
                 .readValueAs(UUID.class);
     }
 
-    private void send(UUID conversationId, String subject, String message)
+    private MvcResult send(UUID conversationId, String subject, String message)
             throws Exception {
-        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+        return mockMvc.perform(post(
+                                "/api/conversations/{id}/messages",
+                                conversationId
+                        )
                         .header("Authorization", bearerToken(subject))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(
                                 Map.of("message", message)
                         )))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andReturn();
     }
 
     private JsonNode readMemoryJson(UUID conversationId, String field)

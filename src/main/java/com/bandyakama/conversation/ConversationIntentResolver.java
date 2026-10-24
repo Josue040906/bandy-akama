@@ -28,14 +28,29 @@ public class ConversationIntentResolver {
             "^(?:maintenant\\s+)?(?:explique(?:-moi)?|decris(?:-moi)?|"
                     + "presente(?:-moi)?|"
                     + "comment\\s+(?:fonctionne|marche)|"
-                    + "qu[' ]est-ce|quelle\\s+est\\s+la\\s+structure|"
-                    + "nouvelle\\s+recherche|changeons\\s+de\\s+sujet)\\b"
+                    + "nouvelle\\s+(?:question|recherche)|"
+                    + "changeons\\s+de\\s+sujet|"
+                    + "passons\\s+a\\s+(?:autre\\s+chose|un\\s+autre\\s+sujet)|"
+                    + "parlons\\s+d['’]?(?:un\\s+)?autre\\s+sujet|"
+                    + "rien\\s+a\\s+voir)\\b"
+    );
+    private static final Pattern EXPLICIT_TOPIC_CHANGE = Pattern.compile(
+            "^(?:nouvelle\\s+(?:question|recherche)|"
+                    + "changeons\\s+de\\s+sujet|"
+                    + "passons\\s+a\\s+(?:autre\\s+chose|un\\s+autre\\s+sujet)|"
+                    + "parlons\\s+d['’]?(?:un\\s+)?autre\\s+sujet|"
+                    + "rien\\s+a\\s+voir)\\b"
     );
     private static final Pattern NEW_SEARCH = Pattern.compile(
             "^maintenant\\s+(?:cherche|recherche|trouve|liste|compte)\\b"
     );
+    private static final Pattern NEW_QUESTION_REPLY = Pattern.compile(
+            "^(?:(?:je\\s+)?(?:veux|souhaite|voudrais)\\s+)?"
+                    + "(?:poser\\s+)?(?:une\\s+)?nouvelle\\s+question\\b"
+    );
     private static final Pattern APPROXIMATE_SEARCH_FOLLOW_UP = Pattern.compile(
             "^(?:et\\b|ajoute\\b|ajouter\\b|filtre\\b|filtrer\\b|"
+                    + "garde\\b|conserve\\b|poursuis\\b|continue\\b|"
                     + "dans\\s+le\\s+meme\\b|avec\\s+le\\s+meme\\b).*"
                     + "\\b(?:service|poste|direction)\\b.*$"
     );
@@ -44,8 +59,8 @@ public class ConversationIntentResolver {
                     + "division|cellule)\\b"
     );
     private static final Pattern PERSONAL_PROFILE_QUESTION = Pattern.compile(
-            "\\b(?:que\\s+sais-tu\\s+(?:sur|de)\\s+moi|"
-                    + "qu[' ]est-ce\\s+que\\s+tu\\s+sais\\s+(?:sur|de)\\s+moi|"
+            "\\b(?:que\\s+sais[- ]tu\\s+(?:sur|de)\\s+moi|"
+                    + "qu['’ ]est[- ]ce\\s+que\\s+tu\\s+sais\\s+(?:sur|de)\\s+moi|"
                     + "mon\\s+profil|mes\\s+informations|mon\\s+identite|"
                     + "mon\\s+(?:nom|prenom|email)|"
                     + "mon\\s+adresse\\s+e-?mail|"
@@ -63,6 +78,20 @@ public class ConversationIntentResolver {
 
         String normalized = normalize(message);
         if (PERSONAL_PROFILE_QUESTION.matcher(normalized).find()) {
+            return Decision.NEW_INTENT;
+        }
+        if (NEW_QUESTION_REPLY.matcher(normalized).find()) {
+            return Decision.NEW_INTENT;
+        }
+        if ("get_agent_profile".equals(
+                activeState.path("toolName").asText()
+        )) {
+            return NEW_SEARCH.matcher(normalized).find()
+                    || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
+                    ? Decision.NEW_INTENT
+                    : Decision.CONTINUATION;
+        }
+        if (INDEPENDENT_INTENT.matcher(normalized).find()) {
             return Decision.NEW_INTENT;
         }
         if (normalized.contains("meme direction")
@@ -87,14 +116,13 @@ public class ConversationIntentResolver {
         if (CONTINUATION.matcher(normalized).find()) {
             return Decision.CONTINUATION;
         }
-        if (INDEPENDENT_INTENT.matcher(normalized).find()
-                || NEW_SEARCH.matcher(normalized).find()) {
+        if (NEW_SEARCH.matcher(normalized).find()) {
             return Decision.NEW_INTENT;
         }
         if (looksLikeIndependentRequest(normalized)) {
             return Decision.NEW_INTENT;
         }
-        return Decision.CLARIFICATION_REQUIRED;
+        return Decision.CONTINUATION;
     }
 
     public static Optional<String> greetingResponse(String message) {
@@ -117,9 +145,13 @@ public class ConversationIntentResolver {
         return Optional.empty();
     }
 
-    public String clarificationMessage() {
-        return "Souhaitez-vous poursuivre la recherche précédente ou poser une "
-                + "nouvelle question ?";
+    public static Optional<String> newQuestionResponse(String message) {
+        if (message == null) {
+            return Optional.empty();
+        }
+        return NEW_QUESTION_REPLY.matcher(normalize(message)).find()
+                ? Optional.of("Bien sûr. Quelle est votre nouvelle question ?")
+                : Optional.empty();
     }
 
     private boolean hasActiveIntent(JsonNode state) {
@@ -154,9 +186,9 @@ public class ConversationIntentResolver {
 
     private boolean looksLikeIndependentRequest(String message) {
         return message.matches(
-                "^(?:cherche|recherche|trouve|liste|compte|donne|"
+                "^(?:maintenant\\s+)?(?:cherche|recherche|trouve|liste|compte|donne|"
                         + "combien|qui|ou|quand|pourquoi|"
-                        + "explique|decris|presente)\\b.*"
+                        + "explique|decris|presente|connais[- ]tu)\\b.*"
         );
     }
 
@@ -174,7 +206,6 @@ public class ConversationIntentResolver {
 
     public enum Decision {
         CONTINUATION,
-        NEW_INTENT,
-        CLARIFICATION_REQUIRED
+        NEW_INTENT
     }
 }

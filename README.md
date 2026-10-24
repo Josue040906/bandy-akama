@@ -13,7 +13,10 @@ to `.env`, and fill in the local values:
 | `BANDY_DB_USERNAME` | Database user; defaults to `postgres` |
 | `BANDY_DB_PASSWORD` | Database password |
 | `GEMINI_API_KEY` | Required Google Gemini API key |
-| `GEMINI_MODEL` | Optional model; defaults to `gemini-3.8-flash` |
+| `GEMINI_MODEL` | Optional model; defaults to `gemini-3.5-flash-lite` |
+| `BANDY_GEMINI_SERVICE_TIER` | Gemini inference tier: `standard` (default, no Priority surcharge) or opt-in `priority` |
+| `BANDY_GEMINI_THINKING_LEVEL` | Gemini thinking level: `low` (default), `medium`, or `high` |
+| `BANDY_GEMINI_MAX_OUTPUT_TOKENS` | Maximum generated output tokens; defaults to `1024` |
 | `BANDY_GEMINI_TIMEOUT_MILLIS` | Maximum duration of one Gemini HTTP attempt; defaults to `15000` |
 | `BANDY_GEMINI_RETRY_ATTEMPTS` | Gemini HTTP attempts including the first call; defaults to `2` |
 | `BANDY_MAX_TOOL_ROUNDS` | Maximum sequential tool rounds per user turn; defaults to `2` |
@@ -23,7 +26,7 @@ to `.env`, and fill in the local values:
 | `BANDY_REGISTRATION_KEY` | Required secret for administration and calls from trusted backends |
 | `JWT_SECRET` | Same HS256 signing secret used by `assistant-rh-api`; required to validate user sessions |
 | `BANDY_CORS_ALLOWED_ORIGINS` | Comma-separated allowed browser origins; defaults to `http://localhost:5173` |
-| `BANDY_CONTEXT_RECENT_MESSAGES` | Number of recent text messages given to Gemini; defaults to `8` |
+| `BANDY_CONTEXT_RECENT_MESSAGES` | Number of recent user/assistant messages sent to Gemini as separate role-based turns; must be `8`-`10` and defaults to `10` |
 | `BANDY_CONTEXT_MAX_SUMMARY_CHARACTERS` | Maximum extractive summary size; defaults to `4000` |
 | `BANDY_CONTEXT_MAX_CHARACTERS` | Maximum assembled historical context; defaults to `18000` |
 | `BANDY_TOOL_CONNECT_TIMEOUT_SECONDS` | Registered-tool connection timeout; defaults to `5` |
@@ -34,6 +37,37 @@ Bandy project, not in `assistant-rh-api`. The RH backend and Bandy must use the
 same `JWT_SECRET` to validate existing user sessions. This secret stays in
 server-side configuration: the browser sends the signed-in user's bearer
 token, never the JWT signing secret itself.
+
+Interactive generation defaults to Gemini's `low` thinking level to reduce
+reasoning overhead for routine chat and tool selection. Set
+`BANDY_GEMINI_THINKING_LEVEL=medium` or `high` if evaluation shows that a
+request needs deeper reasoning. `BANDY_GEMINI_SERVICE_TIER=priority` is an
+explicit opt-in for the paid Priority inference tier; it can cost substantially
+more than Standard (Google currently documents a 75-100% premium). Keep
+`standard` unless the Google Cloud billing owner has approved that charge.
+Priority is supported only for compatible models and accounts; validate it
+with a measured pilot before production use.
+Gemini receives only the `get_agent_profile` function declaration. The
+registration script removes legacy intent-specific tools, while Bandy also
+filters the runtime schema so stale database registrations cannot expand the
+prompt. The profile JSON is reused from the conversation context for follow-up
+questions. Responses are streamed as SSE `token`, `done`, or `error` events.
+
+To compare the configured Flash model with stable Gemini 3.5 Flash-Lite without
+changing Bandy's production model, run `.\scripts\benchmark-gemini-models.ps1`.
+The script prompts for the Gemini API key without echoing it when
+`GEMINI_API_KEY` is not already set. It makes three repetitions by default for
+two representative RH tool-selection requests, alternates model order, leaves
+the optional service-tier field unset to use Gemini's default Standard tier,
+and fixes both requests to low thinking, one candidate and one HTTP attempt.
+It reports latency, errors, token counts and expected tool selection. Set
+`GEMINI_API_KEY` in the current terminal or pass `-Repetitions 1` for a smaller
+pilot. These calls consume Gemini API quota and may incur charges according to
+the account's current plan. The script only asks the model to select a tool:
+it does not call the RH API, access employee data or measure database latency.
+Use the same authenticated frontend conversation flow separately before
+considering further model changes. The benchmark does not modify the configured
+default model or service tier.
 
 Each synchronous Gemini SDK request is capped by
 `BANDY_GEMINI_TIMEOUT_MILLIS`. The SDK retry policy is explicitly bounded by
@@ -63,9 +97,11 @@ in their own IDE run configurations or integrated terminals, in this order:
    `mvn spring-boot:run`.
 4. Start `chatfronty` on port `5173` with `npm run dev`.
 
-Once all three applications are running, register or update the RH structured
-search tool from the Bandy PowerShell terminal with
-`.\scripts\register-rh-tools.ps1`. After signing in to the frontend,
+Once all three applications are running, register the RH profile tool from
+the Bandy PowerShell terminal with
+`.\scripts\register-rh-tools.ps1 -RemoveLegacyTools`. This registers
+`get_agent_profile` and removes the old intent-specific tools from the
+instance. After signing in to the frontend,
 `.\scripts\test-chat.ps1` tests chat from a terminal; it
 prompts for the RH access token without echoing it. The
 `.\scripts\start-local-assistant.ps1` convenience script is optional and starts
@@ -97,72 +133,49 @@ Manage tools using `GET /api/tools`, `POST /api/tools`, `PUT /api/tools/{name}` 
 
 Supported argument types are `string`, `integer`, `number` and `boolean`; locations are `query`, `path` and `body`. GET arguments default to query parameters; other methods default to JSON body parameters. Path placeholders must be required parameters declared with `"location":"path"`. Supported methods are GET, POST, PUT, PATCH and DELETE.
 
-Register or refresh the structured RH search function using the actual reachable
-backend URL:
+The assistant uses one RH tool to fetch a concise global agent profile by
+exact full name or matricule:
 
 ```json
 {
-  "name": "searchEmployees",
-  "description": "Recherche multicritère d’agents RH à partir de critères structurés.",
-  "whenToUse": "Interpréter la demande naturelle en critères autorisés. Demander une durée si « récemment » ou « depuis longtemps » est imprécis.",
-  "method": "POST",
-  "url": "http://localhost:8080/api/recherche/agents/criteres",
+  "name": "get_agent_profile",
+  "description": "Récupère le profil professionnel concis d’un agent identifié par son nom ou matricule.",
+  "whenToUse": "Pour une question sur l’âge, les diplômes, le parcours, le poste actuel ou les informations professionnelles d’un agent. Réutiliser le profil déjà chargé dans la conversation. En cas de correspondance ambiguë, demander le matricule.",
+  "method": "GET",
+  "url": "http://localhost:8080/api/profil/agent/assistant",
   "enabled": true,
   "parameters": [
     {
-      "name": "criteriaJson",
+      "name": "nom_agent",
       "type": "string",
-      "description": "JSON sérialisé avec filters. Exemple : {\"filters\":[{\"field\":\"age\",\"operator\":\"LT\",\"value\":30}]}",
+      "description": "Nom complet ou matricule exact de l’agent.",
       "required": true,
-      "location": "body"
+      "location": "query"
     }
   ]
 }
 ```
 
-The `.\scripts\register-rh-tools.ps1` helper registers or updates this tool and
-includes the complete field/operator guidance for Gemini. It also registers
-`searchEmployeesApproximately` against
-`GET /api/recherche/agents/approximative?query=...` for a person name with
-uncertain spelling or typos. The endpoint returns the two highest-ranked
-candidates when available, even when their score is below the usual match
-threshold, and includes `score_correspondance` from 0 to 1. This is a textual
-similarity score, not an identity probability. Optional `service`, `poste`,
-and `direction` filters let a follow-up narrow the same name search without
-guessing alternate spellings. Explicit approximate-name requests and their
-service/poste/direction follow-ups are routed deterministically to this RH tool
-without a Gemini call, so temporary Gemini availability errors do not block
-this workflow. General chat and other tool selection still use Gemini. Prefer
-that single fuzzy lookup over repeated
-`CONTAINS` searches with guessed spellings; use `searchEmployees` for
-multi-criteria searches. If the approximate tool returns no candidate,
-ask for clarification instead of looping through name variants. Low-scoring
-results remain ranked suggestions, not confirmed identities; present their
-scores and invite the user to confirm or add a service, position, or direction.
+`.\scripts\register-rh-tools.ps1` registers or updates this tool. It leaves
+other registered tools unchanged unless `-RemoveLegacyTools` is supplied;
+that switch removes all tools except `get_agent_profile`. The registration
+step requires a reachable Bandy instance and the registration key. The RH API
+rejects partial-name matches and returns a conflict when multiple agents share
+the same exact name, so Bandy can ask for a matricule instead of selecting
+someone arbitrarily.
 
 ## Connecting the frontend and RH backend
 
 Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's public base URL; the default is `http://localhost:8090`. The conversation UI creates conversations through `POST /api/conversations`, then sends messages as `{"message":"…"}` to `POST /api/conversations/{id}/messages`, including the user's RH bearer token. Configure Bandy's `JWT_SECRET` to the same signing secret as `assistant-rh-api` so Bandy can validate the existing user token. Add the frontend origin to `BANDY_CORS_ALLOWED_ORIGINS` (comma-separated for multiple origins).
 
-The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH function endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
+The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH profile endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
 
-Gemini receives the active tool descriptions and argument schemas, selects tools from natural-language intent, and supplies structured criteria. Bandy forwards the user's bearer token to the tool endpoint, executes the HTTP call, and sends the result back to Gemini to compose the answer. The RH backend validates every field and operator against an allowlist and constructs parameterized SQL; model-generated SQL is never accepted.
-
-The RH tools also include reference-list and career-rule lookups, organization
-counts, current employees by position, the configured highest academic diploma,
-recent assignments, the authenticated user's activities, and `getMyProfile`.
-The assistant insights endpoints are read-only and require an active SPERS
-account. The diploma ranking uses the configured `ordre_academique`; it does
-not guess an order from diploma labels. Activity and profile tools derive the
-user from the forwarded RH bearer token. Personal-data tools are marked
-sensitive: their raw structured results are used for the immediate answer but
-are omitted from Bandy's saved tool messages, result references, idempotency
-replay payload, and public tool-result list. The assistant's user-facing answer
-remains in conversation history. The frontend excludes internal `TOOL` messages
-from the visible transcript, so raw JSON tool payloads are not presented as
-assistant replies. Run `.\scripts\register-rh-tools.ps1` and
-`.\scripts\update-assistant-profile.ps1` after deploying both services to
-register the RH tools and apply their usage and response-formatting guidance.
+Gemini receives only the `get_agent_profile` schema. It calls the tool for
+agent-specific questions, then answers from the returned profile; a profile
+already present in the current conversation can be reused without another
+lookup. This is targeted retrieval of structured RH data, not vector-database
+or document-search RAG. Run `.\scripts\update-assistant-profile.ps1` after
+deploying Bandy to apply the assistant's response guidance.
 
 Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
 
@@ -218,28 +231,26 @@ audience, so shared multi-application use requires updating its token issuer
 and deployments to keep the audience allowlist synchronized.
 
 Gemini receives a bounded context assembled from the saved extractive summary,
-recent user/assistant turns, structured state, and up to five prior tool-result
-references when the request continues the same intent. A new independent intent
-receives neither the previous filters nor its result references, while the
-conversation transcript remains available as history. The context budget
-prioritizes active state and usable result references over the older summary;
-the full transcript remains in PostgreSQL and is not resent. Summary updates
-are incremental and deterministic (older text turns are compacted), and a
-missing memory record can be rebuilt from saved messages, including intent
-resets.
-For a continuing call to the same tool, Bandy merges `criteriaJson.filters` by
-their `field`: omitted filters remain active, a supplied field replaces its
-previous filter, and a filter with `remove:true` explicitly removes it before
-the backend call. Arguments do not carry across different tool names. The backend classifies common French follow-ups and explicit new requests before
-calling Gemini; ambiguous short messages trigger a clarification instead of
-carrying filters into an uncertain request. A newly named organizational scope
-that differs from the active scope starts a new intent rather than inheriting
-old filters. This deterministic language rule set is intentionally conservative
-and should be extended with localized test cases when adding supported
-languages.
+the ten most recent user/assistant messages by default as separate role-based
+turns, along with structured state and
+relevant prior tool-result references when the request continues the same
+intent. The recent-message limit is configurable with
+`bandy.conversations.context.recent-messages`. A new independent intent does
+not inherit the previous tool state or result references, while the full
+transcript remains stored in PostgreSQL and is not resent. Summary updates are
+incremental and deterministic (older text turns are compacted), and a missing
+memory record can be rebuilt from saved messages.
+
+The active tool state records the last `get_agent_profile` lookup. When a
+follow-up refers to the same agent, Bandy can pass that profile back in
+conversation context so Gemini can answer without another RH request. The
+conversation resolver treats ambiguous short follow-ups conservatively rather
+than carrying tool state into a new question. If multiple agents match the
+exact name, the RH API returns a conflict and Bandy asks for a matricule or
+another distinguishing identifier.
 Tool calls continue to use the registered HTTP contract, forward the caller's
 bearer token and idempotency key, and now use bounded connection/read timeouts.
-The current `searchEmployees` endpoint is a read-only POST. Any future
+The current `get_agent_profile` endpoint is a read-only GET. Any future
 state-changing RH tool must also enforce `Idempotency-Key` on the RH side.
 
 ### Performance telemetry
