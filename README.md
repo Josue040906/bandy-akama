@@ -124,8 +124,9 @@ The initial profile is inserted into PostgreSQL only when the profile table is e
 
 The initial profile is inserted by `src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql` only when the profile table is empty. The update script applies the full Bandy persona and behavior to an existing profile. The profile is loaded from the database for each chat request, so changes apply
 without restarting Bandy. A single joined query now loads the profile and the
-enabled tool catalog with their parameters, avoiding separate profile, tool,
-and parameter round trips without introducing stale cross-instance caches.
+enabled `get_agent_profile` definition with its parameters, avoiding separate
+profile, tool, and parameter round trips without introducing stale cross-instance
+caches.
 
 ## Tool catalogue
 
