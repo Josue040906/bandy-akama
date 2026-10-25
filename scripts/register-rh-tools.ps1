@@ -45,7 +45,7 @@ if ([string]::IsNullOrWhiteSpace($registrationKey)) {
 $tools = @(
     @{
         name = 'search_agents'
-        description = 'Recherche des agents selon des critères RH structurés et retourne une liste paginée ou un comptage exact.'
+        description = 'Recherche les agents par critères RH structurés. Utiliser deux filtres FUZZY séparés pour un nom complet, et resultMode=COUNT pour un total exact.'
         whenToUse = 'Utiliser pour toute recherche d’agents par critères, y compris les suivis qui ajoutent ou modifient des filtres. criteriaJson doit contenir un objet JSON avec 1 à 10 filtres utilisant uniquement les champs et opérateurs supportés par l’API. resultMode=COUNT demande un comptage exact backend; ne jamais compter une page de résultats. Utiliser LIST pour afficher les correspondances.'
         method = 'POST'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
