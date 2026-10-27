@@ -70,17 +70,17 @@ $tools = @(
     },
     @{
         name = 'get_agent_profile'
-        description = 'Récupère le profil professionnel concis d’un agent identifié par son nom ou matricule.'
-        whenToUse = 'Pour une question sur les diplômes, le parcours, le poste actuel ou les informations professionnelles d’un agent. Réutiliser les faits déjà présents dans le fil; rappeler l’outil si une donnée manque ou doit être actualisée. Demander une précision si plusieurs personnes peuvent correspondre.'
+        description = 'Récupère le profil détaillé d’un agent à partir de son nom ou de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle, affectation, parcours de carrière, diplômes et analyse d’évolution de carrière calculée par le backend.'
+        whenToUse = 'Utiliser pour toute question portant sur un agent précis : identité et coordonnées enregistrées, sexe, adresse et localité, date d’embauche, type d’emploi, catégorie, corps, classe, échelon, poste, service, direction, dates de situation ou d’affectation, historique de carrière, diplômes (niveau, domaine, établissement, mention, date et numéro lorsqu’ils sont disponibles) et évolution de carrière. Fournir au paramètre query le nom complet ou le matricule mentionné dans la conversation. Si plusieurs agents correspondent, ne choisir personne au hasard : demander le matricule ou un autre élément distinctif. Si aucun agent ne correspond, le signaler et demander de vérifier le nom ou le matricule. S’appuyer sur les valeurs retournées par l’API; ne jamais déduire une information absente ni présenter une éligibilité indicative comme une décision administrative. Ne rappeler l’outil que si une donnée manque ou doit être actualisée.'
         method = 'GET'
-        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent/assistant"
+        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent"
         enabled = $true
         sensitive = $true
         parameters = @(
             @{
-                name = 'nom_agent'
+                name = 'query'
                 type = 'string'
-                description = 'Nom complet ou matricule exact de l’agent.'
+                description = 'Nom complet ou matricule de l’agent à identifier. Transmettre la valeur telle qu’elle apparaît dans la demande; demander une précision si l’identité est ambiguë.'
                 required = $true
                 location = 'query'
             }
