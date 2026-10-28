@@ -45,8 +45,8 @@ if ([string]::IsNullOrWhiteSpace($registrationKey)) {
 $tools = @(
     @{
         name = 'search_agents'
-        description = 'Recherche les agents par critères RH structurés. Utiliser deux filtres FUZZY séparés pour un nom complet, et resultMode=COUNT pour un total exact.'
-        whenToUse = 'Utiliser pour toute recherche d’agents par critères, y compris les suivis qui ajoutent ou modifient des filtres. criteriaJson doit contenir un objet JSON avec 1 à 10 filtres utilisant uniquement les champs et opérateurs supportés par l’API. resultMode=COUNT demande un comptage exact backend; ne jamais compter une page de résultats. Utiliser LIST pour afficher les correspondances.'
+        description = 'Recherche unifiée des agents par critères RH exacts et approximatifs. Utiliser pour toute identification initiale, y compris les noms mal orthographiés et les recherches multicritères. Deux filtres FUZZY séparés pour nom et prénom; resultMode=COUNT pour un total exact.'
+        whenToUse = 'Point d’entrée obligatoire pour toute recherche/identification initiale d’agent, même si l’utilisateur demande directement un profil. Extraire du même message le nom/prénom (FUZZY séparément si faute possible) et tous les autres critères explicitement mentionnés (âge, sexe, adresse, embauche, poste, service, direction, carrière, diplômes), puis les combiner dans un seul criteriaJson. Ne pas appeler get_agent_profile avant cette recherche. Si plusieurs candidats restent, les présenter et demander un critère distinctif; si un candidat est clairement identifié, appeler ensuite get_agent_profile avec son matricule. criteriaJson doit contenir 1 à 10 filtres valides. COUNT donne le total exact côté backend; ne jamais compter une page. LIST affiche les correspondances.'
         method = 'POST'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
         enabled = $true
