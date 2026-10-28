@@ -365,8 +365,13 @@ public class GeminiAssistant {
                     .flatMap(Optional::stream)
                     .toList();
             if (calls.isEmpty()) {
+                String responseText = response.text();
+                if (responseText == null || responseText.isBlank()) {
+                    responseText = "Je n’ai pas réussi à produire une réponse exploitable. "
+                            + "Réessaie ta demande, s’il te plaît.";
+                }
                 return new ChatResponse(
-                        response.text(),
+                        responseText,
                         List.copyOf(executedResults),
                         null,
                         false,
@@ -458,8 +463,13 @@ public class GeminiAssistant {
                 .findAny()
                 .isPresent();
         if (!hasMoreCalls) {
+            String responseText = response.text();
+            if (responseText == null || responseText.isBlank()) {
+                responseText = "Je n’ai pas réussi à produire une réponse exploitable. "
+                        + "Réessaie ta demande, s’il te plaît.";
+            }
             return new ChatResponse(
-                    response.text(),
+                    responseText,
                     List.copyOf(executedResults),
                     null,
                     false,
@@ -523,14 +533,24 @@ public class GeminiAssistant {
     static List<Content> toGeminiHistory(
             List<ConversationPromptContext.Message> history
     ) {
-        return history.stream()
-                .map(message -> Content.builder()
-                        .role("assistant".equals(message.role())
-                                ? "model"
-                                : "user")
-                        .parts(List.of(Part.fromText(message.content())))
-                        .build())
-                .toList();
+        List<Content> messages = new ArrayList<>();
+        boolean firstUserFound = false;
+
+        for (ConversationPromptContext.Message message : history) {
+            if (!firstUserFound) {
+                if (!"user".equals(message.role())) {
+                    continue;
+                }
+                firstUserFound = true;
+            }
+
+            messages.add(Content.builder()
+                    .role("assistant".equals(message.role()) ? "model" : "user")
+                    .parts(List.of(Part.fromText(message.content())))
+                    .build());
+        }
+
+        return List.copyOf(messages);
     }
 
     static GenerateContentConfig finalResponseConfig(
