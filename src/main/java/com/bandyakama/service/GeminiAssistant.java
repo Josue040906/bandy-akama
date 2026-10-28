@@ -905,6 +905,8 @@ public class GeminiAssistant {
         }
 
         try {
+            System.err.println("[DEBUG TOOL] name=" + name);
+            System.err.println("[DEBUG TOOL] arguments=" + arguments);
             Object result = toolExecutor.execute(
                     definition,
                     arguments,
@@ -923,6 +925,10 @@ public class GeminiAssistant {
                     exception
             );
         } catch (RestClientResponseException exception) {
+            System.err.println("[DEBUG TOOL ERROR] name=" + name);
+            System.err.println("[DEBUG TOOL ERROR] HTTP "
+                    + exception.getStatusCode().value()
+                    + " body=" + exception.getResponseBodyAsString());
             Optional<Map<String, Object>> profileLookupResult =
                     profileLookupError(name, exception.getStatusCode());
             if (profileLookupResult.isPresent()) {
