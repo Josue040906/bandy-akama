@@ -598,6 +598,47 @@ class ConversationApiTest {
     }
 
     @Test
+    void doesNotPersistFullAgentProfileInActiveConversationState()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        Map<String, Object> profileArguments = Map.of("query", "AG-71");
+        Map<String, Object> profile = Map.of(
+                "found", true,
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "adresse", "Adresse privée à ne pas conserver",
+                "telephone", "0340000000"
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Voici le profil de l’agente.",
+                List.of(),
+                null,
+                false,
+                List.of(new ChatResponse.ToolState(
+                        "get_agent_profile",
+                        profileArguments,
+                        profile
+                ))
+        ));
+
+        send(conversationId, "42", "Affiche le profil AG-71.");
+
+        JsonNode activeState = readMemoryJson(conversationId, "active_state");
+        assertTrue(activeState.toString().contains("get_agent_profile"));
+        assertFalse(activeState.toString().contains("RAZANASOAVINAY"));
+        assertFalse(activeState.toString().contains("Adresse privée"));
+        assertFalse(activeState.toString().contains("0340000000"));
+        assertFalse(activeState.has("profiles"));
+    }
+
+    @Test
     void keepsOnlyMinimalCandidateReferencesForFollowUpAndReplacesEmptyResults()
             throws Exception {
         UUID conversationId = createConversation("42");
