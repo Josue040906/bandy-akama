@@ -578,7 +578,7 @@ class ConversationApiTest {
         send(conversationId, "42", "Montre leurs matricules.");
 
         var context = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(assistant, times(3)).respond(
+        verify(assistant, times(2)).respond(
                 anyString(),
                 anyString(),
                 context.capture(),
@@ -971,7 +971,7 @@ class ConversationApiTest {
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
