@@ -1,5 +1,6 @@
 package com.bandyakama.executor;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,6 +18,7 @@ public final class ToolDestinationPolicy {
     private final Set<String> allowedOrigins;
     private final boolean allowLoopbackForTests;
 
+    @Autowired
     public ToolDestinationPolicy(
             @Value("${bandy.tools.allowed-destinations:}") String configuredOrigins
     ) {
