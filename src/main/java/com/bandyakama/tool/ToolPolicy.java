@@ -18,11 +18,15 @@ public final class ToolPolicy {
     private ToolPolicy() {
     }
 
+    public static boolean isReservedName(String name) {
+        return name != null && RESERVED_CONVERSATION_TOOLS.contains(name);
+    }
+
     public static boolean isUsableForGemini(ToolDefinition tool) {
         if (tool == null
                 || !tool.isApprovedForGemini()
                 || !tool.isEnabled()
-                || RESERVED_CONVERSATION_TOOLS.contains(tool.getName())) {
+                || isReservedName(tool.getName())) {
             return false;
         }
 
