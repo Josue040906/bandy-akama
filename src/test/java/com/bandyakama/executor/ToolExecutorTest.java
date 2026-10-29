@@ -304,7 +304,8 @@ class ToolExecutorTest {
                     RestClient.builder(),
                     5,
                     10,
-                    new PerformanceTelemetry()
+                    new PerformanceTelemetry(),
+                    new ToolDestinationPolicy("", true)
             );
             long startedAt = System.nanoTime();
             try (RequestBudget.Scope ignored = RequestBudget.open(700)) {

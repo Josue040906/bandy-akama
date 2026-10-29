@@ -351,3 +351,22 @@ The database column `bandy_tool.approved_for_gemini` stores approval. The
 central `ToolPolicy` applies the same checks for Gemini exposure and execution.
 The migration preserves approval for the three existing supported RH tools;
 other existing or newly registered tools remain unapproved until reviewed.
+
+
+## Allowlist des destinations des outils HTTP
+
+Bandy refuse d'exécuter un outil si son origine HTTP n'est pas explicitement autorisée.
+La liste est configurée par la variable `BANDY_TOOL_ALLOWED_DESTINATIONS`, avec des origines
+séparées par des virgules (schéma + hôte + port, sans chemin). Une liste vide bloque les
+appels d'outils, par défaut.
+
+Exemple de développement local lorsque l'API RH écoute sur le port 8080 :
+
+```properties
+BANDY_TOOL_ALLOWED_DESTINATIONS=http://localhost:8080,http://127.0.0.1:8080
+```
+
+En production, remplacer ces exemples par les origines exactes réellement utilisées et ne pas
+autoriser des hôtes ou des ports génériques. Cette protection est une première barrière de
+sortie réseau ; elle ne remplace pas une politique réseau au niveau du système, la vérification
+des adresses DNS/résolues, ni les règles de pare-feu.
