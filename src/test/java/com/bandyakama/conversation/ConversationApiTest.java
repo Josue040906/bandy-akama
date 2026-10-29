@@ -1106,6 +1106,79 @@ class ConversationApiTest {
     }
 
     @Test
+    void correctingAnAgeFilterKeepsOtherCriteriaWithoutKeepingTheOldAge()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Femmes du Personnel de moins de 20 ans.",
+                        List.of(new ChatResponse.ToolResult(
+                                "search_agents",
+                                List.of(Map.of("matricule", "AG-20")),
+                                Map.of("criteriaJson",
+                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"Personnel\\"},"
+                                                + "{\\"field\\":\\"sexe\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"F\\"},"
+                                                + "{\\"field\\":\\"age\\","
+                                                + "\\"operator\\":\\"LT\\","
+                                                + "\\"value\\":20}]}")
+                        ))
+                ),
+                new ChatResponse(
+                        "Femmes du Personnel de moins de 30 ans.",
+                        List.of(new ChatResponse.ToolResult(
+                                "search_agents",
+                                List.of(Map.of("matricule", "AG-30")),
+                                Map.of("criteriaJson",
+                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"Personnel\\"},"
+                                                + "{\\"field\\":\\"sexe\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"F\\"},"
+                                                + "{\\"field\\":\\"age\\","
+                                                + "\\"operator\\":\\"LT\\","
+                                                + "\\"value\\":30}]}")
+                        ))
+                )
+        );
+
+        send(conversationId, "42", "Cherche les femmes du Personnel de moins de 20 ans.");
+        send(conversationId, "42", "Maintenant celles de moins de 30 ans.");
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        String followUpContext = contexts.getAllValues().get(1);
+        assertTrue(followUpContext.contains("Personnel"));
+        assertTrue(followUpContext.contains("\\"value\\":\\"F\\""));
+        assertTrue(followUpContext.contains("\\"value\\":20"));
+
+        JsonNode state = readMemoryJson(conversationId, "active_state");
+        JsonNode filters = state.path("criteria").path("filters");
+        assertEquals(3, filters.size());
+        assertEquals("Personnel", filters.get(0).path("value").asText());
+        assertEquals("F", filters.get(1).path("value").asText());
+        assertEquals("age", filters.get(2).path("field").asText());
+        assertEquals(30, filters.get(2).path("value").asInt());
+        assertFalse(state.toString().contains("\\"value\\":20"));
+    }
+
+    @Test
     void aNewOrganizationSearchDoesNotReceiveThePreviousFilters()
             throws Exception {
         UUID conversationId = createConversation("42");
