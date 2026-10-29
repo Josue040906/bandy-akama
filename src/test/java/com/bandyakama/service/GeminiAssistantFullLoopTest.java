@@ -138,10 +138,8 @@ class GeminiAssistantFullLoopTest {
                 "J’ai trouvé deux agents dans le Service du Personnel.",
                 response.message()
         );
-        assertEquals(1, response.toolResults().size());
-        assertEquals("search_agents", response.toolResults().get(0).name());
-        assertEquals("agents du Personnel",
-                response.toolResults().get(0).arguments().get("query"));
+        // Search results are deliberately not returned as raw API tool payloads.
+        assertTrue(response.toolResults().isEmpty());
         verify(toolExecutor).execute(
                 any(ToolDefinition.class),
                 org.mockito.ArgumentMatchers.eq(Map.of("query", "agents du Personnel")),
@@ -224,8 +222,8 @@ class GeminiAssistantFullLoopTest {
 
         assertTrue(response.resetConversationState());
         assertEquals("Voici les résultats de la recherche.", response.message());
-        assertEquals(1, response.toolResults().size());
-        assertEquals("search_agents", response.toolResults().get(0).name());
+        // Sensitive agent-search payloads stay internal to the orchestration.
+        assertTrue(response.toolResults().isEmpty());
         verify(chat).sendMessage(anyList(), any(GenerateContentConfig.class));
         verify(freshChat).sendMessage(anyList(), any(GenerateContentConfig.class));
         var freshMessages = org.mockito.ArgumentCaptor
