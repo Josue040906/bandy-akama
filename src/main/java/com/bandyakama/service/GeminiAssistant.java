@@ -30,6 +30,7 @@ import com.google.genai.types.Part;
 import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
 import com.google.genai.types.ThinkingConfig;
+import java.util.function.BiFunction;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +58,7 @@ public class GeminiAssistant {
     private static final String RESET_CONVERSATION_TOOL =
             "reset_conversation_context";
 
-    private final Client client;
+    private final BiFunction<String, GenerateContentConfig, Chat> chatFactory;
     private final String apiKey;
     private final String model;
     private final AssistantConfigurationRepository configurationRepository;
@@ -87,11 +88,44 @@ public class GeminiAssistant {
             PerformanceTelemetry performanceTelemetry,
             ObjectMapper objectMapper
     ) {
+        this(
+                apiKey,
+                model,
+                maxToolRounds,
+                serviceTier,
+                thinkingLevel,
+                maxOutputTokens,
+                geminiClientFactory.timeoutMillis(),
+                geminiClientFactory.retryAttempts(),
+                createChatFactory(apiKey, geminiClientFactory),
+                configurationRepository,
+                toolExecutor,
+                stateMerger,
+                performanceTelemetry,
+                objectMapper
+        );
+    }
+
+    GeminiAssistant(
+            String apiKey,
+            String model,
+            int maxToolRounds,
+            String serviceTier,
+            String thinkingLevel,
+            int maxOutputTokens,
+            int geminiTimeoutMillis,
+            int geminiRetryAttempts,
+            BiFunction<String, GenerateContentConfig, Chat> chatFactory,
+            AssistantConfigurationRepository configurationRepository,
+            ToolExecutor toolExecutor,
+            ConversationStateMerger stateMerger,
+            PerformanceTelemetry performanceTelemetry,
+            ObjectMapper objectMapper
+    ) {
         this.apiKey = apiKey;
-        this.client = apiKey.isBlank()
-                ? null
-                : geminiClientFactory.create(apiKey);
-        this.geminiTimeoutMillis = geminiClientFactory.timeoutMillis();
+        this.chatFactory = chatFactory;
+        this.geminiTimeoutMillis = geminiTimeoutMillis;
+        this.geminiRetryAttempts = geminiRetryAttempts;
         this.geminiRetryAttempts = geminiClientFactory.retryAttempts();
         if (maxToolRounds < 1 || maxToolRounds > 5) {
             throw new IllegalArgumentException(
@@ -140,6 +174,19 @@ public class GeminiAssistant {
                 performanceTelemetry,
                 objectMapper
         );
+    }
+
+    private static BiFunction<String, GenerateContentConfig, Chat> createChatFactory(
+            String apiKey,
+            GeminiClientFactory geminiClientFactory
+    ) {
+        if (apiKey.isBlank()) {
+            return (model, config) -> {
+                throw new IllegalStateException("Gemini API key is not configured.");
+            };
+        }
+        Client client = geminiClientFactory.create(apiKey);
+        return (model, config) -> client.chats.create(model, config);
     }
 
     public ChatResponse respond(String message, String authorization) {
@@ -288,7 +335,7 @@ public class GeminiAssistant {
                 thinkingLevel,
                 maxOutputTokens
         );
-        Chat chat = client.chats.create(model, config);
+        Chat chat = chatFactory.apply(model, config);
         Chat activeChat = chat;
         ConversationPromptContext.Parsed promptContext =
                 ConversationPromptContext.parse(
@@ -386,7 +433,7 @@ public class GeminiAssistant {
 
                 // Ignore any other action planned in the same model response.
                 // Restart the current request without the previous conversation.
-                Chat freshChat = client.chats.create(model, config);
+                Chat freshChat = chatFactory.apply(model, config);
                 activeChat = freshChat;
                 String freshPrompt = resetPrompt(message);
                 List<Content> freshMessages = List.of(Content.builder()
@@ -526,7 +573,7 @@ public class GeminiAssistant {
 
         GenerateContentConfig finalConfig =
                 finalResponseConfig(systemInstruction);
-        Chat finalChat = client.chats.create(model, finalConfig);
+        Chat finalChat = chatFactory.apply(model, finalConfig);
         String finalContext = conversationStateReset
                 ? ""
                 : promptContext.context();
