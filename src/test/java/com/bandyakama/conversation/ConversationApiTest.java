@@ -689,6 +689,45 @@ class ConversationApiTest {
     }
 
     @Test
+    void doesNotPersistFullSensitiveAgentProfileInConversationState()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        Map<String, Object> profile = Map.of(
+                "found", true,
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "telephone", "0340000000",
+                "adresse", "Adresse privée"
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Voici le profil de l’agente.",
+                List.of(),
+                null,
+                false,
+                List.of(new ChatResponse.ToolState(
+                        "get_agent_profile",
+                        Map.of("query", "AG-71"),
+                        profile
+                ))
+        ));
+
+        send(conversationId, "42", "Affiche le profil de AG-71.");
+
+        JsonNode activeState = readMemoryJson(conversationId, "active_state");
+        assertEquals("get_agent_profile", activeState.path("toolName").asText());
+        assertFalse(activeState.has("profiles"));
+        assertFalse(activeState.toString().contains("0340000000"));
+        assertFalse(activeState.toString().contains("Adresse privée"));
+        assertFalse(activeState.toString().contains("RAZANASOAVINAY"));
+    }
+
+    @Test
     void removesExpiredCandidateReferencesBeforePreparingModelContext()
             throws Exception {
         UUID conversationId = createConversation("42");
