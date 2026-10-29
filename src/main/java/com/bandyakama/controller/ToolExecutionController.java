@@ -3,7 +3,7 @@ package com.bandyakama.controller;
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.security.ToolRegistrationGuard;
 import com.bandyakama.tool.ToolDefinition;
-import com.bandyakama.tool.ToolRegistry;
+import com.bandyakama.tool.ToolRegistry;\nimport com.bandyakama.tool.ToolPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
