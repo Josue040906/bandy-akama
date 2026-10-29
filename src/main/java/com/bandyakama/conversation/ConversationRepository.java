@@ -436,6 +436,20 @@ public class ConversationRepository {
                 String.class,
                 conversationId
         ));
+        if (activeState.isObject() && activeState.has("profiles")) {
+            ObjectNode cleanedState = ((ObjectNode) activeState).deepCopy();
+            cleanedState.remove("profiles");
+            jdbcTemplate.update("""
+                    UPDATE bandy_conversation_memory
+                    SET active_state = CAST(? AS JSONB),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE conversation_id = ?
+                    """,
+                    toJson(cleanedState),
+                    conversationId
+            );
+            activeState = cleanedState;
+        }
         if (hasExpiredCandidateReferences(activeState)) {
             ObjectNode cleanedState = ((ObjectNode) activeState).deepCopy();
             cleanedState.remove("candidateReferences");
