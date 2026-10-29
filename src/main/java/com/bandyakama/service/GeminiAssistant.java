@@ -1042,7 +1042,7 @@ public class GeminiAssistant {
         return Optional.empty();
     }
 
-    private Tool toGeminiTool(List<ToolDefinition> definitions) {
+    static Tool toGeminiTool(List<ToolDefinition> definitions) {
         List<FunctionDeclaration> declarations = new ArrayList<>(definitions.stream()
                 .map(definition -> FunctionDeclaration.builder()
                         .name(definition.getName())
@@ -1066,7 +1066,7 @@ public class GeminiAssistant {
         return Tool.builder().functionDeclarations(declarations).build();
     }
 
-    private Schema toGeminiSchema(List<ToolParameter> parameters) {
+    private static Schema toGeminiSchema(List<ToolParameter> parameters) {
         Map<String, Schema> properties = new HashMap<>();
         List<String> required = new ArrayList<>();
         for (ToolParameter parameter : parameters) {
@@ -1091,7 +1091,7 @@ public class GeminiAssistant {
         return schema.build();
     }
 
-    private String toGeminiType(String type) {
+    private static String toGeminiType(String type) {
         return switch (type.toLowerCase()) {
             case "string" -> "STRING";
             case "integer" -> "INTEGER";
