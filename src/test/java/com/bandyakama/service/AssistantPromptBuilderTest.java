@@ -40,6 +40,8 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("N’utilise jamais de marqueur remove ni de fusion implicite"));
         assertTrue(instruction.contains("« Et les hommes ? » conserve le service"));
         assertTrue(instruction.contains("remplace l’âge"));
+        assertTrue(instruction.contains("Non, je voulais dire le service financier"));
+        assertTrue(instruction.contains("ne cumule pas les deux"));
         assertTrue(instruction.contains("Combien y a-t-il de directions ?"));
         assertTrue(instruction.contains("demande lequel"));
     }
