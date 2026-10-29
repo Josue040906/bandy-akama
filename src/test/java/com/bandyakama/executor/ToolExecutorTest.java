@@ -129,11 +129,11 @@ class ToolExecutorTest {
     @Test
     void rejectsInvalidToolDefinitionBeforeMakingNetworkRequest() {
         ToolDefinition invalid = tool();
-        invalid.setParameters(List.of(
-                new ToolParameter("query", "string", "Query.", true) {{
-                    setLocation("body");
-                }}
-        ));
+        ToolParameter query = new ToolParameter(
+                "query", "string", "Query.", true
+        );
+        query.setLocation("body");
+        invalid.setParameters(List.of(query));
 
         assertThrows(
                 IllegalArgumentException.class,
