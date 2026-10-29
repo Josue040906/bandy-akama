@@ -176,6 +176,10 @@ public class ToolExecutor {
             ToolDefinition tool,
             Map<String, Object> arguments
     ) {
+        if (tool == null) {
+            throw new IllegalArgumentException("La définition de l’outil est requise.");
+        }
+        tool.validate();
         if (arguments == null) {
             throw new IllegalArgumentException("Les arguments de l’outil sont requis.");
         }
@@ -197,6 +201,12 @@ public class ToolExecutor {
                                 + parameter.getName()
                 );
             }
+            if (value instanceof String text && text.length() > 4000) {
+                throw new IllegalArgumentException(
+                        "Le paramètre dépasse la longueur maximale autorisée : "
+                                + parameter.getName()
+                );
+            }
             if (value != null && !matchesType(parameter.getType(), value)) {
                 throw new IllegalArgumentException(
                         "Type invalide pour le paramètre : " + parameter.getName()
@@ -211,16 +221,28 @@ public class ToolExecutor {
     private boolean matchesType(String type, Object value) {
         return switch (type.toLowerCase()) {
             case "string" -> value instanceof String;
-            case "integer" -> value instanceof Byte
-                    || value instanceof Short
-                    || value instanceof Integer
-                    || value instanceof Long
-                    || (value instanceof Number number
-                    && isWholeNumber(number));
-            case "number" -> value instanceof Number;
+            case "integer" -> value instanceof Number number
+                    && isWholeNumber(number)
+                    && isWithinLongRange(number);
+            case "number" -> value instanceof Number number
+                    && isFinite(number);
             case "boolean" -> value instanceof Boolean;
             default -> false;
         };
+    }
+
+    private boolean isFinite(Number number) {
+        return Double.isFinite(number.doubleValue());
+    }
+
+    private boolean isWithinLongRange(Number number) {
+        try {
+            java.math.BigDecimal value = new java.math.BigDecimal(number.toString());
+            return value.compareTo(java.math.BigDecimal.valueOf(Long.MIN_VALUE)) >= 0
+                    && value.compareTo(java.math.BigDecimal.valueOf(Long.MAX_VALUE)) <= 0;
+        } catch (NumberFormatException exception) {
+            return false;
+        }
     }
 
     private boolean isWholeNumber(Number number) {

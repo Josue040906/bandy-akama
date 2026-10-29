@@ -62,6 +62,86 @@ class ToolExecutorTest {
     }
 
     @Test
+    void rejectsOptionalArgumentsWithTheWrongTypeBeforeMakingTheRequest() {
+        ToolDefinition definition = tool();
+        ToolParameter optionalLimit = new ToolParameter(
+                "limit",
+                "integer",
+                "Maximum number of results.",
+                false
+        );
+        definition.setParameters(List.of(
+                definition.getParameters().get(0),
+                optionalLimit
+        ));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> executor.execute(definition, Map.of(
+                        "query", "agent",
+                        "limit", "many"
+                ))
+        );
+    }
+
+    @Test
+    void rejectsStringArgumentsLongerThanTheSafetyLimit() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> executor.execute(
+                        tool(),
+                        Map.of("query", "x".repeat(4001))
+                )
+        );
+    }
+
+    @Test
+    void rejectsNonFiniteNumbersAndOutOfRangeIntegers() {
+        ToolDefinition numericTool = new ToolDefinition(
+                "numericLookup",
+                "Lookup by numeric criteria.",
+                "GET",
+                "https://example.test/api/agents",
+                List.of(
+                        new ToolParameter("query", "string", "Query.", true),
+                        new ToolParameter("score", "number", "Score.", false),
+                        new ToolParameter("limit", "integer", "Limit.", false)
+                )
+        );
+        numericTool.setWhenToUse("Use for numeric validation tests.");
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> executor.execute(numericTool, Map.of(
+                        "query", "agent",
+                        "score", Double.POSITIVE_INFINITY
+                ))
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> executor.execute(numericTool, Map.of(
+                        "query", "agent",
+                        "limit", new java.math.BigInteger("999999999999999999999999")
+                ))
+        );
+    }
+
+    @Test
+    void rejectsInvalidToolDefinitionBeforeMakingNetworkRequest() {
+        ToolDefinition invalid = tool();
+        ToolParameter query = new ToolParameter(
+                "query", "string", "Query.", true
+        );
+        query.setLocation("body");
+        invalid.setParameters(List.of(query));
+
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> executor.execute(invalid, Map.of("query", "agent"))
+        );
+    }
+
+    @Test
     void forwardsCorrelationIdToRegisteredTool() throws IOException {
         AtomicReference<String> receivedRequestId = new AtomicReference<>();
         AtomicReference<String> receivedAuthorization = new AtomicReference<>();
