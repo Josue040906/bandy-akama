@@ -54,13 +54,14 @@ class GeminiAssistantOrchestrationTest {
         ToolDefinition dynamicTool = namedTool("hr_dynamic_lookup");\n        dynamicTool.setApprovedForGemini(true);
 
         assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
+                List.of(profileTool, searchTool, organizationTool, dynamicTool),
                 GeminiAssistant.selectAllowedTools(
                         List.of(
                                 oldSearchTool,
                                 profileTool,
                                 searchTool,
-                                organizationTool
+                                organizationTool,
+                                dynamicTool
                         )
                 )
         );
