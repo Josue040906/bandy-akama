@@ -130,6 +130,66 @@ class ConversationApiTest {
     }
 
     @Test
+    void resetStartsANewContextAndPreventsOldHistoryFromReturning()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        java.util.concurrent.atomic.AtomicReference<String> contextAfterReset =
+                new java.util.concurrent.atomic.AtomicReference<>();
+
+        org.mockito.Mockito.doAnswer(invocation -> {
+            String currentMessage = invocation.getArgument(0);
+            String context = invocation.getArgument(2);
+            if ("QUESTION_APRES_RESET".equals(currentMessage)) {
+                contextAfterReset.set(context);
+            }
+            boolean reset = "NOUVEAU_SUJET".equals(currentMessage);
+            return new ChatResponse(
+                    "Réponse pour " + currentMessage,
+                    List.of()
+            ).withConversationStateReset(reset);
+        }).when(assistant).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                nullable(UUID.class),
+                nullable(JsonNode.class)
+        );
+
+        for (int i = 0; i < 7; i++) {
+            send(
+                    conversationId,
+                    "42",
+                    "ANCIEN_CONTEXTE_SECRET_" + i
+            );
+        }
+        send(conversationId, "42", "NOUVEAU_SUJET");
+        send(conversationId, "42", "QUESTION_APRES_RESET");
+
+        String context = contextAfterReset.get();
+        assertNotNull(context);
+        assertFalse(context.contains("ANCIEN_CONTEXTE_SECRET"));
+        assertFalse(context.contains("Réponse pour ANCIEN_CONTEXTE_SECRET"));
+        assertTrue(context.contains("NOUVEAU_SUJET"));
+        assertTrue(context.contains("Réponse pour NOUVEAU_SUJET"));
+
+        assertEquals(
+                "{}",
+                jdbcTemplate.queryForObject("""
+                        SELECT active_state::text
+                        FROM bandy_conversation_memory
+                        WHERE conversation_id = ?
+                        """,
+                        String.class,
+                        conversationId
+                )
+        );
+        assertEquals(
+                0,
+                readMemoryJson(conversationId, "result_references").size()
+        );
+    }
+
+    @Test
     void streamsConversationResponsesAsServerSentEvents() throws Exception {
         UUID conversationId = createConversation("42");
         MvcResult pending = mockMvc.perform(post(
