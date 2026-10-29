@@ -76,6 +76,7 @@ $tools = @(
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent"
         enabled = $true
+        approvedForGemini = $true
         sensitive = $true
         parameters = @(
             @{
