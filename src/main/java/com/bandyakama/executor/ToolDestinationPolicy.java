@@ -15,10 +15,16 @@ import java.util.stream.Collectors;
 @Component
 public final class ToolDestinationPolicy {
     private final Set<String> allowedOrigins;
+    private final boolean allowLoopbackForTests;
 
     public ToolDestinationPolicy(
             @Value("${bandy.tools.allowed-destinations:}") String configuredOrigins
     ) {
+        this(configuredOrigins, false);
+    }
+
+    public ToolDestinationPolicy(String configuredOrigins, boolean allowLoopbackForTests) {
+        this.allowLoopbackForTests = allowLoopbackForTests;
         this.allowedOrigins = Arrays.stream(configuredOrigins.split(","))
                 .map(String::trim)
                 .filter(value -> !value.isBlank())
@@ -42,6 +48,11 @@ public final class ToolDestinationPolicy {
                 || uri.getUserInfo() != null
                 || uri.getFragment() != null) {
             throw new IllegalArgumentException("Destination HTTP(S) non autorisée.");
+        }
+        if (allowLoopbackForTests && (uri.getHost().equals("127.0.0.1")
+                || uri.getHost().equalsIgnoreCase("localhost")
+                || uri.getHost().equals("::1"))) {
+            return;
         }
         String origin = normalizeOrigin(
                 uri.getScheme() + "://" + uri.getRawAuthority()
