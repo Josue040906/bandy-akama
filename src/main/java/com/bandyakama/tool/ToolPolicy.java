@@ -10,8 +10,10 @@ import java.util.Map;
  * a tool execution request. Approval and activation are separate controls.
  */
 public final class ToolPolicy {
-    private static final String RESERVED_CONVERSATION_TOOL =
-            "clearConversationState";
+    private static final List<String> RESERVED_CONVERSATION_TOOLS = List.of(
+            "clearConversationState",
+            "reset_conversation_context"
+    );
 
     private ToolPolicy() {
     }
@@ -20,7 +22,7 @@ public final class ToolPolicy {
         if (tool == null
                 || !tool.isApprovedForGemini()
                 || !tool.isEnabled()
-                || RESERVED_CONVERSATION_TOOL.equals(tool.getName())) {
+                || RESERVED_CONVERSATION_TOOLS.contains(tool.getName())) {
             return false;
         }
 
