@@ -54,6 +54,9 @@ import java.util.function.Consumer;
 
 @Service
 public class GeminiAssistant {
+    private static final String RESET_CONVERSATION_TOOL =
+            "reset_conversation_context";
+
     private final Client client;
     private final String apiKey;
     private final String model;
@@ -358,12 +361,17 @@ public class GeminiAssistant {
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
         JsonNode activeState = initialState;
+        boolean conversationStateReset = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
-            List<FunctionCall> calls = response.parts().stream()
+            List<FunctionCall> calls = new ArrayList<>(response.parts().stream()
                     .map(Part::functionCall)
                     .flatMap(Optional::stream)
-                    .toList();
+                    .toList());
+            calls.sort(java.util.Comparator.comparingInt(call ->
+                    RESET_CONVERSATION_TOOL.equals(call.name().orElse(""))
+                            ? 0 : 1
+            ));
             if (calls.isEmpty()) {
                 String responseText = response.text();
                 if (responseText == null || responseText.isBlank()) {
@@ -376,7 +384,7 @@ public class GeminiAssistant {
                         null,
                         false,
                         List.copyOf(toolStates)
-                );
+                ).withConversationStateReset(conversationStateReset);
             }
 
             metrics.toolRounds++;
@@ -385,6 +393,22 @@ public class GeminiAssistant {
             for (FunctionCall call : calls) {
                 String name = call.name().orElse("");
                 Map<String, Object> arguments = call.args().orElse(Map.of());
+                if (RESET_CONVERSATION_TOOL.equals(name)) {
+                    activeState = null;
+                    conversationStateReset = true;
+                    FunctionResponse.Builder resetResponse =
+                            FunctionResponse.builder()
+                                    .name(name)
+                                    .response(Map.of(
+                                            "success", true,
+                                            "message", "Le contexte de la tâche précédente a été réinitialisé."
+                                    ));
+                    call.id().ifPresent(resetResponse::id);
+                    resultParts.add(Part.builder()
+                            .functionResponse(resetResponse.build())
+                            .build());
+                    continue;
+                }
                 Map<String, Object> effectiveArguments =
                         stateMerger.mergeToolArguments(
                                 activeState,
@@ -475,7 +499,7 @@ public class GeminiAssistant {
                     null,
                     false,
                     List.copyOf(toolStates)
-            );
+            ).withConversationStateReset(conversationStateReset);
         }
 
         GenerateContentConfig finalConfig =
@@ -528,7 +552,7 @@ public class GeminiAssistant {
                 null,
                 false,
                 List.copyOf(toolStates)
-        );
+        ).withConversationStateReset(conversationStateReset);
     }
 
     static List<Content> toGeminiHistory(
@@ -991,6 +1015,17 @@ public class GeminiAssistant {
                         .parameters(toGeminiSchema(definition.getParameters()))
                         .build())
                 .toList());
+        declarations.add(FunctionDeclaration.builder()
+                .name(RESET_CONVERSATION_TOOL)
+                .description(
+                        "Réinitialise le contexte de la tâche précédente lorsque "
+                                + "la demande actuelle est une intention indépendante. "
+                                + "À appeler avant de répondre ou d’utiliser un outil "
+                                + "métier pour un nouveau sujet. Ne pas appeler pour "
+                                + "une précision ou un suivi de la tâche actuelle."
+                )
+                .parameters(Schema.builder().type("OBJECT").build())
+                .build());
         return Tool.builder().functionDeclarations(declarations).build();
     }
 
