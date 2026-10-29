@@ -1254,11 +1254,25 @@ public class ConversationRepository {
             }
         }
 
-        long summarizedThrough = summaryCutoff(conversationId);
+        // Rebuilding a missing memory must respect the same reset boundary
+        // as normal writes, otherwise old turns can leak back into the summary.
+        long summarizedThrough = Math.max(
+                summaryCutoff(conversationId),
+                latestResetSequence
+        );
         String summary = "";
         for (HistoricalMessage message : history) {
             if (message.sequenceNumber() > summarizedThrough) {
                 break;
+            }
+            if (latestReset != null
+                    && message.sequenceNumber() <= latestResetSequence
+                    && (resetRequestId == null
+                    || !java.util.Objects.equals(
+                            message.requestId(),
+                            resetRequestId
+                    ))) {
+                continue;
             }
             if ("USER".equals(message.role()) || "ASSISTANT".equals(message.role())) {
                 summary = appendSummary(
