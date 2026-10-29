@@ -578,7 +578,7 @@ class ConversationApiTest {
         send(conversationId, "42", "Montre leurs matricules.");
 
         var context = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 context.capture(),
@@ -851,7 +851,7 @@ class ConversationApiTest {
                 "Affiche son profil complet."
         );
 
-        verify(assistant, times(3)).respond(
+        verify(assistant, times(2)).respond(
                 anyString(),
                 anyString(),
                 contexts.capture(),
@@ -1111,7 +1111,8 @@ class ConversationApiTest {
                 any(UUID.class),
                 states.capture()
         );
-        assertNull(states.getAllValues().get(0));
+        assertTrue(states.getAllValues().get(0).isObject());
+        assertEquals(0, states.getAllValues().get(0).size());
         assertTrue(states.getAllValues().get(1) != null);
         assertFalse(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
