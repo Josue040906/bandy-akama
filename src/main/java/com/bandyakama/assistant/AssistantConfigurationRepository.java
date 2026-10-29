@@ -30,11 +30,7 @@ public class AssistantConfigurationRepository {
                    parameter.required AS parameter_required
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
-                   ON t.enabled = TRUE AND t.name IN (
-                       'get_agent_profile',
-                       'search_agents',
-                       'get_organization_info'
-                   )
+                   ON t.enabled = TRUE AND t.approved_for_gemini = TRUE
             LEFT JOIN bandy_tool_parameter parameter
                    ON parameter.tool_name = t.name
             WHERE p.id = 1
