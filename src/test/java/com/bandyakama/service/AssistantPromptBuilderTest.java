@@ -38,5 +38,9 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Le message actuel et l’historique sont les sources pour interpréter l’intention"));
         assertTrue(instruction.contains("critères COMPLETS"));
         assertTrue(instruction.contains("N’utilise jamais de marqueur remove ni de fusion implicite"));
+        assertTrue(instruction.contains("« Et les hommes ? » conserve le service"));
+        assertTrue(instruction.contains("remplace l’âge"));
+        assertTrue(instruction.contains("Combien y a-t-il de directions ?"));
+        assertTrue(instruction.contains("demande lequel"));
     }
 }
