@@ -50,7 +50,7 @@ class GeminiAssistantOrchestrationTest {
         ToolDefinition oldSearchTool = namedTool("searchEmployees");
         ToolDefinition profileTool = namedTool("get_agent_profile");
         ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
+        ToolDefinition organizationTool = namedTool("get_organization_info");\n        ToolDefinition dynamicTool = namedTool("hr_dynamic_lookup");\n        dynamicTool.setApprovedForGemini(true);
 
         assertEquals(
                 List.of(profileTool, searchTool, organizationTool),
