@@ -22,6 +22,7 @@ public class AssistantConfigurationRepository {
                    t.http_method AS tool_http_method,
                    t.endpoint_url AS tool_endpoint_url,
                    t.enabled AS tool_enabled,
+                   t.approved_for_gemini AS tool_approved_for_gemini,
                    t.sensitive AS tool_sensitive,
                    parameter.name AS parameter_name,
                    parameter.type AS parameter_type,
@@ -75,6 +76,9 @@ public class AssistantConfigurationRepository {
                     );
                     try {
                         definition.setEnabled(resultSet.getBoolean("tool_enabled"));
+                        definition.setApprovedForGemini(
+                                resultSet.getBoolean("tool_approved_for_gemini")
+                        );
                         definition.setSensitive(
                                 resultSet.getBoolean("tool_sensitive")
                         );
