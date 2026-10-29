@@ -744,6 +744,12 @@ class ConversationApiTest {
                 {
                   "toolName":"search_agents",
                   "arguments":{"criteriaJson":"{}"},
+                  "profiles":{
+                    "AG-71":{
+                      "nom":"LEGACY-PRIVATE-PROFILE",
+                      "adresse":"Adresse RH privée"
+                    }
+                  },
                   "candidateReferences":{
                     "expiresAt":"2000-01-01T00:00:00Z",
                     "truncated":false,
@@ -782,10 +788,11 @@ class ConversationApiTest {
                 nullable(JsonNode.class)
         );
         assertFalse(context.getValue().contains("EXPIRED-42"));
-        assertFalse(
-                readMemoryJson(conversationId, "active_state")
-                        .has("candidateReferences")
-        );
+        assertFalse(context.getValue().contains("LEGACY-PRIVATE-PROFILE"));
+        assertFalse(context.getValue().contains("Adresse RH privée"));
+        JsonNode cleanedState = readMemoryJson(conversationId, "active_state");
+        assertFalse(cleanedState.has("candidateReferences"));
+        assertFalse(cleanedState.has("profiles"));
     }
 
     @Test
