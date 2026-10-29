@@ -31,7 +31,7 @@ class AssistantConfigurationRepositoryTest {
                     new AssistantProfile("Assistant", "Reusable", "Instructions"),
                     snapshot.profile()
             );
-            assertEquals(3, snapshot.enabledTools().size());
+            assertEquals(4, snapshot.enabledTools().size());
             assertEquals(
                     "get_agent_profile",
                     snapshot.enabledTools().get(0).getName()
@@ -42,15 +42,13 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertTrue(snapshot.enabledTools().stream()
+                    .anyMatch(tool -> tool.getName().equals("new_registered_tool")));
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
             );
-            jdbcTemplate.update(
-                    "UPDATE bandy_tool SET enabled = FALSE "
-                            + "WHERE name IN ('get_agent_profile', "
-                            + "'search_agents', 'get_organization_info')"
-            );
+            jdbcTemplate.update("UPDATE bandy_tool SET enabled = FALSE");
 
             statementsBeforeSnapshot = jdbcTemplate.queryCount();
             AssistantConfigurationSnapshot updated = repository.get();
@@ -128,7 +126,7 @@ class AssistantConfigurationRepositoryTest {
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool
                 (name, description, when_to_use, http_method, endpoint_url,
-                 enabled, sensitive) VALUES
+                 enabled, approved_for_gemini, sensitive) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
                  'GET', 'http://localhost/profile', TRUE, TRUE),
                 ('search_agents', 'Agent search', 'For agent searches',
@@ -136,7 +134,7 @@ class AssistantConfigurationRepositoryTest {
                 ('get_organization_info', 'Organization', 'For organization questions',
                  'GET', 'http://localhost/organization', TRUE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, TRUE)
+                 'http://localhost/legacy', TRUE, FALSE, TRUE),\n                ('new_registered_tool', 'New tool', 'Newly approved tool', 'GET',\n                 'http://localhost/new', TRUE, TRUE, FALSE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
