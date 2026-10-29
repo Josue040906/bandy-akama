@@ -155,13 +155,23 @@ class ConversationApiTest {
                 nullable(JsonNode.class)
         );
 
-        for (int i = 0; i < 7; i++) {
+        for (int i = 0; i < 12; i++) {
             send(
                     conversationId,
                     "42",
                     "ANCIEN_CONTEXTE_SECRET_" + i
             );
         }
+        String summaryBeforeReset = jdbcTemplate.queryForObject(
+                "SELECT summary FROM bandy_conversation_memory "
+                        + "WHERE conversation_id = ?",
+                String.class,
+                conversationId
+        );
+        assertNotNull(summaryBeforeReset);
+        org.junit.jupiter.api.Assertions.assertFalse(summaryBeforeReset.isBlank(),
+                "Le test doit créer un résumé avant de vérifier sa réinitialisation.");
+
         send(conversationId, "42", "NOUVEAU_SUJET");
         send(conversationId, "42", "QUESTION_APRES_RESET");
 
@@ -171,6 +181,16 @@ class ConversationApiTest {
         assertFalse(context.contains("Réponse pour ANCIEN_CONTEXTE_SECRET"));
         assertTrue(context.contains("NOUVEAU_SUJET"));
         assertTrue(context.contains("Réponse pour NOUVEAU_SUJET"));
+        assertEquals(
+                "",
+                jdbcTemplate.queryForObject(
+                        "SELECT summary FROM bandy_conversation_memory "
+                                + "WHERE conversation_id = ?",
+                        String.class,
+                        conversationId
+                ),
+                "Le résumé de l’ancien sujet ne doit pas survivre à la réinitialisation."
+        );
 
         JsonNode activeState = readMemoryJson(
                 conversationId,
