@@ -368,7 +368,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void reusesTheLoadedAgentProfileForIdentityCorrectionAndAcademicFollowUp()
+    void doesNotPersistLoadedAgentProfileAcrossFollowUps()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -447,9 +447,11 @@ class ConversationApiTest {
         );
 
         String academicContext = contexts.getAllValues().get(2);
-        assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
-        assertTrue(academicContext.contains("CONTINUATION"));
+        assertFalse(academicContext.contains("Licence en Gestion RH"));
+        assertTrue(academicContext.contains(
+                "les profils RH complets ne sont pas conservés dans cet état"
+        ));
+        assertFalse(states.getAllValues().get(2).has("profiles"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
