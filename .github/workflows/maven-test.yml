@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - feature/recherche-unifiee-agents
+      - fix/privacy-and-conversation-followup
 
 permissions:
   contents: read
