@@ -134,7 +134,8 @@ class AssistantConfigurationRepositoryTest {
                 ('get_organization_info', 'Organization', 'For organization questions',
                  'GET', 'http://localhost/organization', TRUE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, FALSE, TRUE),\n                ('new_registered_tool', 'New tool', 'Newly approved tool', 'GET',\n                 'http://localhost/new', TRUE, TRUE, FALSE)
+                 'http://localhost/legacy', TRUE, FALSE, TRUE),
+                ('new_registered_tool', 'New tool', 'Newly approved tool', 'GET',\n                 'http://localhost/new', TRUE, TRUE, FALSE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
