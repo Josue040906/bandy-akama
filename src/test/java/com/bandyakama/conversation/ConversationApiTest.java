@@ -1122,15 +1122,15 @@ class ConversationApiTest {
                                 "search_agents",
                                 List.of(Map.of("matricule", "AG-20")),
                                 Map.of("criteriaJson",
-                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"Personnel\\"},"
-                                                + "{\\"field\\":\\"sexe\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"F\\"},"
-                                                + "{\\"field\\":\\"age\\","
-                                                + "\\"operator\\":\\"LT\\","
-                                                + "\\"value\\":20}]}")
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"},"
+                                                + "{\"field\":\"age\","
+                                                + "\"operator\":\"LT\","
+                                                + "\"value\":20}]}")
                         ))
                 ),
                 new ChatResponse(
@@ -1139,15 +1139,15 @@ class ConversationApiTest {
                                 "search_agents",
                                 List.of(Map.of("matricule", "AG-30")),
                                 Map.of("criteriaJson",
-                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"Personnel\\"},"
-                                                + "{\\"field\\":\\"sexe\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"F\\"},"
-                                                + "{\\"field\\":\\"age\\","
-                                                + "\\"operator\\":\\"LT\\","
-                                                + "\\"value\\":30}]}")
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"},"
+                                                + "{\"field\":\"age\","
+                                                + "\"operator\":\"LT\","
+                                                + "\"value\":30}]}")
                         ))
                 )
         );
@@ -1165,8 +1165,8 @@ class ConversationApiTest {
         );
         String followUpContext = contexts.getAllValues().get(1);
         assertTrue(followUpContext.contains("Personnel"));
-        assertTrue(followUpContext.contains("\\"value\\":\\"F\\""));
-        assertTrue(followUpContext.contains("\\"value\\":20"));
+        assertTrue(followUpContext.contains("\"value\":\"F\""));
+        assertTrue(followUpContext.contains("\"value\":20"));
 
         JsonNode state = readMemoryJson(conversationId, "active_state");
         JsonNode filters = state.path("criteria").path("filters");
@@ -1175,7 +1175,7 @@ class ConversationApiTest {
         assertEquals("F", filters.get(1).path("value").asText());
         assertEquals("age", filters.get(2).path("field").asText());
         assertEquals(30, filters.get(2).path("value").asInt());
-        assertFalse(state.toString().contains("\\"value\\":20"));
+        assertFalse(state.toString().contains("\"value\":20"));
     }
 
     @Test
