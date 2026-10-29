@@ -143,8 +143,18 @@ class GeminiAssistantFullLoopTest {
                 org.mockito.ArgumentMatchers.eq("Bearer test-token"),
                 any()
         );
+        var sentMessages = org.mockito.ArgumentCaptor
+                .forClass((Class<List<Content>>) (Class<?>) List.class);
         verify(chat, org.mockito.Mockito.times(2))
-                .sendMessage(anyList(), any(GenerateContentConfig.class));
+                .sendMessage(sentMessages.capture(), any(GenerateContentConfig.class));
+        List<Content> toolReply = sentMessages.getAllValues().get(1);
+        assertEquals(1, toolReply.size());
+        var returnedFunctionResponse = toolReply.get(0).parts().orElseThrow().get(0)
+                .functionResponse().orElseThrow();
+        Map<String, Object> returnedPayload =
+                returnedFunctionResponse.response().orElseThrow();
+        assertTrue(returnedPayload.containsKey("output"));
+        assertEquals(2, ((Map<?, ?>) returnedPayload.get("output")).get("count"));
     }
 
     @Test
