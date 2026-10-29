@@ -35,7 +35,7 @@ class AssistantPromptBuilderTest {
 
         assertTrue(instruction.contains("Tu décides si chaque message est une nouvelle demande"));
         assertTrue(instruction.contains("reset_conversation_context"));
-        assertTrue(instruction.contains("l’intention, et non le nom de"));
+        assertTrue(instruction.contains("Le message actuel et l’historique sont les sources pour interpréter l’intention"));
         assertTrue(instruction.contains("critères COMPLETS"));
         assertTrue(instruction.contains("N’utilise jamais de marqueur remove ni de fusion implicite"));
     }
