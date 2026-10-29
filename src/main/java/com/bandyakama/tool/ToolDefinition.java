@@ -104,6 +104,16 @@ public class ToolDefinition {
         if (parameters == null) {
             parameters = List.of();
         }
+        if (parameters.size() > 50) {
+            throw new IllegalArgumentException(
+                    "Un outil ne peut pas déclarer plus de 50 paramètres."
+            );
+        }
+        if (parameters.stream().anyMatch(java.util.Objects::isNull)) {
+            throw new IllegalArgumentException(
+                    "La définition contient un paramètre invalide."
+            );
+        }
         if (parameters.stream().map(ToolParameter::getName).distinct().count()
                 != parameters.size()) {
             throw new IllegalArgumentException("Les noms des paramètres doivent être uniques.");
