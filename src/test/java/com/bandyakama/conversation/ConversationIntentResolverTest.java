@@ -211,7 +211,8 @@ class ConversationIntentResolverTest {
         for (String independentRequest : new String[]{
                 "Recherche les agents du Service Financier.",
                 "Explique la procédure de reclassement.",
-                "Changeons de sujet : explique la comptabilité."
+                "Changeons de sujet : explique la comptabilité.",
+                "Oui, explique la procédure de reclassement."
         }) {
             assertEquals(
                     ConversationIntentResolver.Decision.NEW_INTENT,
