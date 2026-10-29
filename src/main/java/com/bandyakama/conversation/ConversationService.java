@@ -210,7 +210,7 @@ public class ConversationService {
         }
 
         try {
-            var greeting = ConversationIntentResolver.greetingResponse(message);
+            var greeting = GreetingResponder.greetingResponse(message);
             if (greeting.isPresent()) {
                 long greetingStartedAt = System.nanoTime();
                 ChatResponse response = new ChatResponse(
