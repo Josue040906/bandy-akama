@@ -291,6 +291,7 @@ public class GeminiAssistant {
                 maxOutputTokens
         );
         Chat chat = client.chats.create(model, config);
+        Chat activeChat = chat;
         ConversationPromptContext.Parsed promptContext =
                 ConversationPromptContext.parse(
                         conversationContext,
@@ -382,10 +383,15 @@ public class GeminiAssistant {
                 }
                 conversationStateReset = true;
                 activeState = null;
+                executedResults.clear();
+                observedResults.clear();
+                toolStates.clear();
+                toolInvocationCache = new ToolInvocationCache(objectMapper);
 
                 // Ignore any other action planned in the same model response.
                 // Restart the current request without the previous conversation.
                 Chat freshChat = client.chats.create(model, config);
+                activeChat = freshChat;
                 String freshPrompt = "Le contexte précédent a été réinitialisé. "
                         + "Traite uniquement la demande actuelle, sans reprendre "
                         + "aucun filtre ni résultat antérieur.\n\nDEMANDE ACTUELLE :\n"
@@ -486,12 +492,13 @@ public class GeminiAssistant {
             Content toolResponses = Content.fromParts(
                     resultParts.toArray(Part[]::new)
             );
+            Chat currentChat = activeChat;
             response = tokenConsumer == null
                     ? callModel(
                             requestId,
                             metrics,
                             config,
-                            requestConfig -> chat.sendMessage(
+                            requestConfig -> currentChat.sendMessage(
                                     toolResponses,
                                     requestConfig
                             )
@@ -500,7 +507,7 @@ public class GeminiAssistant {
                             requestId,
                             metrics,
                             config,
-                            requestConfig -> chat.sendMessageStream(
+                            requestConfig -> currentChat.sendMessageStream(
                                     toolResponses,
                                     requestConfig
                             ),
@@ -531,18 +538,22 @@ public class GeminiAssistant {
         GenerateContentConfig finalConfig =
                 finalResponseConfig(systemInstruction);
         Chat finalChat = client.chats.create(model, finalConfig);
+        String finalContext = conversationStateReset
+                ? ""
+                : promptContext.context();
+        List<Content> finalHistory = conversationStateReset
+                ? List.of()
+                : toGeminiHistory(promptContext.history());
         String finalPrompt = "DEMANDE DE L’UTILISATEUR :\n"
                 + message
                 + "\n\nCONTEXTE CONVERSATIONNEL :\n"
-                + promptContext.context()
+                + finalContext
                 + "\n\nRÉSULTATS D’OUTILS EFFECTIVEMENT EXÉCUTÉS :\n"
                 + objectMapper.valueToTree(observedResults)
                 + "\n\nLe modèle avait demandé d’autres appels qui n’ont pas été "
                 + "exécutés car la limite d’orchestration a été atteinte. "
                 + "Réponds maintenant à partir des seuls résultats ci-dessus.";
-        List<Content> finalMessages = new ArrayList<>(
-                toGeminiHistory(promptContext.history())
-        );
+        List<Content> finalMessages = new ArrayList<>(finalHistory);
         finalMessages.add(Content.builder()
                 .role("user")
                 .parts(List.of(Part.fromText(finalPrompt)))
