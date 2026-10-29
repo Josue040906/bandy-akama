@@ -110,7 +110,9 @@ class GeminiAssistantFullLoopTest {
                 "J’ai trouvé deux agents dans le Service du Personnel."
         );
         when(chat.sendMessage(anyList(), any(GenerateContentConfig.class)))
-                .thenReturn(toolCallResponse, finalResponse);
+                .thenReturn(toolCallResponse);
+        when(chat.sendMessage(any(Content.class), any(GenerateContentConfig.class)))
+                .thenReturn(finalResponse);
         when(toolExecutor.execute(
                 any(ToolDefinition.class),
                 any(Map.class),
@@ -146,14 +148,11 @@ class GeminiAssistantFullLoopTest {
                 org.mockito.ArgumentMatchers.eq("Bearer test-token"),
                 any()
         );
-        var sentMessages = org.mockito.ArgumentCaptor
-                .forClass((Class<List<Content>>) (Class<?>) List.class);
-        verify(chat, org.mockito.Mockito.times(2))
-                .sendMessage(sentMessages.capture(), any(GenerateContentConfig.class));
-        List<Content> toolReply = sentMessages.getAllValues().get(1);
-        assertEquals(1, toolReply.size());
-        var returnedFunctionResponse = toolReply.get(0).parts().orElseThrow().get(0)
-                .functionResponse().orElseThrow();
+        verify(chat).sendMessage(anyList(), any(GenerateContentConfig.class));
+        var toolReply = org.mockito.ArgumentCaptor.forClass(Content.class);
+        verify(chat).sendMessage(toolReply.capture(), any(GenerateContentConfig.class));
+        var returnedFunctionResponse = toolReply.getValue().parts()
+                .orElseThrow().get(0).functionResponse().orElseThrow();
         Map<String, Object> returnedPayload =
                 returnedFunctionResponse.response().orElseThrow();
         assertTrue(returnedPayload.containsKey("output"));
@@ -194,7 +193,9 @@ class GeminiAssistantFullLoopTest {
         when(finalResponse.usageMetadata()).thenReturn(Optional.empty());
         when(finalResponse.text()).thenReturn("Voici les résultats de la recherche.");
         when(freshChat.sendMessage(anyList(), any(GenerateContentConfig.class)))
-                .thenReturn(searchResponse, finalResponse);
+                .thenReturn(searchResponse);
+        when(freshChat.sendMessage(any(Content.class), any(GenerateContentConfig.class)))
+                .thenReturn(finalResponse);
         when(toolExecutor.execute(
                 any(ToolDefinition.class), any(Map.class), any(), any()
         )).thenReturn(Map.of("count", 0, "agents", List.of()));
@@ -226,15 +227,13 @@ class GeminiAssistantFullLoopTest {
         assertEquals(1, response.toolResults().size());
         assertEquals("search_agents", response.toolResults().get(0).name());
         verify(chat).sendMessage(anyList(), any(GenerateContentConfig.class));
-        verify(freshChat, org.mockito.Mockito.times(2))
-                .sendMessage(anyList(), any(GenerateContentConfig.class));
-
+        verify(freshChat).sendMessage(anyList(), any(GenerateContentConfig.class));
         var freshMessages = org.mockito.ArgumentCaptor
                 .forClass((Class<List<Content>>) (Class<?>) List.class);
-        verify(freshChat, org.mockito.Mockito.times(2))
-                .sendMessage(freshMessages.capture(), any(GenerateContentConfig.class));
-        String resetPrompt = freshMessages.getAllValues().get(0).get(0)
+        verify(freshChat).sendMessage(freshMessages.capture(), any(GenerateContentConfig.class));
+        String resetPrompt = freshMessages.getValue().get(0)
                 .parts().orElseThrow().get(0).text().orElseThrow();
+        verify(freshChat).sendMessage(any(Content.class), any(GenerateContentConfig.class));
         assertTrue(resetPrompt.contains("a déjà été réinitialisé"));
         assertTrue(resetPrompt.contains("Explique la procédure de reclassement."));
         assertFalse(resetPrompt.contains("Service du Personnel"));
