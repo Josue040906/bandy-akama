@@ -12,7 +12,7 @@ import java.util.regex.Pattern;
 public final class GreetingResponder {
     private static final Pattern GREETING = Pattern.compile(
             "^(?:bonjour|bonsoir|salut|coucou|hello|hi|hey|salama|"
-                    + "manao ahoana)(?:\\\\s+(?:bandy(?: akama)?|assistant))?"
+                    + "manao ahoana)(?:\\s+(?:bandy(?: akama)?|assistant))?"
                     + "[!.?]*$"
     );
 
@@ -40,9 +40,9 @@ public final class GreetingResponder {
                 message.toLowerCase(Locale.ROOT),
                 Normalizer.Form.NFD
         );
-        return decomposed.replaceAll("\\\\p{M}+", "")
-                .replaceAll("\\\\s+([?!.])", "$1")
-                .replaceAll("\\\\s+", " ")
+        return decomposed.replaceAll("\\p{M}+", "")
+                .replaceAll("\\s+([?!.])", "$1")
+                .replaceAll("\\s+", " ")
                 .strip();
     }
 }
