@@ -69,6 +69,36 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
+    void declaresContextResetAsAModelControlledConversationAction() {
+        Tool tool = GeminiAssistant.toGeminiTool(
+                List.of(namedTool("search_agents"))
+        );
+
+        List<String> functionNames = tool.functionDeclarations()
+                .orElseThrow()
+                .stream()
+                .map(declaration -> declaration.name().orElseThrow())
+                .toList();
+
+        assertTrue(functionNames.contains("search_agents"));
+        assertTrue(functionNames.contains("reset_conversation_context"));
+        assertFalse(functionNames.contains("ConversationIntentResolver"));
+    }
+
+    @Test
+    void resetPromptPreventsASecondResetAndDropsPreviousCriteria() {
+        String prompt = GeminiAssistant.resetPrompt(
+                "Explique la procédure de reclassement."
+        );
+
+        assertTrue(prompt.contains("a déjà été réinitialisé"));
+        assertTrue(prompt.contains("Ne demande pas une deuxième réinitialisation"));
+        assertTrue(prompt.contains("n’appelle pas reset_conversation_context"));
+        assertTrue(prompt.contains("Explique la procédure de reclassement."));
+        assertFalse(prompt.contains("Service du Personnel"));
+    }
+
+    @Test
     void mapsPersistedAssistantHistoryToGeminiModelAndUserRoles() {
         List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
                 new ConversationPromptContext.Message(

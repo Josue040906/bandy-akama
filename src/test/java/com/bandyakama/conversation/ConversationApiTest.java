@@ -130,6 +130,81 @@ class ConversationApiTest {
     }
 
     @Test
+    void resetStartsANewContextAndPreventsOldHistoryFromReturning()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        java.util.concurrent.atomic.AtomicReference<String> contextAfterReset =
+                new java.util.concurrent.atomic.AtomicReference<>();
+
+        org.mockito.Mockito.doAnswer(invocation -> {
+            String currentMessage = invocation.getArgument(0);
+            String context = invocation.getArgument(2);
+            if ("QUESTION_APRES_RESET".equals(currentMessage)) {
+                contextAfterReset.set(context);
+            }
+            boolean reset = "NOUVEAU_SUJET".equals(currentMessage);
+            return new ChatResponse(
+                    "Réponse pour " + currentMessage,
+                    List.of()
+            ).withConversationStateReset(reset);
+        }).when(assistant).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                nullable(UUID.class),
+                nullable(JsonNode.class)
+        );
+
+        for (int i = 0; i < 12; i++) {
+            send(
+                    conversationId,
+                    "42",
+                    "ANCIEN_CONTEXTE_SECRET_" + i
+            );
+        }
+        String summaryBeforeReset = jdbcTemplate.queryForObject(
+                "SELECT summary FROM bandy_conversation_memory "
+                        + "WHERE conversation_id = ?",
+                String.class,
+                conversationId
+        );
+        assertNotNull(summaryBeforeReset);
+        org.junit.jupiter.api.Assertions.assertFalse(summaryBeforeReset.isBlank(),
+                "Le test doit créer un résumé avant de vérifier sa réinitialisation.");
+
+        send(conversationId, "42", "NOUVEAU_SUJET");
+        send(conversationId, "42", "QUESTION_APRES_RESET");
+
+        String context = contextAfterReset.get();
+        assertNotNull(context);
+        assertFalse(context.contains("ANCIEN_CONTEXTE_SECRET"));
+        assertFalse(context.contains("Réponse pour ANCIEN_CONTEXTE_SECRET"));
+        assertTrue(context.contains("NOUVEAU_SUJET"));
+        assertTrue(context.contains("Réponse pour NOUVEAU_SUJET"));
+        assertEquals(
+                "",
+                jdbcTemplate.queryForObject(
+                        "SELECT summary FROM bandy_conversation_memory "
+                                + "WHERE conversation_id = ?",
+                        String.class,
+                        conversationId
+                ),
+                "Le résumé de l’ancien sujet ne doit pas survivre à la réinitialisation."
+        );
+
+        JsonNode activeState = readMemoryJson(
+                conversationId,
+                "active_state"
+        );
+        assertTrue(activeState.isObject());
+        assertTrue(activeState.isEmpty());
+        assertEquals(
+                0,
+                readMemoryJson(conversationId, "result_references").size()
+        );
+    }
+
+    @Test
     void streamsConversationResponsesAsServerSentEvents() throws Exception {
         UUID conversationId = createConversation("42");
         MvcResult pending = mockMvc.perform(post(
@@ -932,7 +1007,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void explicitNewQuestionResetsStateWithoutCallingTheAssistant()
+    void explicitNewQuestionIsDelegatedToTheAssistantAndCanResetState()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -954,6 +1029,8 @@ class ConversationApiTest {
                         ))
                 ),
                 new ChatResponse("Voici une réponse indépendante.", List.of())
+                        .withConversationStateReset(true),
+                new ChatResponse("Il y a plusieurs directions.", List.of())
         );
 
         send(conversationId, "42", "Cherche les agents du Personnel.");
@@ -965,11 +1042,11 @@ class ConversationApiTest {
         send(conversationId, "42", "Combien y a-t-il de directions ?");
 
         assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
+                "Voici une réponse indépendante.",
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
@@ -1049,6 +1126,79 @@ class ConversationApiTest {
     }
 
     @Test
+    void correctingAnAgeFilterKeepsOtherCriteriaWithoutKeepingTheOldAge()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Femmes du Personnel de moins de 20 ans.",
+                        List.of(new ChatResponse.ToolResult(
+                                "search_agents",
+                                List.of(Map.of("matricule", "AG-20")),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"},"
+                                                + "{\"field\":\"age\","
+                                                + "\"operator\":\"LT\","
+                                                + "\"value\":20}]}")
+                        ))
+                ),
+                new ChatResponse(
+                        "Femmes du Personnel de moins de 30 ans.",
+                        List.of(new ChatResponse.ToolResult(
+                                "search_agents",
+                                List.of(Map.of("matricule", "AG-30")),
+                                Map.of("criteriaJson",
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"},"
+                                                + "{\"field\":\"age\","
+                                                + "\"operator\":\"LT\","
+                                                + "\"value\":30}]}")
+                        ))
+                )
+        );
+
+        send(conversationId, "42", "Cherche les femmes du Personnel de moins de 20 ans.");
+        send(conversationId, "42", "Maintenant celles de moins de 30 ans.");
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        String followUpContext = contexts.getAllValues().get(1);
+        assertTrue(followUpContext.contains("Personnel"));
+        assertTrue(followUpContext.contains("\"value\":\"F\""));
+        assertTrue(followUpContext.contains("\"value\":20"));
+
+        JsonNode state = readMemoryJson(conversationId, "active_state");
+        JsonNode filters = state.path("criteria").path("filters");
+        assertEquals(3, filters.size());
+        assertEquals("Personnel", filters.get(0).path("value").asText());
+        assertEquals("F", filters.get(1).path("value").asText());
+        assertEquals("age", filters.get(2).path("field").asText());
+        assertEquals(30, filters.get(2).path("value").asInt());
+        assertFalse(state.toString().contains("\"value\":20"));
+    }
+
+    @Test
     void aNewOrganizationSearchDoesNotReceiveThePreviousFilters()
             throws Exception {
         UUID conversationId = createConversation("42");
@@ -1109,9 +1259,10 @@ class ConversationApiTest {
                 any(UUID.class),
                 states.capture()
         );
-        assertNull(states.getAllValues().get(0));
-        assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        assertTrue(states.getAllValues().get(0).isObject());
+        assertEquals(0, states.getAllValues().get(0).size());
+        assertTrue(states.getAllValues().get(1) != null);
+        assertFalse(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
@@ -1221,6 +1372,7 @@ class ConversationApiTest {
 
         assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
         assertTrue(rebuiltContext.contains("comptabilité"), rebuiltContext);
+        assertFalse(rebuiltContext.contains("Recherche initiale"), rebuiltContext);
         assertFalse(rebuiltContext.contains("OLD-RESULT-123"));
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
         assertEquals(0, readMemoryJson(

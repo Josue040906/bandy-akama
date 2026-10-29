@@ -58,6 +58,20 @@ class ConversationMigrationTest {
                     PRIMARY KEY (conversation_id, idempotency_key)
                 )
                 """);
+        jdbc.execute("""
+                CREATE TABLE bandy_conversation_message (
+                    id UUID PRIMARY KEY,
+                    conversation_id UUID NOT NULL,
+                    sequence_number BIGINT NOT NULL,
+                    role VARCHAR(20) NOT NULL,
+                    content TEXT NOT NULL,
+                    message_type VARCHAR(40) NOT NULL,
+                    metadata JSONB NOT NULL,
+                    request_id UUID,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE (conversation_id, sequence_number)
+                )
+                """);
         jdbc.update("""
                 INSERT INTO bandy_conversation (
                     id, application_id, owner_id, label, status, created_at,
@@ -106,6 +120,11 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "active_claim_id"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
+        assertTrue(hasColumn(
+                jdbc,
+                "bandy_conversation_message",
+                "context_reset"
+        ));
     }
 
     private boolean hasColumn(

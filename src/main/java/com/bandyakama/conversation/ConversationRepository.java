@@ -519,12 +519,30 @@ public class ConversationRepository {
             UUID requestId
     ) {
         List<ConversationPromptContext.Message> messages = jdbcTemplate.query("""
-                        SELECT role, content
-                        FROM bandy_conversation_message
-                        WHERE conversation_id = ?
-                            AND role IN ('USER', 'ASSISTANT')
-                            AND (request_id IS NULL OR request_id <> ?)
-                        ORDER BY sequence_number DESC
+                        WITH latest_reset AS (
+                            SELECT request_id, sequence_number
+                            FROM bandy_conversation_message
+                            WHERE conversation_id = ?
+                                AND context_reset = TRUE
+                                AND (request_id IS NULL OR request_id <> ?)
+                            ORDER BY sequence_number DESC
+                            LIMIT 1
+                        )
+                        SELECT message.role, message.content
+                        FROM bandy_conversation_message message
+                        WHERE message.conversation_id = ?
+                            AND message.role IN ('USER', 'ASSISTANT')
+                            AND (message.request_id IS NULL OR message.request_id <> ?)
+                            AND (
+                                NOT EXISTS (SELECT 1 FROM latest_reset)
+                                OR message.sequence_number > (
+                                    SELECT sequence_number FROM latest_reset
+                                )
+                                OR message.request_id IS NOT DISTINCT FROM (
+                                    SELECT request_id FROM latest_reset
+                                )
+                            )
+                        ORDER BY message.sequence_number DESC
                         LIMIT ?
                         """,
                 (resultSet, rowNumber) -> new ConversationPromptContext.Message(
@@ -536,6 +554,8 @@ public class ConversationRepository {
                                 MAX_RECENT_CONTENT_LENGTH
                         )
                 ),
+                conversationId,
+                requestId,
                 conversationId,
                 requestId,
                 recentMessages
@@ -758,8 +778,13 @@ public class ConversationRepository {
             }
         }
 
-        String summary = memory.summary();
-        long summarizedThrough = memory.summarizedThroughSequence();
+        // A reset starts a new conversational context, not merely a new
+        // operational state. Mark all messages through this turn as already
+        // summarized so old messages cannot be reintroduced into the summary.
+        String summary = clearConversationState ? "" : memory.summary();
+        long summarizedThrough = clearConversationState
+                ? nextSequence(conversationId) - 1
+                : memory.summarizedThroughSequence();
         long cutoff = summaryCutoff(conversationId);
         if (cutoff > summarizedThrough) {
             List<String> olderMessages = jdbcTemplate.query("""
@@ -1129,8 +1154,8 @@ public class ConversationRepository {
         jdbcTemplate.update("""
                 INSERT INTO bandy_conversation_message (
                     id, conversation_id, sequence_number, role, content,
-                    message_type, metadata, request_id
-                ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS JSONB), ?)
+                    message_type, metadata, request_id, context_reset
+                ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS JSONB), ?, ?)
                 """,
                 UUID.randomUUID(),
                 conversationId,
@@ -1139,7 +1164,10 @@ public class ConversationRepository {
                 content,
                 messageType,
                 metadata,
-                requestId
+                requestId,
+                "ASSISTANT".equals(role)
+                        && readStoredJson(metadata)
+                                .path("resetConversationState").asBoolean(false)
         );
     }
 
@@ -1226,11 +1254,25 @@ public class ConversationRepository {
             }
         }
 
-        long summarizedThrough = summaryCutoff(conversationId);
+        // Rebuilding a missing memory must respect the same reset boundary
+        // as normal writes, otherwise old turns can leak back into the summary.
+        long summarizedThrough = Math.max(
+                summaryCutoff(conversationId),
+                latestResetSequence
+        );
         String summary = "";
         for (HistoricalMessage message : history) {
             if (message.sequenceNumber() > summarizedThrough) {
                 break;
+            }
+            if (latestReset != null
+                    && message.sequenceNumber() <= latestResetSequence
+                    && (resetRequestId == null
+                    || !java.util.Objects.equals(
+                            message.requestId(),
+                            resetRequestId
+                    ))) {
+                continue;
             }
             if ("USER".equals(message.role()) || "ASSISTANT".equals(message.role())) {
                 summary = appendSummary(

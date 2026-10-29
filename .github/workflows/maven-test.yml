@@ -6,7 +6,9 @@ on:
       - main
       - feature/recherche-unifiee-agents
       - fix/privacy-and-conversation-followup
+      - refactor/gemini-owned-conversation-intent
   pull_request:
+    types: [opened, synchronize, reopened, edited]
     branches:
       - main
       - feature/recherche-unifiee-agents

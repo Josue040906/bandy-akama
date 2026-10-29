@@ -2,7 +2,7 @@ package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationStateMerger;
-import com.bandyakama.conversation.ConversationIntentResolver;
+import com.bandyakama.conversation.GreetingResponder;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
@@ -30,6 +30,7 @@ import com.google.genai.types.Part;
 import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
 import com.google.genai.types.ThinkingConfig;
+import java.util.function.BiFunction;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -54,7 +55,10 @@ import java.util.function.Consumer;
 
 @Service
 public class GeminiAssistant {
-    private final Client client;
+    private static final String RESET_CONVERSATION_TOOL =
+            "reset_conversation_context";
+
+    private final BiFunction<String, GenerateContentConfig, Chat> chatFactory;
     private final String apiKey;
     private final String model;
     private final AssistantConfigurationRepository configurationRepository;
@@ -84,12 +88,44 @@ public class GeminiAssistant {
             PerformanceTelemetry performanceTelemetry,
             ObjectMapper objectMapper
     ) {
+        this(
+                apiKey,
+                model,
+                maxToolRounds,
+                serviceTier,
+                thinkingLevel,
+                maxOutputTokens,
+                geminiClientFactory.timeoutMillis(),
+                geminiClientFactory.retryAttempts(),
+                createChatFactory(apiKey, geminiClientFactory),
+                configurationRepository,
+                toolExecutor,
+                stateMerger,
+                performanceTelemetry,
+                objectMapper
+        );
+    }
+
+    GeminiAssistant(
+            String apiKey,
+            String model,
+            int maxToolRounds,
+            String serviceTier,
+            String thinkingLevel,
+            int maxOutputTokens,
+            int geminiTimeoutMillis,
+            int geminiRetryAttempts,
+            BiFunction<String, GenerateContentConfig, Chat> chatFactory,
+            AssistantConfigurationRepository configurationRepository,
+            ToolExecutor toolExecutor,
+            ConversationStateMerger stateMerger,
+            PerformanceTelemetry performanceTelemetry,
+            ObjectMapper objectMapper
+    ) {
         this.apiKey = apiKey;
-        this.client = apiKey.isBlank()
-                ? null
-                : geminiClientFactory.create(apiKey);
-        this.geminiTimeoutMillis = geminiClientFactory.timeoutMillis();
-        this.geminiRetryAttempts = geminiClientFactory.retryAttempts();
+        this.chatFactory = chatFactory;
+        this.geminiTimeoutMillis = geminiTimeoutMillis;
+        this.geminiRetryAttempts = geminiRetryAttempts;
         if (maxToolRounds < 1 || maxToolRounds > 5) {
             throw new IllegalArgumentException(
                     "Le nombre de tours d’outils doit être compris entre 1 et 5."
@@ -137,6 +173,19 @@ public class GeminiAssistant {
                 performanceTelemetry,
                 objectMapper
         );
+    }
+
+    private static BiFunction<String, GenerateContentConfig, Chat> createChatFactory(
+            String apiKey,
+            GeminiClientFactory geminiClientFactory
+    ) {
+        if (apiKey.isBlank()) {
+            return (model, config) -> {
+                throw new IllegalStateException("Gemini API key is not configured.");
+            };
+        }
+        Client client = geminiClientFactory.create(apiKey);
+        return (model, config) -> client.chats.create(model, config);
     }
 
     public ChatResponse respond(String message, String authorization) {
@@ -190,7 +239,7 @@ public class GeminiAssistant {
         boolean succeeded = false;
         try {
             Optional<String> greeting =
-                    ConversationIntentResolver.greetingResponse(message);
+                    GreetingResponder.greetingResponse(message);
             if (greeting.isPresent()) {
                 performanceTelemetry.stage(
                         requestId,
@@ -206,7 +255,6 @@ public class GeminiAssistant {
                     authorization,
                     conversationContext,
                     requestId,
-                    initialState,
                     metrics,
                     tokenConsumer
             );
@@ -241,7 +289,6 @@ public class GeminiAssistant {
             String authorization,
             String conversationContext,
             UUID requestId,
-            JsonNode initialState,
             TurnMetrics metrics,
             Consumer<String> tokenConsumer
     ) {
@@ -287,7 +334,8 @@ public class GeminiAssistant {
                 thinkingLevel,
                 maxOutputTokens
         );
-        Chat chat = client.chats.create(model, config);
+        Chat chat = chatFactory.apply(model, config);
+        Chat activeChat = chat;
         ConversationPromptContext.Parsed promptContext =
                 ConversationPromptContext.parse(
                         conversationContext,
@@ -357,13 +405,64 @@ public class GeminiAssistant {
         List<ChatResponse.ToolState> toolStates = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
-        JsonNode activeState = initialState;
+        boolean conversationStateReset = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
             List<FunctionCall> calls = response.parts().stream()
                     .map(Part::functionCall)
                     .flatMap(Optional::stream)
                     .toList();
+
+            boolean resetRequested = calls.stream()
+                    .anyMatch(call -> RESET_CONVERSATION_TOOL.equals(
+                            call.name().orElse("")
+                    ));
+            if (resetRequested) {
+                if (conversationStateReset) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_GATEWAY,
+                            "Gemini a demandé plusieurs réinitialisations du contexte."
+                    );
+                }
+                conversationStateReset = true;
+                executedResults.clear();
+                observedResults.clear();
+                toolStates.clear();
+                toolInvocationCache = new ToolInvocationCache(objectMapper);
+
+                // Ignore any other action planned in the same model response.
+                // Restart the current request without the previous conversation.
+                Chat freshChat = chatFactory.apply(model, config);
+                activeChat = freshChat;
+                String freshPrompt = resetPrompt(message);
+                List<Content> freshMessages = List.of(Content.builder()
+                        .role("user")
+                        .parts(List.of(Part.fromText(freshPrompt)))
+                        .build());
+                response = tokenConsumer == null
+                        ? callModel(
+                                requestId,
+                                metrics,
+                                config,
+                                requestConfig -> freshChat.sendMessage(
+                                        freshMessages,
+                                        requestConfig
+                                )
+                        )
+                        : callModelStreaming(
+                                requestId,
+                                metrics,
+                                config,
+                                requestConfig -> freshChat.sendMessageStream(
+                                        freshMessages,
+                                        requestConfig
+                                ),
+                                tokenConsumer
+                        );
+                round--;
+                continue;
+            }
+
             if (calls.isEmpty()) {
                 String responseText = response.text();
                 if (responseText == null || responseText.isBlank()) {
@@ -376,7 +475,7 @@ public class GeminiAssistant {
                         null,
                         false,
                         List.copyOf(toolStates)
-                );
+                ).withConversationStateReset(conversationStateReset);
             }
 
             metrics.toolRounds++;
@@ -386,11 +485,7 @@ public class GeminiAssistant {
                 String name = call.name().orElse("");
                 Map<String, Object> arguments = call.args().orElse(Map.of());
                 Map<String, Object> effectiveArguments =
-                        stateMerger.mergeToolArguments(
-                                activeState,
-                                name,
-                                arguments
-                        );
+                        stateMerger.argumentsForExecution(arguments);
                 ToolExecutionResult execution = executeRegisteredTool(
                         name,
                         effectiveArguments,
@@ -412,10 +507,6 @@ public class GeminiAssistant {
                         Set.of("get_agent_profile", "search_agents")
                                 .contains(name) ? result : null
                 ));
-                activeState = stateMerger.stateAfterToolCall(
-                        name,
-                        effectiveArguments
-                );
                 if (!execution.sensitive()) {
                     executedResults.add(new ChatResponse.ToolResult(
                             name,
@@ -436,12 +527,13 @@ public class GeminiAssistant {
             Content toolResponses = Content.fromParts(
                     resultParts.toArray(Part[]::new)
             );
+            Chat currentChat = activeChat;
             response = tokenConsumer == null
                     ? callModel(
                             requestId,
                             metrics,
                             config,
-                            requestConfig -> chat.sendMessage(
+                            requestConfig -> currentChat.sendMessage(
                                     toolResponses,
                                     requestConfig
                             )
@@ -450,7 +542,7 @@ public class GeminiAssistant {
                             requestId,
                             metrics,
                             config,
-                            requestConfig -> chat.sendMessageStream(
+                            requestConfig -> currentChat.sendMessageStream(
                                     toolResponses,
                                     requestConfig
                             ),
@@ -475,24 +567,28 @@ public class GeminiAssistant {
                     null,
                     false,
                     List.copyOf(toolStates)
-            );
+            ).withConversationStateReset(conversationStateReset);
         }
 
         GenerateContentConfig finalConfig =
                 finalResponseConfig(systemInstruction);
-        Chat finalChat = client.chats.create(model, finalConfig);
+        Chat finalChat = chatFactory.apply(model, finalConfig);
+        String finalContext = conversationStateReset
+                ? ""
+                : promptContext.context();
+        List<Content> finalHistory = conversationStateReset
+                ? List.of()
+                : toGeminiHistory(promptContext.history());
         String finalPrompt = "DEMANDE DE L’UTILISATEUR :\n"
                 + message
                 + "\n\nCONTEXTE CONVERSATIONNEL :\n"
-                + promptContext.context()
+                + finalContext
                 + "\n\nRÉSULTATS D’OUTILS EFFECTIVEMENT EXÉCUTÉS :\n"
                 + objectMapper.valueToTree(observedResults)
                 + "\n\nLe modèle avait demandé d’autres appels qui n’ont pas été "
                 + "exécutés car la limite d’orchestration a été atteinte. "
                 + "Réponds maintenant à partir des seuls résultats ci-dessus.";
-        List<Content> finalMessages = new ArrayList<>(
-                toGeminiHistory(promptContext.history())
-        );
+        List<Content> finalMessages = new ArrayList<>(finalHistory);
         finalMessages.add(Content.builder()
                 .role("user")
                 .parts(List.of(Part.fromText(finalPrompt)))
@@ -528,7 +624,7 @@ public class GeminiAssistant {
                 null,
                 false,
                 List.copyOf(toolStates)
-        );
+        ).withConversationStateReset(conversationStateReset);
     }
 
     static List<Content> toGeminiHistory(
@@ -726,6 +822,15 @@ public class GeminiAssistant {
                     succeeded
             );
         }
+    }
+
+    static String resetPrompt(String message) {
+        return "Le contexte précédent a déjà été réinitialisé pour cette demande. "
+                + "Ne demande pas une deuxième réinitialisation et n’appelle pas "
+                + "reset_conversation_context pendant cette reprise. "
+                + "Traite uniquement le message actuel, sans reprendre aucun filtre "
+                + "ni résultat antérieur.\n\nDEMANDE ACTUELLE :\n"
+                + message;
     }
 
     private static Integer providerStatus(Throwable failure) {
@@ -981,7 +1086,7 @@ public class GeminiAssistant {
         return Optional.empty();
     }
 
-    private Tool toGeminiTool(List<ToolDefinition> definitions) {
+    static Tool toGeminiTool(List<ToolDefinition> definitions) {
         List<FunctionDeclaration> declarations = new ArrayList<>(definitions.stream()
                 .map(definition -> FunctionDeclaration.builder()
                         .name(definition.getName())
@@ -991,10 +1096,21 @@ public class GeminiAssistant {
                         .parameters(toGeminiSchema(definition.getParameters()))
                         .build())
                 .toList());
+        declarations.add(FunctionDeclaration.builder()
+                .name(RESET_CONVERSATION_TOOL)
+                .description(
+                        "Réinitialise le contexte de la tâche précédente lorsque "
+                                + "la demande actuelle est une intention indépendante. "
+                                + "À appeler avant toute réponse ou outil métier pour "
+                                + "un nouveau sujet. Ne pas appeler pour un suivi, une "
+                                + "correction ou une précision de la tâche actuelle."
+                )
+                .parameters(Schema.builder().type("OBJECT").build())
+                .build());
         return Tool.builder().functionDeclarations(declarations).build();
     }
 
-    private Schema toGeminiSchema(List<ToolParameter> parameters) {
+    private static Schema toGeminiSchema(List<ToolParameter> parameters) {
         Map<String, Schema> properties = new HashMap<>();
         List<String> required = new ArrayList<>();
         for (ToolParameter parameter : parameters) {
@@ -1019,7 +1135,7 @@ public class GeminiAssistant {
         return schema.build();
     }
 
-    private String toGeminiType(String type) {
+    private static String toGeminiType(String type) {
         return switch (type.toLowerCase()) {
             case "string" -> "STRING";
             case "integer" -> "INTEGER";
