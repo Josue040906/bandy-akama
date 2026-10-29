@@ -172,17 +172,12 @@ class ConversationApiTest {
         assertTrue(context.contains("NOUVEAU_SUJET"));
         assertTrue(context.contains("Réponse pour NOUVEAU_SUJET"));
 
-        assertEquals(
-                "{}",
-                jdbcTemplate.queryForObject("""
-                        SELECT active_state::text
-                        FROM bandy_conversation_memory
-                        WHERE conversation_id = ?
-                        """,
-                        String.class,
-                        conversationId
-                )
+        JsonNode activeState = readMemoryJson(
+                conversationId,
+                "active_state"
         );
+        assertTrue(activeState.isObject());
+        assertTrue(activeState.isEmpty());
         assertEquals(
                 0,
                 readMemoryJson(conversationId, "result_references").size()
