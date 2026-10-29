@@ -8,6 +8,7 @@ import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
 import com.bandyakama.assistant.AssistantConfigurationSnapshot;
 import com.bandyakama.executor.ToolExecutor;
+import com.bandyakama.security.ToolAuthorizationPolicy;
 import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
@@ -979,6 +980,8 @@ public class GeminiAssistant {
             ToolInvocationCache invocationCache,
             TurnMetrics metrics
     ) {
+        // Enforce user authentication before even returning a cached business result.
+        ToolAuthorizationPolicy.requireUserAuthorization(authorization);
         ToolDefinition definition = Optional.ofNullable(enabledTools.get(name))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,

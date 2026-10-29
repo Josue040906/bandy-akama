@@ -383,3 +383,18 @@ entiers doivent tenir dans la plage d'un entier 64 bits et les chaînes sont lim
 Ces limites sont des garde-fous génériques. Les règles métier plus précises (par exemple
 une plage d'âge autorisée ou les valeurs acceptées pour un filtre) doivent rester définies
 par l'API métier ou être ajoutées explicitement au schéma de chaque paramètre.
+
+
+## Autorisation des appels aux outils métier
+
+Toute exécution d'un outil déclenchée par Gemini exige désormais un contexte
+d'authentification utilisateur de type `Bearer`. L'appelant ne peut pas lancer un
+outil métier depuis l'orchestration sans ce contexte. Bandy transmet ensuite le jeton
+à l'API configurée pour l'outil.
+
+Cette vérification ne remplace pas l'autorisation métier : chaque API destinataire doit
+valider le jeton, identifier l'utilisateur et vérifier ses rôles et droits pour la route
+demandée. Un outil approuvé pour Gemini n'accorde aucun droit supplémentaire à l'utilisateur.
+Ne configurez donc pas d'outil métier sur une route qui contourne les contrôles d'accès du
+backend. La matrice de permissions par opération doit être définie et testée dans l'API RH
+avant d'activer des opérations de modification.
