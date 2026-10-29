@@ -851,7 +851,7 @@ class ConversationApiTest {
                 "Affiche son profil complet."
         );
 
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 contexts.capture(),
@@ -932,7 +932,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void explicitNewQuestionResetsStateWithoutCallingTheAssistant()
+    void explicitNewQuestionIsDelegatedToTheAssistantAndCanResetState()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -954,6 +954,8 @@ class ConversationApiTest {
                         ))
                 ),
                 new ChatResponse("Voici une réponse indépendante.", List.of())
+                        .withConversationStateReset(true),
+                new ChatResponse("Il y a plusieurs directions.", List.of())
         );
 
         send(conversationId, "42", "Cherche les agents du Personnel.");
@@ -965,7 +967,7 @@ class ConversationApiTest {
         send(conversationId, "42", "Combien y a-t-il de directions ?");
 
         assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
+                "Voici une réponse indépendante.",
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
@@ -1110,8 +1112,8 @@ class ConversationApiTest {
                 states.capture()
         );
         assertNull(states.getAllValues().get(0));
-        assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        assertTrue(states.getAllValues().get(1) != null);
+        assertFalse(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
