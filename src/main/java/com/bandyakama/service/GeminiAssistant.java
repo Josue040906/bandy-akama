@@ -388,10 +388,7 @@ public class GeminiAssistant {
                 // Restart the current request without the previous conversation.
                 Chat freshChat = client.chats.create(model, config);
                 activeChat = freshChat;
-                String freshPrompt = "Le contexte précédent a été réinitialisé. "
-                        + "Traite uniquement la demande actuelle, sans reprendre "
-                        + "aucun filtre ni résultat antérieur.\n\nDEMANDE ACTUELLE :\n"
-                        + message;
+                String freshPrompt = resetPrompt(message);
                 List<Content> freshMessages = List.of(Content.builder()
                         .role("user")
                         .parts(List.of(Part.fromText(freshPrompt)))
@@ -779,6 +776,15 @@ public class GeminiAssistant {
                     succeeded
             );
         }
+    }
+
+    static String resetPrompt(String message) {
+        return "Le contexte précédent a déjà été réinitialisé pour cette demande. "
+                + "Ne demande pas une deuxième réinitialisation et n’appelle pas "
+                + "reset_conversation_context pendant cette reprise. "
+                + "Traite uniquement le message actuel, sans reprendre aucun filtre "
+                + "ni résultat antérieur.\n\nDEMANDE ACTUELLE :\n"
+                + message;
     }
 
     private static Integer providerStatus(Throwable failure) {
