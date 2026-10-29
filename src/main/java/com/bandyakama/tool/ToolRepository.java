@@ -24,8 +24,7 @@ public class ToolRepository {
                         List.of()
                 );
                 tool.setWhenToUse(resultSet.getString("when_to_use"));
-                tool.setEnabled(resultSet.getBoolean("enabled"));
-                tool.setSensitive(resultSet.getBoolean("sensitive"));
+                tool.setEnabled(resultSet.getBoolean("enabled"));\n                tool.setApprovedForGemini(resultSet.getBoolean("approved_for_gemini"));\n                tool.setSensitive(resultSet.getBoolean("sensitive"));
                 return tool;
             };
 
@@ -67,7 +66,7 @@ public class ToolRepository {
 
     public Optional<ToolDefinition> findByName(String name) {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, approved_for_gemini, sensitive "
                         + "FROM bandy_tool WHERE name = ? AND enabled = TRUE",
                 TOOL_ROW_MAPPER,
                 name
@@ -83,16 +82,14 @@ public class ToolRepository {
                 jdbcTemplate.update("""
                         INSERT INTO bandy_tool (
                             name, description, when_to_use, http_method, endpoint_url,
-                            enabled, sensitive, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            enabled, approved_for_gemini, sensitive, updated_at\n                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """,
                         tool.getName(),
                         tool.getDescription(),
                         tool.getWhenToUse(),
                         tool.getMethod().toUpperCase(),
                         tool.getUrl(),
-                        tool.isEnabled(),
-                        tool.isSensitive()
+                        tool.isEnabled(),\n                        tool.isApprovedForGemini(),\n                        tool.isSensitive()
                 );
             } catch (DuplicateKeyException concurrentInsert) {
                 updateTool(tool);
@@ -130,8 +127,7 @@ public class ToolRepository {
                     when_to_use = ?,
                     http_method = ?,
                     endpoint_url = ?,
-                    enabled = ?,
-                    sensitive = ?,
+                    enabled = ?,\n                    approved_for_gemini = ?,\n                    sensitive = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE name = ?
                 """,
@@ -139,8 +135,7 @@ public class ToolRepository {
                 tool.getWhenToUse(),
                 tool.getMethod().toUpperCase(),
                 tool.getUrl(),
-                tool.isEnabled(),
-                tool.isSensitive(),
+                tool.isEnabled(),\n                        tool.isApprovedForGemini(),\n                        tool.isSensitive(),
                 tool.getName()
         );
     }
