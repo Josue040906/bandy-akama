@@ -86,6 +86,19 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
+    void resetPromptPreventsASecondResetAndDropsPreviousCriteria() {
+        String prompt = GeminiAssistant.resetPrompt(
+                "Explique la procédure de reclassement."
+        );
+
+        assertTrue(prompt.contains("a déjà été réinitialisé"));
+        assertTrue(prompt.contains("Ne demande pas une deuxième réinitialisation"));
+        assertTrue(prompt.contains("n’appelle pas reset_conversation_context"));
+        assertTrue(prompt.contains("Explique la procédure de reclassement."));
+        assertFalse(prompt.contains("Service du Personnel"));
+    }
+
+    @Test
     void mapsPersistedAssistantHistoryToGeminiModelAndUserRoles() {
         List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
                 new ConversationPromptContext.Message(
