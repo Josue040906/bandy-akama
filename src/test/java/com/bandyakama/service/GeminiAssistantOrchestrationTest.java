@@ -69,6 +69,23 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
+    void declaresContextResetAsAModelControlledConversationAction() {
+        Tool tool = GeminiAssistant.toGeminiTool(
+                List.of(namedTool("search_agents"))
+        );
+
+        List<String> functionNames = tool.functionDeclarations()
+                .orElseThrow()
+                .stream()
+                .map(declaration -> declaration.name().orElseThrow())
+                .toList();
+
+        assertTrue(functionNames.contains("search_agents"));
+        assertTrue(functionNames.contains("reset_conversation_context"));
+        assertFalse(functionNames.contains("ConversationIntentResolver"));
+    }
+
+    @Test
     void mapsPersistedAssistantHistoryToGeminiModelAndUserRoles() {
         List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
                 new ConversationPromptContext.Message(
