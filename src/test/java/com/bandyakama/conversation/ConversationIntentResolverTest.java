@@ -186,6 +186,42 @@ class ConversationIntentResolverTest {
         );
     }
 
+
+    @Test
+    void resolvesFollowUpsWithoutDependingOnSpecificToolNames() {
+        JsonNode configuredToolState = objectMapper.createObjectNode()
+                .put("toolName", "lookup_documents");
+
+        for (String followUp : new String[]{
+                "Oui, donne-les-moi.",
+                "D'accord, affiche la liste complète.",
+                "Et les autres ?",
+                "Montre leurs matricules.",
+                "Quel est son âge ?",
+                "Explique-moi sa situation professionnelle.",
+                "Maintenant, cherche celles de moins de 30 ans dans la même direction."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.CONTINUATION,
+                    resolver.resolve(followUp, configuredToolState),
+                    followUp
+            );
+        }
+
+        for (String independentRequest : new String[]{
+                "Recherche les agents du Service Financier.",
+                "Explique la procédure de reclassement.",
+                "Changeons de sujet : explique la comptabilité.",
+                "Oui, explique la procédure de reclassement."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.NEW_INTENT,
+                    resolver.resolve(independentRequest, configuredToolState),
+                    independentRequest
+            );
+        }
+    }
+
     @Test
     void treatsAnExplicitlyDifferentOrganizationAsANewSearch() throws Exception {
         JsonNode state = objectMapper.readTree("""
