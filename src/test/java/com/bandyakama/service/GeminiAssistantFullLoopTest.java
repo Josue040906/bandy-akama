@@ -161,6 +161,91 @@ class GeminiAssistantFullLoopTest {
     }
 
     @Test
+    void resetStartsANewChatAndExecutesOnlyTheCurrentRequest()
+            throws Exception {
+        Chat freshChat = mock(Chat.class);
+
+        FunctionCall resetCall = mock(FunctionCall.class);
+        when(resetCall.name()).thenReturn(Optional.of("reset_conversation_context"));
+        when(resetCall.args()).thenReturn(Optional.of(Map.of()));
+        when(resetCall.id()).thenReturn(Optional.empty());
+        Part resetPart = mock(Part.class);
+        when(resetPart.functionCall()).thenReturn(Optional.of(resetCall));
+        GenerateContentResponse resetResponse = mock(GenerateContentResponse.class);
+        when(resetResponse.parts()).thenReturn(ImmutableList.of(resetPart));
+        when(resetResponse.usageMetadata()).thenReturn(Optional.empty());
+        when(chat.sendMessage(anyList(), any(GenerateContentConfig.class)))
+                .thenReturn(resetResponse);
+
+        FunctionCall searchCall = mock(FunctionCall.class);
+        when(searchCall.name()).thenReturn(Optional.of("search_agents"));
+        when(searchCall.args()).thenReturn(Optional.of(Map.of("query", "reclassement")));
+        when(searchCall.id()).thenReturn(Optional.empty());
+        Part searchPart = mock(Part.class);
+        when(searchPart.functionCall()).thenReturn(Optional.of(searchCall));
+        GenerateContentResponse searchResponse = mock(GenerateContentResponse.class);
+        when(searchResponse.parts()).thenReturn(ImmutableList.of(searchPart));
+        when(searchResponse.usageMetadata()).thenReturn(Optional.empty());
+
+        Part finalPart = mock(Part.class);
+        when(finalPart.functionCall()).thenReturn(Optional.empty());
+        GenerateContentResponse finalResponse = mock(GenerateContentResponse.class);
+        when(finalResponse.parts()).thenReturn(ImmutableList.of(finalPart));
+        when(finalResponse.usageMetadata()).thenReturn(Optional.empty());
+        when(finalResponse.text()).thenReturn("Voici les résultats de la recherche.");
+        when(freshChat.sendMessage(anyList(), any(GenerateContentConfig.class)))
+                .thenReturn(searchResponse, finalResponse);
+        when(toolExecutor.execute(
+                any(ToolDefinition.class), any(Map.class), any(), any()
+        )).thenReturn(Map.of("count", 0, "agents", List.of()));
+
+        AtomicInteger chatNumber = new AtomicInteger();
+        BiFunction<String, GenerateContentConfig, Chat> factory =
+                (model, config) -> chatNumber.getAndIncrement() == 0
+                        ? chat
+                        : freshChat;
+        assistant = new GeminiAssistant(
+                "test-api-key", "test-model", 2,
+                "standard", "low", 1024, 15000, 1, factory,
+                configurationRepository, toolExecutor,
+                new ConversationStateMerger(objectMapper),
+                new PerformanceTelemetry(), objectMapper
+        );
+
+        String oldContext = "Service du Personnel"
+                + "\\n\\nBANDY_HISTORY_JSON:\\n"
+                + "[{\\"role\\":\\"user\\","
+                + "\\"content\\":\\"Cherche les femmes du Service du Personnel.\\"},"
+                + "{\\"role\\":\\"assistant\\","
+                + "\\"content\\":\\"J’ai trouvé plusieurs agents.\\"}]";
+        ChatResponse response = assistant.respond(
+                "Explique la procédure de reclassement.",
+                "Bearer test-token",
+                oldContext,
+                java.util.UUID.randomUUID(),
+                null
+        );
+
+        assertTrue(response.resetConversationState());
+        assertEquals("Voici les résultats de la recherche.", response.message());
+        assertEquals(1, response.toolResults().size());
+        assertEquals("search_agents", response.toolResults().get(0).name());
+        verify(chat).sendMessage(anyList(), any(GenerateContentConfig.class));
+        verify(freshChat, org.mockito.Mockito.times(2))
+                .sendMessage(anyList(), any(GenerateContentConfig.class));
+
+        var freshMessages = org.mockito.ArgumentCaptor
+                .forClass((Class<List<Content>>) (Class<?>) List.class);
+        verify(freshChat, org.mockito.Mockito.times(2))
+                .sendMessage(freshMessages.capture(), any(GenerateContentConfig.class));
+        String resetPrompt = freshMessages.getAllValues().get(0).get(0)
+                .parts().orElseThrow().get(0).text().orElseThrow();
+        assertTrue(resetPrompt.contains("a déjà été réinitialisé"));
+        assertTrue(resetPrompt.contains("Explique la procédure de reclassement."));
+        assertFalse(resetPrompt.contains("Service du Personnel"));
+    }
+
+    @Test
     void refusesToExecuteAFunctionThatWasNotDeclaredAsEnabled() {
         FunctionCall call = mock(FunctionCall.class);
         when(call.name()).thenReturn(Optional.of("delete_all_employees"));
