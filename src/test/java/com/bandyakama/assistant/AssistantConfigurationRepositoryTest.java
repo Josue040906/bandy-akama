@@ -101,6 +101,7 @@ class AssistantConfigurationRepositoryTest {
                     http_method VARCHAR(10),
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
+                    approved_for_gemini BOOLEAN DEFAULT FALSE,
                     sensitive BOOLEAN
                 )
                 """);
@@ -128,11 +129,11 @@ class AssistantConfigurationRepositoryTest {
                 (name, description, when_to_use, http_method, endpoint_url,
                  enabled, approved_for_gemini, sensitive) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
-                 'GET', 'http://localhost/profile', TRUE, TRUE),
+                 'GET', 'http://localhost/profile', TRUE, TRUE, TRUE),
                 ('search_agents', 'Agent search', 'For agent searches',
-                 'POST', 'http://localhost/search', TRUE, TRUE),
+                 'POST', 'http://localhost/search', TRUE, TRUE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
-                 'GET', 'http://localhost/organization', TRUE, FALSE),
+                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
                  'http://localhost/legacy', TRUE, FALSE, TRUE),
                 ('new_registered_tool', 'New tool', 'Newly approved tool', 'GET',\n                 'http://localhost/new', TRUE, TRUE, FALSE)
