@@ -26,6 +26,9 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("resultMode=COUNT"));
         assertTrue(instruction.contains("get_organization_info"));
         assertTrue(instruction.contains("N’invente ni agent"));
+        assertTrue(instruction.contains("candidateReferences"));
+        assertTrue(instruction.contains("Si plusieurs candidats sont possibles"));
+        assertTrue(instruction.contains("si la liste est tronquée"));
         assertTrue(instruction.contains(
                 "Ne demande jamais si l’utilisateur veut poursuivre"
         ));

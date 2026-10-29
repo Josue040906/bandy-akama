@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -36,6 +37,7 @@ public class ConversationRepository {
             LoggerFactory.getLogger(ConversationRepository.class);
     private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
     private static final int MAX_CACHED_PROFILES = 3;
+    private static final int MAX_CANDIDATE_REFERENCES = 20;
 
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
@@ -65,7 +67,9 @@ public class ConversationRepository {
     private final int recentMessages;
     private final int maxSummaryLength;
     private final int maxContextCharacters;
+    private final int candidateReferenceTtlSeconds;
 
+    @Autowired
     public ConversationRepository(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
@@ -74,7 +78,9 @@ public class ConversationRepository {
             @Value("${bandy.conversations.context.max-summary-characters:4000}")
             int maxSummaryLength,
             @Value("${bandy.conversations.context.max-characters:18000}")
-            int maxContextCharacters
+            int maxContextCharacters,
+            @Value("${bandy.conversations.context.candidate-reference-ttl-seconds:900}")
+            int candidateReferenceTtlSeconds
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
@@ -83,9 +89,32 @@ public class ConversationRepository {
                     "La fenêtre d’historique doit contenir de 8 à 10 messages."
             );
         }
+        if (candidateReferenceTtlSeconds < 1) {
+            throw new IllegalArgumentException(
+                    "La durée de conservation des références doit être positive."
+            );
+        }
         this.recentMessages = recentMessages;
         this.maxSummaryLength = maxSummaryLength;
         this.maxContextCharacters = maxContextCharacters;
+        this.candidateReferenceTtlSeconds = candidateReferenceTtlSeconds;
+    }
+
+    public ConversationRepository(
+            JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper,
+            int recentMessages,
+            int maxSummaryLength,
+            int maxContextCharacters
+    ) {
+        this(
+                jdbcTemplate,
+                objectMapper,
+                recentMessages,
+                maxSummaryLength,
+                maxContextCharacters,
+                900
+        );
     }
 
     @Transactional
@@ -413,6 +442,20 @@ public class ConversationRepository {
                 String.class,
                 conversationId
         ));
+        if (hasExpiredCandidateReferences(activeState)) {
+            ObjectNode cleanedState = ((ObjectNode) activeState).deepCopy();
+            cleanedState.remove("candidateReferences");
+            jdbcTemplate.update("""
+                    UPDATE bandy_conversation_memory
+                    SET active_state = CAST(? AS JSONB),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE conversation_id = ?
+                    """,
+                    toJson(cleanedState),
+                    conversationId
+            );
+            activeState = cleanedState;
+        }
         return new RequestStart(
                 null,
                 claimId,
@@ -691,6 +734,13 @@ public class ConversationRepository {
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
             );
+            if ("search_agents".equals(toolState.name())
+                    && toolState.result() != null) {
+                nextState.set(
+                        "candidateReferences",
+                        candidateReferences(toolState.result())
+                );
+            }
             if ("get_agent_profile".equals(toolState.name())
                     && toolState.result() != null) {
                 JsonNode profile = objectMapper.valueToTree(toolState.result());
@@ -776,11 +826,73 @@ public class ConversationRepository {
                 .map(result -> new ChatResponse.ToolState(
                         result.name(),
                         result.arguments(),
-                        "get_agent_profile".equals(result.name())
+                        Set.of("get_agent_profile", "search_agents")
+                                .contains(result.name())
                                 ? result.result()
                                 : null
                 ))
                 .toList();
+    }
+
+    private ObjectNode candidateReferences(Object result) {
+        JsonNode searchResult = objectMapper.valueToTree(result);
+        JsonNode agents = searchResult.path("agents");
+        ArrayNode candidates = objectMapper.createArrayNode();
+        boolean truncated = searchResult.path("hasMore").asBoolean(false);
+        if (agents.isArray()) {
+            for (JsonNode agent : agents) {
+                if (candidates.size() >= MAX_CANDIDATE_REFERENCES) {
+                    truncated = true;
+                    break;
+                }
+                String matricule = agent.path("matricule").asText("").strip();
+                String nom = agent.path("nom").asText("").strip();
+                String prenom = agent.path("prenom").asText("").strip();
+                String fullName = (prenom + " " + nom).strip();
+                String profileQuery = !matricule.isBlank()
+                        ? matricule
+                        : fullName;
+                if (profileQuery.isBlank()) {
+                    continue;
+                }
+                ObjectNode candidate = objectMapper.createObjectNode();
+                candidate.put("profileQuery", profileQuery);
+                if (!matricule.isBlank()) {
+                    candidate.put("matricule", matricule);
+                }
+                if (!nom.isBlank()) {
+                    candidate.put("nom", nom);
+                }
+                if (!prenom.isBlank()) {
+                    candidate.put("prenom", prenom);
+                }
+                candidates.add(candidate);
+            }
+        }
+
+        ObjectNode references = objectMapper.createObjectNode();
+        references.put(
+                "expiresAt",
+                Instant.now().plusSeconds(candidateReferenceTtlSeconds).toString()
+        );
+        references.put("truncated", truncated);
+        references.set("candidates", candidates);
+        return references;
+    }
+
+    private boolean hasExpiredCandidateReferences(JsonNode activeState) {
+        JsonNode references = activeState.path("candidateReferences");
+        if (!references.isObject()) {
+            return false;
+        }
+        try {
+            Instant expiresAt = Instant.parse(
+                    references.path("expiresAt").asText("")
+            );
+            return !Instant.now().isBefore(expiresAt);
+        } catch (java.time.DateTimeException invalidExpiry) {
+            return true;
+        }
     }
 
     private String appendSummary(String summary, String message) {
@@ -969,7 +1081,9 @@ public class ConversationRepository {
         return switch (field.toLowerCase(java.util.Locale.ROOT)) {
             case "toolname", "name", "intent", "matricule", "id",
                     "employeeid", "field", "operator", "value",
-                    "criteria", "filters", "arguments", "result" -> 0;
+                    "criteria", "filters", "arguments", "result",
+                    "candidatereferences", "candidates", "profilequery",
+                    "expiresat", "truncated" -> 0;
             default -> 1;
         };
     }

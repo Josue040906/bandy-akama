@@ -596,6 +596,235 @@ class ConversationApiTest {
     }
 
     @Test
+    void keepsOnlyMinimalCandidateReferencesForFollowUpAndReplacesEmptyResults()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        Map<String, Object> criteria = Map.of(
+                "criteriaJson",
+                "{\"filters\":[{\"field\":\"service\",\"operator\":\"EQ\","
+                        + "\"value\":\"Personnel\"}]}"
+        );
+        Map<String, Object> candidate = Map.of(
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "telephone", "0340000000",
+                "adresse", "Adresse privée",
+                "id", 719
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Une agente correspond.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "search_agents",
+                                criteria,
+                                Map.of(
+                                        "agents", List.of(candidate),
+                                        "hasMore", false
+                                )
+                        ))
+                ),
+                new ChatResponse(
+                        "Aucun candidat ne correspond après mise à jour.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "search_agents",
+                                criteria,
+                                Map.of("agents", List.of(), "hasMore", false)
+                        ))
+                ),
+                new ChatResponse("Je n’ai aucun candidat à profiler.", List.of())
+        );
+
+        send(conversationId, "42", "Recherche une agente du Personnel.");
+        JsonNode firstState = readMemoryJson(conversationId, "active_state");
+        JsonNode firstReferences = firstState.path("candidateReferences");
+        assertEquals(1, firstReferences.path("candidates").size());
+        assertEquals(
+                "AG-71",
+                firstReferences.path("candidates").get(0)
+                        .path("profileQuery").asText()
+        );
+        assertFalse(firstState.toString().contains("telephone"));
+        assertFalse(firstState.toString().contains("Adresse privée"));
+        assertFalse(firstState.toString().contains("\"id\""));
+        assertEquals(
+                0,
+                readMemoryJson(conversationId, "result_references").size()
+        );
+
+        send(conversationId, "42", "Relance cette recherche.");
+        JsonNode emptyState = readMemoryJson(conversationId, "active_state");
+        assertEquals(
+                0,
+                emptyState.path("candidateReferences")
+                        .path("candidates").size()
+        );
+        assertFalse(emptyState.toString().contains("AG-71"));
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        send(conversationId, "42", "Affiche son profil.");
+        verify(assistant, times(3)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        String contextWithoutResults = contexts.getAllValues().get(2);
+        assertTrue(contextWithoutResults.contains("candidateReferences"));
+        assertTrue(contextWithoutResults.contains("\"candidates\":[]"));
+        assertFalse(contextWithoutResults.contains("AG-71"));
+    }
+
+    @Test
+    void removesExpiredCandidateReferencesBeforePreparingModelContext()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory
+                SET active_state = CAST(? AS JSONB)
+                WHERE conversation_id = ?
+                """,
+                """
+                {
+                  "toolName":"search_agents",
+                  "arguments":{"criteriaJson":"{}"},
+                  "candidateReferences":{
+                    "expiresAt":"2000-01-01T00:00:00Z",
+                    "truncated":false,
+                    "candidates":[
+                      {
+                        "profileQuery":"EXPIRED-42",
+                        "matricule":"EXPIRED-42",
+                        "nom":"ANCIEN",
+                        "prenom":"Candidat"
+                      }
+                    ]
+                  }
+                }
+                """,
+                conversationId
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "La référence a expiré; précisez ou relancez la recherche.",
+                List.of()
+        ));
+
+        send(conversationId, "42", "Affiche son profil.");
+
+        var context = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant).respond(
+                anyString(),
+                anyString(),
+                context.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        assertFalse(context.getValue().contains("EXPIRED-42"));
+        assertFalse(
+                readMemoryJson(conversationId, "active_state")
+                        .has("candidateReferences")
+        );
+    }
+
+    @Test
+    void suppliesEveryCandidateForAmbiguityResolutionWithoutSelectingOne()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        Map<String, Object> criteria = Map.of(
+                "criteriaJson",
+                "{\"filters\":[{\"field\":\"prenom\",\"operator\":\"FUZZY\","
+                        + "\"value\":\"Josette\"}]}"
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Deux candidates correspondent.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "search_agents",
+                                criteria,
+                                Map.of(
+                                        "agents",
+                                        List.of(
+                                                Map.of(
+                                                        "matricule", "AG-71",
+                                                        "nom", "RAKOTO",
+                                                        "prenom", "Josette"
+                                                ),
+                                                Map.of(
+                                                        "matricule", "AG-72",
+                                                        "nom", "RABE",
+                                                        "prenom", "Josette"
+                                                )
+                                        ),
+                                        "hasMore", false
+                                )
+                        ))
+                ),
+                new ChatResponse(
+                        "Laquelle souhaitez-vous consulter ?",
+                        List.of()
+                )
+        );
+
+        send(conversationId, "42", "Recherche Josette.");
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        MvcResult followUp = send(
+                conversationId,
+                "42",
+                "Affiche son profil complet."
+        );
+
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        String context = contexts.getAllValues().get(1);
+        assertTrue(context.contains("AG-71"));
+        assertTrue(context.contains("AG-72"));
+        assertTrue(context.contains("\"truncated\":false"));
+        assertEquals(
+                "Laquelle souhaitez-vous consulter ?",
+                objectMapper.readTree(followUp.getResponse().getContentAsString())
+                        .path("message").asText()
+        );
+        assertEquals(
+                0,
+                objectMapper.readTree(followUp.getResponse().getContentAsString())
+                        .path("toolResults").size()
+        );
+    }
+
+    @Test
     void clearsActiveFiltersForAnIndependentIntentButRetainsHistory()
             throws Exception {
         UUID conversationId = createConversation("42");

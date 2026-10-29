@@ -409,7 +409,8 @@ public class GeminiAssistant {
                 toolStates.add(new ChatResponse.ToolState(
                         name,
                         effectiveArguments,
-                        "get_agent_profile".equals(name) ? result : null
+                        Set.of("get_agent_profile", "search_agents")
+                                .contains(name) ? result : null
                 ));
                 activeState = stateMerger.stateAfterToolCall(
                         name,
