@@ -99,11 +99,13 @@ class GeminiAssistantFullLoopTest {
         when(callPart.functionCall()).thenReturn(Optional.of(call));
         GenerateContentResponse toolCallResponse = mock(GenerateContentResponse.class);
         when(toolCallResponse.parts()).thenReturn(ImmutableList.of(callPart));
+        when(toolCallResponse.usageMetadata()).thenReturn(Optional.empty());
 
         Part textPart = mock(Part.class);
         when(textPart.functionCall()).thenReturn(Optional.empty());
         GenerateContentResponse finalResponse = mock(GenerateContentResponse.class);
         when(finalResponse.parts()).thenReturn(ImmutableList.of(textPart));
+        when(finalResponse.usageMetadata()).thenReturn(Optional.empty());
         when(finalResponse.text()).thenReturn(
                 "J’ai trouvé deux agents dans le Service du Personnel."
         );
@@ -168,6 +170,7 @@ class GeminiAssistantFullLoopTest {
         when(callPart.functionCall()).thenReturn(Optional.of(call));
         GenerateContentResponse modelResponse = mock(GenerateContentResponse.class);
         when(modelResponse.parts()).thenReturn(ImmutableList.of(callPart));
+        when(modelResponse.usageMetadata()).thenReturn(Optional.empty());
         when(chat.sendMessage(anyList(), any(GenerateContentConfig.class)))
                 .thenReturn(modelResponse);
 
