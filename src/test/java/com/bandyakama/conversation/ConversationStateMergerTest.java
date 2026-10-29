@@ -1,6 +1,5 @@
 package com.bandyakama.conversation;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
@@ -36,18 +35,18 @@ class ConversationStateMergerTest {
     }
 
     @Test
-    void persistsTheExactArgumentsSelectedByTheModel() throws Exception {
+    void rejectsMalformedCriteriaBeforeTheToolCanBeExecuted() {
         Map<String, Object> arguments = Map.of(
                 "criteriaJson",
-                "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\",\"value\":40}]}"
+                "{not-valid-json"
         );
 
-        JsonNode state = merger.stateAfterToolCall("search_agents", arguments);
+        org.springframework.web.server.ResponseStatusException failure =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        () -> merger.argumentsForExecution(arguments)
+                );
 
-        assertEquals("search_agents", state.path("toolName").asText());
-        assertEquals("GT", state.path("criteria").path("filters").get(0)
-                .path("operator").asText());
-        assertEquals(arguments.get("criteriaJson"),
-                state.path("arguments").path("criteriaJson").asText());
+        assertEquals(502, failure.getStatusCode().value());
     }
 }
