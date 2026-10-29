@@ -209,7 +209,6 @@ public class GeminiAssistant {
                     authorization,
                     conversationContext,
                     requestId,
-                    initialState,
                     metrics,
                     tokenConsumer
             );
@@ -244,7 +243,6 @@ public class GeminiAssistant {
             String authorization,
             String conversationContext,
             UUID requestId,
-            JsonNode initialState,
             TurnMetrics metrics,
             Consumer<String> tokenConsumer
     ) {
@@ -361,7 +359,6 @@ public class GeminiAssistant {
         List<ChatResponse.ToolState> toolStates = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
-        JsonNode activeState = initialState;
         boolean conversationStateReset = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
@@ -382,7 +379,6 @@ public class GeminiAssistant {
                     );
                 }
                 conversationStateReset = true;
-                activeState = null;
                 executedResults.clear();
                 observedResults.clear();
                 toolStates.clear();
@@ -468,10 +464,6 @@ public class GeminiAssistant {
                         Set.of("get_agent_profile", "search_agents")
                                 .contains(name) ? result : null
                 ));
-                activeState = stateMerger.stateAfterToolCall(
-                        name,
-                        effectiveArguments
-                );
                 if (!execution.sensitive()) {
                     executedResults.add(new ChatResponse.ToolResult(
                             name,
