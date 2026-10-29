@@ -27,13 +27,15 @@ public class ToolExecutor {
     private final HttpClient httpClient;
     private final PerformanceTelemetry performanceTelemetry;
     private final int readTimeoutMillis;
+    private final ToolDestinationPolicy destinationPolicy;
 
     @Autowired
     public ToolExecutor(
             RestClient.Builder restClientBuilder,
             @Value("${bandy.tools.connect-timeout-seconds:5}") int connectTimeoutSeconds,
             @Value("${bandy.tools.read-timeout-seconds:15}") int readTimeoutSeconds,
-            PerformanceTelemetry performanceTelemetry
+            PerformanceTelemetry performanceTelemetry,
+            ToolDestinationPolicy destinationPolicy
     ) {
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
@@ -46,13 +48,15 @@ public class ToolExecutor {
                 .requestFactory(requestFactory)
                 .build();
         this.performanceTelemetry = performanceTelemetry;
+        this.destinationPolicy = destinationPolicy;
         this.readTimeoutMillis = Math.toIntExact(
                 Duration.ofSeconds(readTimeoutSeconds).toMillis()
         );
     }
 
     public ToolExecutor(RestClient.Builder restClientBuilder) {
-        this(restClientBuilder, 5, 30, new PerformanceTelemetry());
+        this(restClientBuilder, 5, 30, new PerformanceTelemetry(),
+                new ToolDestinationPolicy("", true));
     }
 
     public Object execute(
@@ -81,6 +85,7 @@ public class ToolExecutor {
         Integer httpStatus = null;
         try {
             validateArguments(tool, arguments);
+            destinationPolicy.validate(tool.getUrl());
             RestClient requestClient = requestClientWithinBudget();
 
             var uriBuilder = UriComponentsBuilder.fromUriString(tool.getUrl());
