@@ -74,6 +74,29 @@ public class ConversationIntentResolver {
                     + "mon\\s+service|ma\\s+direction)\\b"
     );
 
+    private static final Pattern FOLLOW_UP_PREFIX = Pattern.compile(
+            "^(?:oui\\b|non\\b|d['’]accord\\b|ok(?:ay)?\\b|"
+                    + "bien\\s+sur\\b|exactement\\b|vas[- ]y\\b|"
+                    + "volontiers\\b|et\\b|aussi\\b|ajoute(?:r)?\\b|"
+                    + "filtre(?:r)?\\b|garde\\b|conserve\\b|"
+                    + "poursuis\\b|continue\\b|dans\\s+le\\s+meme\\b|"
+                    + "avec\\s+le\\s+meme\\b|"
+                    + "il\\b|elle\\b|ceux\\b|celles\\b|"
+                    + "premier\\b|premiere\\b|deuxieme\\b|dernier\\b)"
+    );
+    private static final Pattern REFERENTIAL_FOLLOW_UP = Pattern.compile(
+            "\\b(?:son|sa|ses|leur|leurs|lui|eux|elles|il|elle|"
+                    + "celui|celle|ceux|celles)\\b"
+    );
+    private static final Pattern SAME_SCOPE_FOLLOW_UP = Pattern.compile(
+            "\\b(?:dans|avec)\\s+(?:la\\s+|le\\s+)?meme\\s+"
+                    + "(?:direction|service|departement|structure|unite|bureau|division|cellule)\\b"
+    );
+    private static final Pattern RESULT_COMPARISON_FOLLOW_UP = Pattern.compile(
+            "^(?:qui|quel|quelle|lequel|laquelle)\\b.*"
+                    + "\\b(?:plus|moins|meilleur|meilleure|age|agee|ancien|ancienne)\\b"
+    );
+
     public Decision resolve(String message, JsonNode activeState) {
         if (greetingResponse(message).isPresent()) {
             return Decision.CONTINUATION;
@@ -83,66 +106,37 @@ public class ConversationIntentResolver {
         }
 
         String normalized = normalize(message);
-        if (PERSONAL_PROFILE_QUESTION.matcher(normalized).find()) {
+        if (PERSONAL_PROFILE_QUESTION.matcher(normalized).find()
+                || NEW_QUESTION_REPLY.matcher(normalized).find()
+                || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()) {
             return Decision.NEW_INTENT;
         }
-        if (NEW_QUESTION_REPLY.matcher(normalized).find()) {
-            return Decision.NEW_INTENT;
-        }
-        if ("get_agent_profile".equals(
-                activeState.path("toolName").asText()
-        )) {
-            return NEW_SEARCH.matcher(normalized).find()
-                    || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
-                    ? Decision.NEW_INTENT
-                    : Decision.CONTINUATION;
-        }
-        if ("search_agents".equals(activeState.path("toolName").asText())) {
-            if (EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
-                    || INDEPENDENT_INTENT.matcher(normalized).find()
-                    || NEW_SEARCH.matcher(normalized).find()
-                    || (looksLikeIndependentRequest(normalized)
-                    && !COUNT_FOLLOW_UP.matcher(normalized).find()
-                    && !CONTINUATION.matcher(normalized).find()
-                    && !APPROXIMATE_SEARCH_FOLLOW_UP
-                    .matcher(normalized)
-                    .matches())) {
-                return Decision.NEW_INTENT;
-            }
-            return Decision.CONTINUATION;
-        }
-        if (INDEPENDENT_INTENT.matcher(normalized).find()) {
-            return Decision.NEW_INTENT;
-        }
-        if (normalized.contains("meme direction")
-                || normalized.contains("meme service")
-                || normalized.contains("meme departement")
-                || normalized.contains("leurs matricules")
-                || normalized.contains("leur matricule")
-                || normalized.contains("qui est le plus age")
-                || normalized.contains("la plus agee")) {
-            return Decision.CONTINUATION;
-        }
-        if ("searchEmployeesApproximately".equals(
-                activeState.path("toolName").asText()
-        ) && APPROXIMATE_SEARCH_FOLLOW_UP
-                .matcher(normalized)
-                .matches()) {
+
+        // Keep ambiguous or referential messages in context. The language model,
+        // which sees the conversation history and active state, resolves their
+        // meaning; this layer detects only reliable conversation boundaries.
+        if (hasContinuationCue(normalized)) {
             return Decision.CONTINUATION;
         }
         if (introducesDifferentOrganizationScope(normalized, activeState)) {
             return Decision.NEW_INTENT;
         }
-        if (CONTINUATION.matcher(normalized).find()) {
-            return Decision.CONTINUATION;
-        }
-        if (NEW_SEARCH.matcher(normalized).find()) {
-            return Decision.NEW_INTENT;
-        }
-        if (looksLikeIndependentRequest(normalized)) {
+        if (INDEPENDENT_INTENT.matcher(normalized).find()
+                || NEW_SEARCH.matcher(normalized).find()
+                || looksLikeIndependentRequest(normalized)) {
             return Decision.NEW_INTENT;
         }
         return Decision.CONTINUATION;
+    }
+
+    private boolean hasContinuationCue(String message) {
+        return FOLLOW_UP_PREFIX.matcher(message).find()
+                || REFERENTIAL_FOLLOW_UP.matcher(message).find()
+                || SAME_SCOPE_FOLLOW_UP.matcher(message).find()
+                || RESULT_COMPARISON_FOLLOW_UP.matcher(message).find()
+                || COUNT_FOLLOW_UP.matcher(message).find()
+                || CONTINUATION.matcher(message).find()
+                || APPROXIMATE_SEARCH_FOLLOW_UP.matcher(message).matches();
     }
 
     public static Optional<String> greetingResponse(String message) {
