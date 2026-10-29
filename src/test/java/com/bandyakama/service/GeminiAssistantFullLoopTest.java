@@ -212,12 +212,7 @@ class GeminiAssistantFullLoopTest {
                 new PerformanceTelemetry(), objectMapper
         );
 
-        String oldContext = "Service du Personnel"
-                + "\\n\\nBANDY_HISTORY_JSON:\\n"
-                + "[{\\"role\\":\\"user\\","
-                + "\\"content\\":\\"Cherche les femmes du Service du Personnel.\\"},"
-                + "{\\"role\\":\\"assistant\\","
-                + "\\"content\\":\\"J’ai trouvé plusieurs agents.\\"}]";
+        String oldContext = "Service du Personnel";
         ChatResponse response = assistant.respond(
                 "Explique la procédure de reclassement.",
                 "Bearer test-token",
