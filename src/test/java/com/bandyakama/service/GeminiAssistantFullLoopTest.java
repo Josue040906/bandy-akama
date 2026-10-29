@@ -90,6 +90,41 @@ class GeminiAssistantFullLoopTest {
     }
 
     @Test
+    void rejectsToolExecutionWithoutUserAuthorization() {
+        FunctionCall call = mock(FunctionCall.class);
+        when(call.name()).thenReturn(Optional.of("search_agents"));
+        when(call.args()).thenReturn(Optional.of(Map.of("query", "agents")));
+        when(call.id()).thenReturn(Optional.empty());
+
+        Part callPart = mock(Part.class);
+        when(callPart.functionCall()).thenReturn(Optional.of(call));
+        GenerateContentResponse toolCallResponse = mock(GenerateContentResponse.class);
+        when(toolCallResponse.parts()).thenReturn(ImmutableList.of(callPart));
+        when(toolCallResponse.usageMetadata()).thenReturn(Optional.empty());
+        when(chat.sendMessage(anyList(), any(GenerateContentConfig.class)))
+                .thenReturn(toolCallResponse);
+
+        ResponseStatusException exception = assertThrows(
+                ResponseStatusException.class,
+                () -> assistant.respond(
+                        "Cherche les agents.",
+                        null,
+                        "",
+                        java.util.UUID.randomUUID(),
+                        null
+                )
+        );
+
+        assertEquals(401, exception.getStatusCode().value());
+        verify(toolExecutor, never()).execute(
+                any(ToolDefinition.class),
+                any(Map.class),
+                any(),
+                any()
+        );
+    }
+
+    @Test
     void executesModelToolReturnsItsResultToGeminiAndUsesFinalAnswer() {
         FunctionCall call = mock(FunctionCall.class);
         when(call.name()).thenReturn(Optional.of("search_agents"));
