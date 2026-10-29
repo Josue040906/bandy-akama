@@ -1279,6 +1279,7 @@ class ConversationApiTest {
 
         assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
         assertTrue(rebuiltContext.contains("comptabilité"), rebuiltContext);
+        assertFalse(rebuiltContext.contains("Recherche initiale"), rebuiltContext);
         assertFalse(rebuiltContext.contains("OLD-RESULT-123"));
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
         assertEquals(0, readMemoryJson(
