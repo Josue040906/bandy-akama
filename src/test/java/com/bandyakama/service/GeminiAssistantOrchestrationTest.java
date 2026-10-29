@@ -51,15 +51,18 @@ class GeminiAssistantOrchestrationTest {
         ToolDefinition profileTool = namedTool("get_agent_profile");
         ToolDefinition searchTool = namedTool("search_agents");
         ToolDefinition organizationTool = namedTool("get_organization_info");
+        ToolDefinition dynamicTool = namedTool("hr_dynamic_lookup");
+        dynamicTool.setApprovedForGemini(true);
 
         assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
+                List.of(profileTool, searchTool, organizationTool, dynamicTool),
                 GeminiAssistant.selectAllowedTools(
                         List.of(
                                 oldSearchTool,
                                 profileTool,
                                 searchTool,
-                                organizationTool
+                                organizationTool,
+                                dynamicTool
                         )
                 )
         );
@@ -261,6 +264,9 @@ class GeminiAssistantOrchestrationTest {
                 List.of()
         );
         tool.setWhenToUse("Utilisé pour les tests.");
+        tool.setApprovedForGemini(List.of(
+                "get_agent_profile", "search_agents", "get_organization_info"
+        ).contains(name));
         return tool;
     }
 

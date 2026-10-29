@@ -339,3 +339,15 @@ structured search tool. If future registered tools perform writes, the RH API
 must implement idempotency for the forwarded key. The live conversation
 controller continues to pass the user's token to the configured tool endpoint;
 it does not access RH tables directly.
+
+## Gemini tool approval
+
+A tool must be both enabled and explicitly approved for Gemini before it is
+included in the model's function declarations or accepted by the execution
+endpoint. New tools default to unapproved. The protected tool-registration API
+is the administrative control for changing this flag.
+
+The database column `bandy_tool.approved_for_gemini` stores approval. The
+central `ToolPolicy` applies the same checks for Gemini exposure and execution.
+The migration preserves approval for the three existing supported RH tools;
+other existing or newly registered tools remain unapproved until reviewed.

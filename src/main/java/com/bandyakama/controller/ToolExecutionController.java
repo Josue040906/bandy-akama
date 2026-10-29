@@ -4,6 +4,7 @@ import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.security.ToolRegistrationGuard;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolRegistry;
+import com.bandyakama.tool.ToolPolicy;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -44,7 +45,10 @@ public class ToolExecutionController {
         if(toolOptional.isEmpty()){
             return ResponseEntity.notFound().build();
         }
-        ToolDefinition tool =  toolOptional.get();
+        ToolDefinition tool = toolOptional.get();
+        if (!ToolPolicy.isUsableForGemini(tool)) {
+            return ResponseEntity.notFound().build();
+        }
         try {
             Object result = toolExecutor.execute(tool, arguments);
             return ResponseEntity.ok(result);

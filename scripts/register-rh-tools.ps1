@@ -50,6 +50,7 @@ $tools = @(
         method = 'POST'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
         enabled = $true
+        approvedForGemini = $true
         sensitive = $true
         parameters = @(
             @{
@@ -75,6 +76,7 @@ $tools = @(
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent"
         enabled = $true
+        approvedForGemini = $true
         sensitive = $true
         parameters = @(
             @{
@@ -93,6 +95,7 @@ $tools = @(
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/assistant/organization"
         enabled = $true
+        approvedForGemini = $true
         sensitive = $false
         parameters = @(
             @{
@@ -172,6 +175,9 @@ foreach ($tool in $tools) {
     }
     if ($result.url -and $result.url -ne $tool.url) {
         throw "Bandy retained an unexpected endpoint URL for $($tool.name)."
+    }
+    if ([bool]$result.approvedForGemini -ne [bool]$tool.approvedForGemini) {
+        throw "Bandy retained an unexpected Gemini approval flag for $($tool.name)."
     }
     if ([bool]$result.enabled -ne [bool]$tool.enabled) {
         throw "Bandy retained an unexpected enabled flag for $($tool.name)."

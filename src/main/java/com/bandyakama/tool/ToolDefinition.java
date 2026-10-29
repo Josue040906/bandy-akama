@@ -30,6 +30,8 @@ public class ToolDefinition {
 
     private boolean enabled = true;
 
+    private boolean approvedForGemini;
+
     private boolean sensitive;
 
     @NotBlank
@@ -73,6 +75,11 @@ public class ToolDefinition {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isApprovedForGemini() { return approvedForGemini; }
+    public void setApprovedForGemini(boolean approvedForGemini) {
+        this.approvedForGemini = approvedForGemini;
+    }
 
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }

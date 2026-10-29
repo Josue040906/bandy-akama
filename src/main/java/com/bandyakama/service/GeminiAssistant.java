@@ -917,25 +917,9 @@ public class GeminiAssistant {
     static List<ToolDefinition> selectAllowedTools(
             List<ToolDefinition> availableTools
     ) {
-        if (availableTools == null) {
-            return List.of();
-        }
-        Set<String> allowedNames = Set.of(
-                "get_agent_profile",
-                "search_agents",
-                "get_organization_info"
+        return com.bandyakama.tool.ToolPolicy.selectUsableForGemini(
+                availableTools
         );
-        return availableTools.stream()
-                .filter(tool -> allowedNames.contains(tool.getName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        ToolDefinition::getName,
-                        tool -> tool,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
     }
 
     static GenerateContentConfig generationConfig(

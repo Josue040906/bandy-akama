@@ -58,6 +58,7 @@ class GeminiAssistantFullLoopTest {
                 ))
         );
         search.setWhenToUse("Quand une recherche d'agents est demandée.");
+        search.setApprovedForGemini(true);
         when(configurationRepository.get()).thenReturn(
                 new AssistantConfigurationSnapshot(
                         new AssistantProfile(
