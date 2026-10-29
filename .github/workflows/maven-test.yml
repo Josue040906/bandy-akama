@@ -6,6 +6,7 @@ on:
       - main
       - feature/recherche-unifiee-agents
       - fix/privacy-and-conversation-followup
+      - refactor/context-driven-intent-resolution-stack
   pull_request:
     branches:
       - main
