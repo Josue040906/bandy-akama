@@ -35,8 +35,6 @@ import java.util.UUID;
 public class ConversationRepository {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(ConversationRepository.class);
-    private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
-    private static final int MAX_CACHED_PROFILES = 3;
     private static final int MAX_CANDIDATE_REFERENCES = 20;
 
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
@@ -726,10 +724,6 @@ public class ConversationRepository {
             references.removeAll();
         }
         for (ChatResponse.ToolState toolState : toolStates) {
-            JsonNode previousState = readStoredJson(state);
-            ObjectNode cachedProfiles = previousState.path("profiles").isObject()
-                    ? ((ObjectNode) previousState.path("profiles")).deepCopy()
-                    : objectMapper.createObjectNode();
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
@@ -740,33 +734,6 @@ public class ConversationRepository {
                         "candidateReferences",
                         candidateReferences(toolState.result())
                 );
-            }
-            if ("get_agent_profile".equals(toolState.name())
-                    && toolState.result() != null) {
-                JsonNode profile = objectMapper.valueToTree(toolState.result());
-                String serializedProfile = toJson(profile);
-                if (serializedProfile.length()
-                        <= MAX_CACHED_PROFILE_CHARACTERS) {
-                    cachedProfiles.set(
-                            profileCacheKey(toolState.arguments(), profile),
-                            profile
-                    );
-                    while (cachedProfiles.size() > MAX_CACHED_PROFILES) {
-                        cachedProfiles.remove(
-                                cachedProfiles.fieldNames().next()
-                        );
-                    }
-                } else {
-                    LOGGER.warn(
-                            "Assistant profile cache skipped because the result "
-                                    + "exceeded {} characters (actual: {}).",
-                            MAX_CACHED_PROFILE_CHARACTERS,
-                            serializedProfile.length()
-                    );
-                }
-            }
-            if (!cachedProfiles.isEmpty()) {
-                nextState.set("profiles", cachedProfiles);
             }
             state = toJson(nextState);
         }
@@ -1290,17 +1257,6 @@ public class ConversationRepository {
             }
         }
         return state;
-    }
-
-    private String profileCacheKey(
-            Map<String, Object> arguments,
-            JsonNode profile
-    ) {
-        String matricule = profile.path("agent").path("matricule").asText("");
-        String identity = matricule.isBlank()
-                ? String.valueOf(arguments.getOrDefault("nom_agent", ""))
-                : matricule;
-        return identity.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private ChatResponse readSavedResponse(
