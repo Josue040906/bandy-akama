@@ -126,7 +126,6 @@ public class GeminiAssistant {
         this.chatFactory = chatFactory;
         this.geminiTimeoutMillis = geminiTimeoutMillis;
         this.geminiRetryAttempts = geminiRetryAttempts;
-        this.geminiRetryAttempts = geminiClientFactory.retryAttempts();
         if (maxToolRounds < 1 || maxToolRounds > 5) {
             throw new IllegalArgumentException(
                     "Le nombre de tours d’outils doit être compris entre 1 et 5."
