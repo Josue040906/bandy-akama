@@ -238,6 +238,43 @@ class GeminiAssistantFullLoopTest {
     }
 
     @Test
+    void backendFailureStopsTheLoopInsteadOfReturningAFabricatedSuccess() {
+        FunctionCall call = mock(FunctionCall.class);
+        when(call.name()).thenReturn(Optional.of("search_agents"));
+        when(call.args()).thenReturn(Optional.of(Map.of("query", "agents")));
+        when(call.id()).thenReturn(Optional.empty());
+        Part callPart = mock(Part.class);
+        when(callPart.functionCall()).thenReturn(Optional.of(call));
+        GenerateContentResponse modelResponse = mock(GenerateContentResponse.class);
+        when(modelResponse.parts()).thenReturn(ImmutableList.of(callPart));
+        when(modelResponse.usageMetadata()).thenReturn(Optional.empty());
+        when(chat.sendMessage(anyList(), any(GenerateContentConfig.class)))
+                .thenReturn(modelResponse);
+        when(toolExecutor.execute(
+                any(ToolDefinition.class), any(Map.class), any(), any()
+        )).thenThrow(new org.springframework.web.client.RestClientException(
+                "Backend unavailable"
+        ));
+
+        ResponseStatusException failure = assertThrows(
+                ResponseStatusException.class,
+                () -> assistant.respond(
+                        "Cherche les agents.",
+                        "Bearer test-token",
+                        "",
+                        java.util.UUID.randomUUID(),
+                        null
+                )
+        );
+
+        assertEquals(502, failure.getStatusCode().value());
+        verify(chat).sendMessage(anyList(), any(GenerateContentConfig.class));
+        verify(chat, never()).sendMessage(
+                any(Content.class), any(GenerateContentConfig.class)
+        );
+    }
+
+    @Test
     void refusesToExecuteAFunctionThatWasNotDeclaredAsEnabled() {
         FunctionCall call = mock(FunctionCall.class);
         when(call.name()).thenReturn(Optional.of("delete_all_employees"));
