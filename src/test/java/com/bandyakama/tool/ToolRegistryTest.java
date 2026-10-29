@@ -54,11 +54,12 @@ class ToolRegistryTest {
     void persistsSensitiveToolConfiguration() {
         ToolDefinition tool = tool("selfProfile", "GET");
         tool.setSensitive(true);
+        tool.setApprovedForGemini(true);
         registry.register(tool);
 
-        assertTrue(registry.findByName("selfProfile")
-                .orElseThrow()
-                .isSensitive());
+        ToolDefinition loaded = registry.findByName("selfProfile").orElseThrow();
+        assertTrue(loaded.isSensitive());
+        assertTrue(loaded.isApprovedForGemini());
     }
 
     @Test
@@ -86,6 +87,17 @@ class ToolRegistryTest {
         assertFalse(registry.findByName("disabledSearch").isPresent());
         assertFalse(registry.getEnabled().stream()
                 .anyMatch(item -> item.getName().equals("disabledSearch")));
+    }
+
+    @Test
+    void unapprovedToolCannotBeExecutedThroughTheExecutionEndpoint() throws Exception {
+        registry.register(tool("unapprovedExecution", "GET"));
+
+        mockMvc.perform(post("/api/tools/unapprovedExecution/execute")
+                        .header("X-Bandy-Registration-Key", registrationKey)
+                        .contentType("application/json")
+                        .content("{}"))
+                .andExpect(status().isNotFound());
     }
 
     @Test
