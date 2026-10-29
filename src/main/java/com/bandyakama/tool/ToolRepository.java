@@ -49,7 +49,7 @@ public class ToolRepository {
 
     public List<ToolDefinition> findAll() {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, approved_for_gemini, sensitive "
                         + "FROM bandy_tool ORDER BY name",
                 TOOL_ROW_MAPPER
         );
