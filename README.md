@@ -370,3 +370,16 @@ En production, remplacer ces exemples par les origines exactes réellement utili
 autoriser des hôtes ou des ports génériques. Cette protection est une première barrière de
 sortie réseau ; elle ne remplace pas une politique réseau au niveau du système, la vérification
 des adresses DNS/résolues, ni les règles de pare-feu.
+
+
+## Validation des paramètres des outils
+
+Avant tout appel HTTP, Bandy valide à nouveau la définition de l'outil et ses paramètres :
+les arguments inconnus sont refusés, les paramètres obligatoires doivent être présents,
+les valeurs doivent respecter leur type déclaré, les nombres doivent être finis, les
+entiers doivent tenir dans la plage d'un entier 64 bits et les chaînes sont limitées à
+4 000 caractères. Une définition ne peut pas déclarer plus de 50 paramètres.
+
+Ces limites sont des garde-fous génériques. Les règles métier plus précises (par exemple
+une plage d'âge autorisée ou les valeurs acceptées pour un filtre) doivent rester définies
+par l'API métier ou être ajoutées explicitement au schéma de chaque paramètre.
