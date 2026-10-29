@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -33,8 +31,6 @@ import java.util.UUID;
 
 @Repository
 public class ConversationRepository {
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(ConversationRepository.class);
     private static final int MAX_CANDIDATE_REFERENCES = 20;
 
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
