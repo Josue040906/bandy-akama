@@ -264,6 +264,9 @@ class GeminiAssistantOrchestrationTest {
                 List.of()
         );
         tool.setWhenToUse("Utilisé pour les tests.");
+        tool.setApprovedForGemini(List.of(
+                "get_agent_profile", "search_agents", "get_organization_info"
+        ).contains(name));
         return tool;
     }
 
