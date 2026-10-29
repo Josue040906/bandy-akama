@@ -112,6 +112,20 @@ public class ConversationIntentResolver {
             return Decision.NEW_INTENT;
         }
 
+        // A short acknowledgement can precede either a follow-up or a genuinely
+        // new request. Inspect the request after the acknowledgement before
+        // treating the whole message as a continuation.
+        String requestAfterAcknowledgement = normalized.replaceFirst(
+                "^(?:oui\\\\b|non\\\\b|d['’]accord\\\\b|ok(?:ay)?\\\\b|"
+                        + "bien\\\\s+sur\\\\b)\\\\s*[,;:]?\\\\s+",
+                ""
+        );
+        if (!requestAfterAcknowledgement.equals(normalized)
+                && INDEPENDENT_INTENT.matcher(requestAfterAcknowledgement).find()
+                && !REFERENTIAL_FOLLOW_UP.matcher(requestAfterAcknowledgement).find()) {
+            return Decision.NEW_INTENT;
+        }
+
         // Keep ambiguous or referential messages in context. The language model,
         // which sees the conversation history and active state, resolves their
         // meaning; this layer detects only reliable conversation boundaries.
