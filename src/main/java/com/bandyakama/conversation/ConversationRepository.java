@@ -523,11 +523,7 @@ public class ConversationRepository {
                             SELECT request_id, sequence_number
                             FROM bandy_conversation_message
                             WHERE conversation_id = ?
-                                AND role = 'ASSISTANT'
-                                AND COALESCE(
-                                    (metadata->>'resetConversationState')::boolean,
-                                    FALSE
-                                ) = TRUE
+                                AND context_reset = TRUE
                                 AND (request_id IS NULL OR request_id <> ?)
                             ORDER BY sequence_number DESC
                             LIMIT 1
@@ -1158,8 +1154,8 @@ public class ConversationRepository {
         jdbcTemplate.update("""
                 INSERT INTO bandy_conversation_message (
                     id, conversation_id, sequence_number, role, content,
-                    message_type, metadata, request_id
-                ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS JSONB), ?)
+                    message_type, metadata, request_id, context_reset
+                ) VALUES (?, ?, ?, ?, ?, ?, CAST(? AS JSONB), ?, ?)
                 """,
                 UUID.randomUUID(),
                 conversationId,
@@ -1168,7 +1164,10 @@ public class ConversationRepository {
                 content,
                 messageType,
                 metadata,
-                requestId
+                requestId,
+                "ASSISTANT".equals(role)
+                        && readStoredJson(metadata)
+                                .path("resetConversationState").asBoolean(false)
         );
     }
 
