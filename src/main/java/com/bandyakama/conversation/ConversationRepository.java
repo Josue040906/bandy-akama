@@ -754,21 +754,73 @@ public class ConversationRepository {
             references.removeAll();
         }
         for (ChatResponse.ToolState toolState : toolStates) {
+            ObjectNode previousState = readStoredJson(state).isObject()
+                    ? (ObjectNode) readStoredJson(state).deepCopy()
+                    : objectMapper.createObjectNode();
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
             );
-            if ("search_agents".equals(toolState.name())
-                    && toolState.result() != null) {
-                // A new search replaces the previous candidate list.
-                nextState.set(
-                        "candidateReferences",
-                        candidateReferences(toolState.result())
+
+            if ("search_agents".equals(toolState.name())) {
+                // A new search replaces the previous search and its candidates.
+                ObjectNode activeSearch = toolState(
+                        toolState.name(),
+                        objectMapper.valueToTree(toolState.arguments())
                 );
+                if (toolState.result() != null) {
+                    activeSearch.set(
+                            "candidateReferences",
+                            candidateReferences(toolState.result())
+                    );
+                }
+                nextState.set("activeSearch", activeSearch);
+                if (toolState.result() != null) {
+                    nextState.set(
+                            "candidateReferences",
+                            candidateReferences(toolState.result())
+                    );
+                }
             } else if ("get_agent_profile".equals(toolState.name())) {
-                // A profile lookup must not discard the list that allowed the
-                // user to select this candidate (for example, "the second one").
-                JsonNode previousState = readStoredJson(state);
+                // Keep search criteria separate from the currently selected profile.
+                JsonNode activeSearch = previousState.path("activeSearch");
+                if (activeSearch.isObject()) {
+                    nextState.set("activeSearch", activeSearch.deepCopy());
+                } else if ("search_agents".equals(
+                        previousState.path("toolName").asText()
+                )) {
+                    // Upgrade conversations created before activeSearch existed.
+                    ObjectNode migratedSearch = previousState.deepCopy();
+                    migratedSearch.remove("selectedEntity");
+                    if (hasExpiredCandidateReferences(migratedSearch)) {
+                        migratedSearch.remove("candidateReferences");
+                    }
+                    nextState.set("activeSearch", migratedSearch);
+                }
+                JsonNode candidateReferences = previousState.path("candidateReferences");
+                if (!candidateReferences.isObject()) {
+                    candidateReferences = activeSearch.path("candidateReferences");
+                }
+                if (candidateReferences.isObject()
+                        && !hasExpiredCandidateReferences(candidateReferences)) {
+                    nextState.set(
+                            "candidateReferences",
+                            candidateReferences.deepCopy()
+                    );
+                }
+                ObjectNode selectedEntity = objectMapper.createObjectNode();
+                selectedEntity.put("toolName", toolState.name());
+                selectedEntity.set(
+                        "arguments",
+                        objectMapper.valueToTree(toolState.arguments())
+                );
+                nextState.set("selectedEntity", selectedEntity);
+            } else if (previousState.has("activeSearch")) {
+                // Unrelated tool state must not silently erase an active search.
+                nextState.set(
+                        "activeSearch",
+                        previousState.path("activeSearch").deepCopy()
+                );
                 if (previousState.path("candidateReferences").isObject()
                         && !hasExpiredCandidateReferences(previousState)) {
                     nextState.set(
@@ -896,6 +948,14 @@ public class ConversationRepository {
 
     private boolean hasExpiredCandidateReferences(JsonNode activeState) {
         JsonNode references = activeState.path("candidateReferences");
+        if (!references.isObject()) {
+            references = activeState.path("activeSearch")
+                    .path("candidateReferences");
+        }
+        return hasExpiredReferenceBlock(references);
+    }
+
+    private boolean hasExpiredReferenceBlock(JsonNode references) {
         if (!references.isObject()) {
             return false;
         }
