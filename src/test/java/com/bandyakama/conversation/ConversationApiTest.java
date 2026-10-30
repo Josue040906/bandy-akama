@@ -807,6 +807,83 @@ class ConversationApiTest {
     }
 
     @Test
+    void preservesCandidateReferencesAfterFetchingOneCandidateProfile()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        Map<String, Object> criteria = Map.of(
+                "criteriaJson",
+                "{\\"filters\\":[{\\"field\\":\\"service\\","
+                        + "\\"operator\\":\\"EQ\\","
+                        + "\\"value\\":\\"Personnel\\"}]}"
+        );
+        Map<String, Object> candidate = Map.of(
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "telephone", "0340000000",
+                "adresse", "Adresse privée",
+                "id", 719
+        );
+        Map<String, Object> profile = Map.of(
+                "found", true,
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "adresse", "Adresse privée à ne pas conserver",
+                "telephone", "0340000000"
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Une agente correspond.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "search_agents",
+                                criteria,
+                                Map.of(
+                                        "agents", List.of(candidate),
+                                        "hasMore", false
+                                )
+                        ))
+                ),
+                new ChatResponse(
+                        "Voici son profil.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "get_agent_profile",
+                                Map.of("query", "AG-71"),
+                                profile
+                        ))
+                )
+        );
+
+        send(conversationId, "42", "Recherche une agente du Personnel.");
+        send(conversationId, "42", "Affiche le profil de la première.");
+
+        JsonNode activeState = readMemoryJson(conversationId, "active_state");
+        JsonNode candidates = activeState.path("candidateReferences")
+                .path("candidates");
+        assertEquals(1, candidates.size());
+        assertEquals(
+                "AG-71",
+                candidates.get(0).path("profileQuery").asText()
+        );
+        assertTrue(activeState.toString().contains("get_agent_profile"));
+        assertFalse(activeState.toString().contains("Adresse privée"));
+        assertFalse(activeState.toString().contains("0340000000"));
+        assertFalse(activeState.toString().contains("\\"id\\":719"));
+    }
+
+    @Test
     void removesExpiredCandidateReferencesBeforePreparingModelContext()
             throws Exception {
         UUID conversationId = createConversation("42");
