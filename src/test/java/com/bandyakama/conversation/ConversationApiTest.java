@@ -812,9 +812,9 @@ class ConversationApiTest {
         UUID conversationId = createConversation("42");
         Map<String, Object> criteria = Map.of(
                 "criteriaJson",
-                "{\\"filters\\":[{\\"field\\":\\"service\\","
-                        + "\\"operator\\":\\"EQ\\","
-                        + "\\"value\\":\\"Personnel\\"}]}"
+                "{\"filters\":[{\"field\":\"service\","
+                        + "\"operator\":\"EQ\","
+                        + "\"value\":\"Personnel\"}]}"
         );
         Map<String, Object> candidate = Map.of(
                 "matricule", "AG-71",
