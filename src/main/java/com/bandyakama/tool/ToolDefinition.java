@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ToolDefinition {
@@ -27,6 +28,9 @@ public class ToolDefinition {
 
     @Valid
     private List<ToolParameter> parameters;
+
+    @Size(max = 20)
+    private List<@NotBlank @Size(max = 500) String> examples = new ArrayList<>();
 
     private boolean enabled = true;
 
@@ -73,6 +77,11 @@ public class ToolDefinition {
     public List<ToolParameter> getParameters() { return parameters;}
     public void setParameters(List<ToolParameter> parameters) {this.parameters = parameters;}
 
+    public List<String> getExamples() { return examples; }
+    public void setExamples(List<String> examples) {
+        this.examples = examples == null ? new ArrayList<>() : new ArrayList<>(examples);
+    }
+
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
 
@@ -107,6 +116,26 @@ public class ToolDefinition {
         if (parameters.size() > 50) {
             throw new IllegalArgumentException(
                     "Un outil ne peut pas déclarer plus de 50 paramètres."
+            );
+        }
+        if (examples == null) {
+            examples = new ArrayList<>();
+        }
+        if (examples.size() > 20) {
+            throw new IllegalArgumentException(
+                    "Un outil ne peut pas déclarer plus de 20 exemples."
+            );
+        }
+        if (examples.stream().anyMatch(example -> example == null
+                || example.isBlank() || example.length() > 500)) {
+            throw new IllegalArgumentException(
+                    "Chaque exemple doit contenir entre 1 et 500 caractères."
+            );
+        }
+        if (examples.stream().map(example -> example.trim().toLowerCase(java.util.Locale.ROOT))
+                .distinct().count() != examples.size()) {
+            throw new IllegalArgumentException(
+                    "Les exemples d’un outil doivent être uniques."
             );
         }
         if (parameters.stream().anyMatch(java.util.Objects::isNull)) {
