@@ -760,10 +760,22 @@ public class ConversationRepository {
             );
             if ("search_agents".equals(toolState.name())
                     && toolState.result() != null) {
+                // A new search replaces the previous candidate list.
                 nextState.set(
                         "candidateReferences",
                         candidateReferences(toolState.result())
                 );
+            } else if ("get_agent_profile".equals(toolState.name())) {
+                // A profile lookup must not discard the list that allowed the
+                // user to select this candidate (for example, "the second one").
+                JsonNode previousState = readStoredJson(state);
+                if (previousState.path("candidateReferences").isObject()
+                        && !hasExpiredCandidateReferences(previousState)) {
+                    nextState.set(
+                            "candidateReferences",
+                            previousState.path("candidateReferences").deepCopy()
+                    );
+                }
             }
             state = toJson(nextState);
         }
