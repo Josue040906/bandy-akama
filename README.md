@@ -54,8 +54,11 @@ runtime filters stale database registrations so they cannot expand the model
 schema. Search payloads are not persisted as raw tool results; a bounded set
 of minimal candidate identifiers (matricule and display name) is retained in
 the owner-scoped active conversation state for follow-ups and expires after
-`BANDY_CANDIDATE_REFERENCE_TTL_SECONDS`. The existing loaded-profile cache is
-unchanged.
+`BANDY_CANDIDATE_REFERENCE_TTL_SECONDS`. Full agent-profile payloads are not
+retained in active conversation state; legacy cached profiles are removed when
+a conversation is resumed. Follow-up questions about a profile use the current
+conversation history and call the authorized profile tool again when fresh or
+missing details are required.
 Responses are streamed as SSE `token`, `done` or `error` events.
 
 To compare the configured Flash model with stable Gemini 3.5 Flash-Lite without
