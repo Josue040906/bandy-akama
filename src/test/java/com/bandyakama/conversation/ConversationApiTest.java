@@ -807,6 +807,88 @@ class ConversationApiTest {
     }
 
     @Test
+    void preservesStructuredSearchCriteriaWhenFetchingCandidateProfile()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        String criteriaJson = "{\"filters\":[{\"field\":\"service\","
+                + "\"operator\":\"EQ\",\"value\":\"Personnel\"}]}";
+        Map<String, Object> criteria = Map.of("criteriaJson", criteriaJson);
+        Map<String, Object> candidate = Map.of(
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "telephone", "0340000000",
+                "id", 719
+        );
+        Map<String, Object> profile = Map.of(
+                "found", true,
+                "matricule", "AG-71",
+                "nom", "RAZANASOAVINAY",
+                "prenom", "Josette",
+                "adresse", "Adresse privée",
+                "telephone", "0340000000"
+        );
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Une agente correspond.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "search_agents",
+                                criteria,
+                                Map.of("agents", List.of(candidate), "hasMore", false)
+                        ))
+                ),
+                new ChatResponse(
+                        "Voici son profil.",
+                        List.of(),
+                        null,
+                        false,
+                        List.of(new ChatResponse.ToolState(
+                                "get_agent_profile",
+                                Map.of("query", "AG-71"),
+                                profile
+                        ))
+                )
+        );
+
+        send(conversationId, "42", "Recherche les agents du service Personnel.");
+        send(conversationId, "42", "Affiche le profil de la première agente.");
+
+        JsonNode activeState = readMemoryJson(conversationId, "active_state");
+        JsonNode activeSearch = activeState.path("activeSearch");
+        assertTrue(activeSearch.isObject(),
+                "La recherche structurée doit survivre à la consultation du profil.");
+        assertEquals(
+                criteriaJson,
+                activeSearch.path("arguments").path("criteriaJson").asText()
+        );
+        assertEquals(
+                "Personnel",
+                activeSearch.path("criteria").path("filters").get(0)
+                        .path("value").asText()
+        );
+        assertEquals(
+                "AG-71",
+                activeSearch.path("candidateReferences").path("candidates")
+                        .get(0).path("profileQuery").asText()
+        );
+        assertEquals("get_agent_profile", activeState.path("toolName").asText());
+        assertEquals("AG-71",
+                activeState.path("selectedEntity").path("arguments")
+                        .path("query").asText());
+        assertFalse(activeState.toString().contains("Adresse privée"));
+        assertFalse(activeState.toString().contains("0340000000"));
+    }
+
+    @Test
     void preservesCandidateReferencesAfterFetchingOneCandidateProfile()
             throws Exception {
         UUID conversationId = createConversation("42");
