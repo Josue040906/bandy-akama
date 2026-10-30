@@ -453,6 +453,10 @@ public class ConversationRepository {
         if (hasExpiredCandidateReferences(activeState)) {
             ObjectNode cleanedState = ((ObjectNode) activeState).deepCopy();
             cleanedState.remove("candidateReferences");
+            JsonNode activeSearch = cleanedState.path("activeSearch");
+            if (activeSearch.isObject()) {
+                ((ObjectNode) activeSearch).remove("candidateReferences");
+            }
             jdbcTemplate.update("""
                     UPDATE bandy_conversation_memory
                     SET active_state = CAST(? AS JSONB),
