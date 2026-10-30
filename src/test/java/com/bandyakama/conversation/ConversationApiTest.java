@@ -880,7 +880,7 @@ class ConversationApiTest {
         assertTrue(activeState.toString().contains("get_agent_profile"));
         assertFalse(activeState.toString().contains("Adresse privée"));
         assertFalse(activeState.toString().contains("0340000000"));
-        assertFalse(activeState.toString().contains("\\"id\\":719"));
+        assertFalse(candidates.get(0).has("id"));
     }
 
     @Test
