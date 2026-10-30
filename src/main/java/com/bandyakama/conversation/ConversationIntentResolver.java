@@ -100,17 +100,16 @@ public class ConversationIntentResolver {
         if ("search_agents".equals(activeState.path("toolName").asText())) {
             if (EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
                     || INDEPENDENT_INTENT.matcher(normalized).find()
-                    || NEW_SEARCH.matcher(normalized).find()) {
+                    || NEW_SEARCH.matcher(normalized).find()
+                    || (looksLikeIndependentRequest(normalized)
+                    && !COUNT_FOLLOW_UP.matcher(normalized).find()
+                    && !CONTINUATION.matcher(normalized).find()
+                    && !APPROXIMATE_SEARCH_FOLLOW_UP
+                    .matcher(normalized)
+                    .matches())) {
                 return Decision.NEW_INTENT;
             }
-            if (COUNT_FOLLOW_UP.matcher(normalized).find()
-                    || CONTINUATION.matcher(normalized).find()
-                    || APPROXIMATE_SEARCH_FOLLOW_UP
-                    .matcher(normalized)
-                    .matches()) {
-                return Decision.CONTINUATION;
-            }
-            return Decision.NEW_INTENT;
+            return Decision.CONTINUATION;
         }
         if (INDEPENDENT_INTENT.matcher(normalized).find()) {
             return Decision.NEW_INTENT;

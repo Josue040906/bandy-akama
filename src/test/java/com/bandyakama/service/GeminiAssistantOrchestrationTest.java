@@ -87,6 +87,36 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
+    void ignoresLeadingAssistantMessagesInHistory() {
+        List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
+                new ConversationPromptContext.Message(
+                        "assistant", "Ancienne réponse isolée."
+                ),
+                new ConversationPromptContext.Message(
+                        "user", "Ma question."
+                ),
+                new ConversationPromptContext.Message(
+                        "assistant", "La réponse."
+                )
+        ));
+
+        assertEquals(2, history.size());
+        assertEquals("user", history.get(0).role().orElseThrow());
+        assertEquals("model", history.get(1).role().orElseThrow());
+    }
+
+    @Test
+    void returnsEmptyHistoryWhenThereIsNoUserMessage() {
+        List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
+                new ConversationPromptContext.Message(
+                        "assistant", "Réponse isolée."
+                )
+        ));
+
+        assertTrue(history.isEmpty());
+    }
+
+    @Test
     void configuresLowThinkingAndAllowsExplicitPriorityInference() {
         GenerateContentConfig standard = GeminiAssistant.generationConfig(
                 "Instructions courtes",

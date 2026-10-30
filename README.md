@@ -29,6 +29,7 @@ to `.env`, and fill in the local values:
 | `BANDY_CONTEXT_RECENT_MESSAGES` | Number of recent user/assistant messages sent to Gemini as separate role-based turns; must be `8`-`10` and defaults to `10` |
 | `BANDY_CONTEXT_MAX_SUMMARY_CHARACTERS` | Maximum extractive summary size; defaults to `4000` |
 | `BANDY_CONTEXT_MAX_CHARACTERS` | Maximum assembled historical context; defaults to `18000` |
+| `BANDY_CANDIDATE_REFERENCE_TTL_SECONDS` | Lifetime of minimal agent-search references used for conversational follow-ups; defaults to `900` |
 | `BANDY_TOOL_CONNECT_TIMEOUT_SECONDS` | Registered-tool connection timeout; defaults to `5` |
 | `BANDY_TOOL_READ_TIMEOUT_SECONDS` | Registered-tool response timeout; defaults to `15` |
 
@@ -50,8 +51,14 @@ with a measured pilot before production use.
 Gemini receives only the explicitly allowed `search_agents`,
 `get_agent_profile` and `get_organization_info` function declarations. The
 runtime filters stale database registrations so they cannot expand the model
-schema. Agent search and profile results are not persisted as raw conversation
-references; the active search criteria are retained for follow-up questions.
+schema. Search payloads are not persisted as raw tool results; a bounded set
+of minimal candidate identifiers (matricule and display name) is retained in
+the owner-scoped active conversation state for follow-ups and expires after
+`BANDY_CANDIDATE_REFERENCE_TTL_SECONDS`. Full agent-profile payloads are not
+retained in active conversation state; legacy cached profiles are removed when
+a conversation is resumed. Follow-up questions about a profile use the current
+conversation history and call the authorized profile tool again when fresh or
+missing details are required.
 Responses are streamed as SSE `token`, `done` or `error` events.
 
 To compare the configured Flash model with stable Gemini 3.5 Flash-Lite without

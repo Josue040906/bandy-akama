@@ -365,8 +365,13 @@ public class GeminiAssistant {
                     .flatMap(Optional::stream)
                     .toList();
             if (calls.isEmpty()) {
+                String responseText = response.text();
+                if (responseText == null || responseText.isBlank()) {
+                    responseText = "Je n’ai pas réussi à produire une réponse exploitable. "
+                            + "Réessaie ta demande, s’il te plaît.";
+                }
                 return new ChatResponse(
-                        response.text(),
+                        responseText,
                         List.copyOf(executedResults),
                         null,
                         false,
@@ -404,7 +409,8 @@ public class GeminiAssistant {
                 toolStates.add(new ChatResponse.ToolState(
                         name,
                         effectiveArguments,
-                        "get_agent_profile".equals(name) ? result : null
+                        Set.of("get_agent_profile", "search_agents")
+                                .contains(name) ? result : null
                 ));
                 activeState = stateMerger.stateAfterToolCall(
                         name,
@@ -458,8 +464,13 @@ public class GeminiAssistant {
                 .findAny()
                 .isPresent();
         if (!hasMoreCalls) {
+            String responseText = response.text();
+            if (responseText == null || responseText.isBlank()) {
+                responseText = "Je n’ai pas réussi à produire une réponse exploitable. "
+                        + "Réessaie ta demande, s’il te plaît.";
+            }
             return new ChatResponse(
-                    response.text(),
+                    responseText,
                     List.copyOf(executedResults),
                     null,
                     false,
@@ -523,14 +534,24 @@ public class GeminiAssistant {
     static List<Content> toGeminiHistory(
             List<ConversationPromptContext.Message> history
     ) {
-        return history.stream()
-                .map(message -> Content.builder()
-                        .role("assistant".equals(message.role())
-                                ? "model"
-                                : "user")
-                        .parts(List.of(Part.fromText(message.content())))
-                        .build())
-                .toList();
+        List<Content> messages = new ArrayList<>();
+        boolean firstUserFound = false;
+
+        for (ConversationPromptContext.Message message : history) {
+            if (!firstUserFound) {
+                if (!"user".equals(message.role())) {
+                    continue;
+                }
+                firstUserFound = true;
+            }
+
+            messages.add(Content.builder()
+                    .role("assistant".equals(message.role()) ? "model" : "user")
+                    .parts(List.of(Part.fromText(message.content())))
+                    .build());
+        }
+
+        return List.copyOf(messages);
     }
 
     static GenerateContentConfig finalResponseConfig(
@@ -903,6 +924,11 @@ public class GeminiAssistant {
                     exception
             );
         } catch (RestClientResponseException exception) {
+            org.slf4j.LoggerFactory.getLogger(GeminiAssistant.class).warn(
+                    "Tool {} failed with HTTP status {}",
+                    name,
+                    exception.getStatusCode().value()
+            );
             Optional<Map<String, Object>> profileLookupResult =
                     profileLookupError(name, exception.getStatusCode());
             if (profileLookupResult.isPresent()) {
