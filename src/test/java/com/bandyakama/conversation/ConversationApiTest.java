@@ -700,13 +700,17 @@ class ConversationApiTest {
                 objectMapper.readTree(independentQuestion.getResponse().getContentAsString())
                         .path("message").asText()
         );
+        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
         verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                states.capture()
         );
+        assertTrue(states.getAllValues().get(1).path("criteria").path("filters")
+                .toString().contains("Personnel"));
+        assertEquals("{}", states.getAllValues().get(2).toString());
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
         assertEquals(0, readMemoryJson(
                 conversationId,
