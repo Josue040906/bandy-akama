@@ -169,9 +169,11 @@ final class ConversationTurnDecisionValidator {
         if (activeEntity != null && activeEntity.isObject()
                 && entity.id().equals(activeEntity.path("id").isIntegralNumber()
                         ? activeEntity.path("id").longValue() : null)
-                && entity.type().equalsIgnoreCase(activeEntity.path("type").asText())) {
+                && entity.type().equalsIgnoreCase(activeEntity.path("type").asText())
+                && entity.name().equalsIgnoreCase(activeEntity.path("name").asText())) {
             return true;
-        }        JsonNode knownEntities = activeState == null
+        }
+        JsonNode knownEntities = activeState == null
                 ? null : activeState.path("entityReferences");
         if (knownEntities != null && knownEntities.isArray()) {
             for (JsonNode known : knownEntities) {
