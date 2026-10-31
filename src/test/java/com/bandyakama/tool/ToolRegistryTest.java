@@ -53,7 +53,7 @@ class ToolRegistryTest {
                 loaded.getExamples().get(0).getText());
         assertEquals("Trouve les agents du {service}",
                 loaded.getExamples().get(0).getPattern());
-        assertEquals(Map.of("criteriaJson", "{\\"filters\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"financier\\"}]}"),
+        assertEquals(Map.of("query", "service financier"),
                 loaded.getExamples().get(0).getExpectedArguments());
     }
 
