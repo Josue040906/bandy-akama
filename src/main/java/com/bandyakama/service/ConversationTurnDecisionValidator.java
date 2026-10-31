@@ -33,7 +33,7 @@ final class ConversationTurnDecisionValidator {
         if (decision.needsClarification()) {
             return;
         }
-        if (decision.intentType() == ConversationTurnDecision.IntentType.DIRECT_RESPONSE) {
+        if (decision.directResponse() != null && !decision.directResponse().isBlank()) {
             if (decision.referencedEntity() != null
                     && !isReferencedEntityGrounded(decision, conversationContext, activeState)) {
                 throw clarification("Je ne parviens pas à identifier avec certitude l’entité évoquée. Peux-tu préciser son nom ?");
