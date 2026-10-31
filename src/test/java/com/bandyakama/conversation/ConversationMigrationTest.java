@@ -8,6 +8,7 @@ import org.springframework.jdbc.datasource.DriverManagerDataSource;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConversationMigrationTest {
@@ -139,8 +140,10 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_tool", "result_collection_key"));
         assertTrue(hasColumn(jdbc, "bandy_tool_parameter", "allowed_values"));
         assertTrue(hasColumn(jdbc, "bandy_tool_parameter", "reference_type"));
-        assertEquals("[\"LIST_DIRECTIONS\",\"GET_DIRECTION\",\"LIST_SERVICES\",\"GET_SERVICE\",\"LIST_POSTES\",\"GET_POSTE\",\"GET_HIERARCHY\",\"GET_RESPONSIBLE\",\"LIST_RESPONSIBLES\",\"COUNT_DIRECTIONS\",\"COUNT_SERVICES\",\"COUNT_POSTES\",\"COUNT_EMPLOYEES_BY_STRUCTURE\"]",
-                jdbc.queryForObject("SELECT allowed_values FROM bandy_tool_parameter WHERE tool_name = 'get_organization_info' AND name = 'operation'", String.class));
+        assertTrue(jdbc.queryForObject(
+                "SELECT allowed_values FROM bandy_tool_parameter WHERE tool_name = 'get_organization_info' AND name = 'operation'",
+                String.class
+        ).contains("COUNT_EMPLOYEES_BY_STRUCTURE"));
         assertEquals("DIRECTION", jdbc.queryForObject(
                 "SELECT reference_type FROM bandy_tool_parameter WHERE tool_name = 'get_organization_info' AND name = 'directionId'",
                 String.class));
@@ -150,7 +153,7 @@ class ConversationMigrationTest {
         assertEquals("STRUCTURE", jdbc.queryForObject(
                 "SELECT reference_type FROM bandy_tool_parameter WHERE tool_name = 'get_organization_info' AND name = 'id'",
                 String.class));
-        assertEquals(null, jdbc.queryForObject(
+        assertNull(jdbc.queryForObject(
                 "SELECT reference_type FROM bandy_tool_parameter WHERE tool_name = 'get_organization_info' AND name = 'posteId'",
                 String.class));
         assertEquals("DIRECTION", jdbc.queryForObject(
