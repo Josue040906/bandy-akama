@@ -159,7 +159,7 @@ class AssistantConfigurationRepositoryTest {
                 ('search_agents', 'criteriaJson', 'string', 'Search criteria',
                  'body', TRUE, 1, NULL),
                 ('search_agents', 'resultMode', 'string', 'Result mode',
-                 'body', FALSE, 2, '[\\"LIST\\",\\"COUNT\\"]'),
+                 'body', FALSE, 2, '["LIST","COUNT"]'),
                 ('get_organization_info', 'query', 'string', 'Organization query',
                  'query', TRUE, 1, NULL),
                 ('get_organization_info', 'scope', 'string', 'Scope',
