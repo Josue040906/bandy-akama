@@ -65,7 +65,7 @@ class ConversationTurnDecisionValidatorTest {
     void rejectsMissingRequiredOperation() {
         var decision = decision("get_organization_info",
                 "COUNT_EMPLOYEES_BY_STRUCTURE", Map.of("directionId", 1));
-        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+        assertThrows(ConversationClarificationRequiredException.class,
                 () -> validator.validate(decision,
                         Map.of(organizationTool.getName(), organizationTool),
                         "", new ObjectMapper().createObjectNode()));
@@ -139,6 +139,18 @@ class ConversationTurnDecisionValidatorTest {
                 "", activeState));
     }
 
+    @Test
+    void asksForClarificationWhenANewScopedIntentHasNoResolvedEntity() {
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.NEW_INTENT,
+                "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
+                Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 12),
+                null, false, null, null);
+        assertThrows(ConversationClarificationRequiredException.class,
+                () -> validator.validate(decision,
+                        Map.of(organizationTool.getName(), organizationTool),
+                        "", new ObjectMapper().createObjectNode()));
+    }
     private ConversationTurnDecision decision(
             String toolName, String operation, Map<String, Object> arguments) {
         return new ConversationTurnDecision(
