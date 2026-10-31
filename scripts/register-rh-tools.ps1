@@ -50,6 +50,7 @@ $tools = @(
         method = 'POST'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
         enabled = $true
+        assistantEnabled = $true
         sensitive = $true
         parameters = @(
             @{
@@ -75,6 +76,7 @@ $tools = @(
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent"
         enabled = $true
+        assistantEnabled = $true
         sensitive = $true
         parameters = @(
             @{
@@ -93,6 +95,7 @@ $tools = @(
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/organisation"
         enabled = $true
+        assistantEnabled = $true
         sensitive = $true
         parameters = @(
             @{
@@ -196,6 +199,9 @@ foreach ($tool in $tools) {
     }
     if ([bool]$result.enabled -ne [bool]$tool.enabled) {
         throw "Bandy retained an unexpected enabled flag for $($tool.name)."
+    }
+    if ([bool]$result.assistantEnabled -ne [bool]$tool.assistantEnabled) {
+        throw "Bandy retained an unexpected assistant exposure flag for $($tool.name)."
     }
     if ([bool]$result.sensitive -ne [bool]$tool.sensitive) {
         throw "Bandy retained an unexpected sensitivity flag for $($tool.name)."
