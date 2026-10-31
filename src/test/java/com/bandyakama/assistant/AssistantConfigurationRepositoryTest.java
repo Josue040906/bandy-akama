@@ -168,7 +168,7 @@ class AssistantConfigurationRepositoryTest {
                 ('search_agents', 'Agent search', 'For agent searches',
                  'POST', 'http://localhost/search', TRUE, TRUE, TRUE, NULL, NULL),
                 ('get_organization_info', 'Organization', 'For organization questions',
-                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE, 'DIRECTION', 'directions'),
+                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE, 'DIRECTION', NULL),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
                  'http://localhost/legacy', TRUE, FALSE, TRUE, NULL, NULL)
                 """);
