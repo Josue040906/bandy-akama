@@ -54,6 +54,23 @@ class ToolExecutorTest {
     }
 
     @Test
+    void rejectsParameterValuesOutsideTheDeclaredAllowListBeforeMakingTheRequest() {
+        ToolParameter operation = new ToolParameter(
+                "operation", "string", "Operation", true
+        );
+        operation.setLocation("query");
+        operation.setAllowedValues(List.of("LIST_DIRECTIONS", "COUNT_DIRECTIONS"));
+        ToolDefinition organization = new ToolDefinition(
+                "get_organization_info", "Organization", "GET",
+                "http://127.0.0.1:1/api/organization", List.of(operation)
+        );
+        organization.setWhenToUse("Organization queries");
+
+        assertThrows(IllegalArgumentException.class,
+                () -> executor.execute(organization, Map.of("operation", "DROP_DATABASE")));
+    }
+
+    @Test
     void rejectsBlankValuesForRequiredStringArguments() {
         assertThrows(
                 IllegalArgumentException.class,
