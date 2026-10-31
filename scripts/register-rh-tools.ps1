@@ -99,7 +99,6 @@ $tools = @(
         assistantEnabled = $true
         sensitive = $true
         resultEntityType = 'DIRECTION'
-        resultCollectionKey = 'directions'
         parameters = @(
             @{
                 name = 'operation'
