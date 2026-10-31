@@ -13,8 +13,15 @@ public record ChatResponse(
         UUID conversationId,
         @JsonIgnore boolean resetConversationState,
         @JsonIgnore List<ToolState> toolStates,
-        @JsonIgnore ConversationTurnDecision.ReferencedEntity activeEntity
+        @JsonIgnore ConversationTurnDecision.ReferencedEntity activeEntity,
+        @JsonIgnore List<ConversationTurnDecision.ReferencedEntity> entityReferences
 ) {
+    public ChatResponse {
+        toolResults = toolResults == null ? List.of() : List.copyOf(toolResults);
+        toolStates = toolStates == null ? List.of() : List.copyOf(toolStates);
+        entityReferences = entityReferences == null ? List.of() : List.copyOf(entityReferences);
+    }
+
     public ChatResponse(String message, List<ToolResult> toolResults) {
         this(message, toolResults, null, false, List.of(), null);
     }
@@ -43,7 +50,18 @@ public record ChatResponse(
             boolean resetConversationState,
             List<ToolState> toolStates
     ) {
-        this(message, toolResults, conversationId, resetConversationState, toolStates, null);
+        this(message, toolResults, conversationId, resetConversationState, toolStates, null, List.of());
+    }
+    public ChatResponse(
+            String message,
+            List<ToolResult> toolResults,
+            UUID conversationId,
+            boolean resetConversationState,
+            List<ToolState> toolStates,
+            ConversationTurnDecision.ReferencedEntity activeEntity
+    ) {
+        this(message, toolResults, conversationId, resetConversationState,
+                toolStates, activeEntity, List.of());
     }
     public ChatResponse withConversationId(UUID id) {
         return new ChatResponse(
@@ -52,12 +70,13 @@ public record ChatResponse(
                 id,
                 resetConversationState,
                 toolStates,
-                activeEntity
+                activeEntity,
+                entityReferences
         );
     }
 
     public ChatResponse withConversationStateReset(boolean reset) {
-        return new ChatResponse(message, toolResults, conversationId, reset, toolStates, activeEntity);
+        return new ChatResponse(message, toolResults, conversationId, reset, toolStates, activeEntity, entityReferences);
     }
 
     public record ToolState(
