@@ -30,6 +30,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 class GeminiAssistantMultiTurnOrchestrationTest {
@@ -93,11 +94,13 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         );
         when(decisionChat.sendMessage(anyList(), any(GenerateContentConfig.class)))
                 .thenReturn(firstDecision, secondDecision);
+        GenerateContentResponse firstFinalResponse = textResponse("Six agents trouvés.");
+        GenerateContentResponse secondFinalResponse = textResponse("Deux femmes correspondent.");
         when(finalChat1.sendMessage(anyList(), any(GenerateContentConfig.class)))
-                .thenReturn(textResponse("Six agents trouvés."));
+                .thenReturn(firstFinalResponse);
         when(finalChat2.sendMessage(anyList(), any(GenerateContentConfig.class)))
-                .thenReturn(textResponse("Deux femmes correspondent."));
-        when(toolExecutor.execute(eq(search), anyMap(), any(), any()))
+                .thenReturn(secondFinalResponse);
+        when(toolExecutor.execute(eq(search), anyMap(), any(), isNull()))
                 .thenReturn(Map.of("total", 6), Map.of("total", 2));
 
         GeminiAssistant assistant = new GeminiAssistant(
@@ -121,7 +124,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         assertEquals("Deux femmes correspondent.", second.message());
         verify(toolExecutor).execute(eq(search), argThat(args ->
                 serviceCriteria.equals(args.get("criteriaJson"))
-        ), eq("Bearer test"), any());
+        ), eq("Bearer test"), isNull());
         verify(toolExecutor).execute(eq(search), argThat(args ->
                 womenCriteria.equals(args.get("criteriaJson"))
         ), eq("Bearer test"), any());
