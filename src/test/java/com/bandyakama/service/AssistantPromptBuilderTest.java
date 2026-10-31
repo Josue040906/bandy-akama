@@ -42,7 +42,7 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("DIRECT_RESPONSE"));
         assertTrue(instruction.contains("arguments complets"));
         assertTrue(instruction.contains(
-                "GESTION DU CONTEXTE CONVERSATIONNEL ET DES FILTRES:\\n"
+                "GESTION DU CONTEXTE CONVERSATIONNEL ET DES FILTRES:\n"
                         + "- CONTINUATION:"
         ));
     }
