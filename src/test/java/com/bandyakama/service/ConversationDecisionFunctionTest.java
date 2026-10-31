@@ -42,6 +42,8 @@ class ConversationDecisionFunctionTest {
                 .properties().orElseThrow().get("get_organization_info")
                 .properties().orElseThrow();
         assertTrue(organizationArguments.containsKey("directionId"));
+        assertTrue(organizationArguments.get("directionId")
+                .description().orElseThrow().contains("DIRECTION"));
         org.junit.jupiter.api.Assertions.assertFalse(organizationArguments.containsKey("operation"));
     }
     @Test
@@ -127,6 +129,7 @@ class ConversationDecisionFunctionTest {
                         new ToolParameter("query", "string", "Recherche textuelle", false)
                 )
         );
+        tool.getParameters().get(1).setReferenceType("DIRECTION");
         tool.setWhenToUse("Pour consulter les directions, services et postes.");
         return tool;
     }
