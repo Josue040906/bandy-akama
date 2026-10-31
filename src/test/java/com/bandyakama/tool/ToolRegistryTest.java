@@ -230,7 +230,7 @@ class ToolRegistryTest {
         tool.setExamples(List.of(new ToolExample(
                 "Trouve les agents du service financier",
                 "Trouve les agents du {service}",
-                Map.of("criteriaJson", "{\\"filters\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"financier\\"}]}")
+                Map.of("query", "service financier")
         )));
         return tool;
     }
