@@ -28,7 +28,8 @@ public class AssistantConfigurationRepository {
                    parameter.type AS parameter_type,
                    parameter.description AS parameter_description,
                    parameter.location AS parameter_location,
-                   parameter.required AS parameter_required
+                   parameter.required AS parameter_required,
+                   parameter.allowed_values AS parameter_allowed_values
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
                    ON t.enabled = TRUE AND t.assistant_enabled = TRUE
