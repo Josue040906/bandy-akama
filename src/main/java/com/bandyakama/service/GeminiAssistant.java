@@ -349,9 +349,16 @@ public class GeminiAssistant {
                     "La décision structurée de Gemini est illisible.", invalidPayload
             );
         }
-        new ConversationTurnDecisionValidator().validate(
-                decision, enabledTools, conversationContext, initialState
-        );
+        try {
+            new ConversationTurnDecisionValidator().validate(
+                    decision, enabledTools, conversationContext, initialState
+            );
+        } catch (ConversationClarificationRequiredException clarification) {
+            return new ChatResponse(
+                    clarification.question(), List.of(), null,
+                    false, List.of(), null
+            );
+        }
         boolean resetState = decision.intentType()
                 == ConversationTurnDecision.IntentType.NEW_INTENT;
         if (decision.needsClarification()) {
