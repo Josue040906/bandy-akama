@@ -507,14 +507,6 @@ public class ConversationRepository {
                         .filter(result -> !sensitiveToolNames.contains(result.name()))
                         .toList();
         long nextSequence = nextSequence(conversationId);
-        if (activeEntity != null) {
-            JsonNode currentState = readStoredJson(state);
-            ObjectNode enrichedState = currentState.isObject()
-                    ? ((ObjectNode) currentState).deepCopy()
-                    : objectMapper.createObjectNode();
-            enrichedState.set("activeEntity", objectMapper.valueToTree(activeEntity));
-            state = toJson(enrichedState);
-        }
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             String content = toJson(toolResult.result());
             ObjectNode metadata = objectMapper.createObjectNode();
@@ -735,6 +727,14 @@ public class ConversationRepository {
                 nextState.set("profiles", cachedProfiles);
             }
             state = toJson(nextState);
+        }
+        if (activeEntity != null) {
+            JsonNode currentState = readStoredJson(state);
+            ObjectNode enrichedState = currentState.isObject()
+                    ? ((ObjectNode) currentState).deepCopy()
+                    : objectMapper.createObjectNode();
+            enrichedState.set("activeEntity", objectMapper.valueToTree(activeEntity));
+            state = toJson(enrichedState);
         }
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             ObjectNode reference = objectMapper.createObjectNode();
