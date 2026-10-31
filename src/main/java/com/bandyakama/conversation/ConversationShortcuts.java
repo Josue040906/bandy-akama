@@ -32,19 +32,6 @@ public final class ConversationShortcuts {
         return Optional.empty();
     }
 
-    public static Optional<String> newQuestionResponse(String message) {
-        if (message == null) {
-            return Optional.empty();
-        }
-        String normalized = normalize(message);
-        return normalized.matches(
-                "^(?:(?:je\\s+)?(?:veux|souhaite|voudrais)\\s+)?"
-                        + "(?:poser\\s+)?(?:une\\s+)?nouvelle\\s+question\\b.*$"
-        ) || normalized.matches("^changeons\\s+de\\s+sujet\\b.*$")
-                ? Optional.of("Bien sûr. Quelle est votre nouvelle question ?")
-                : Optional.empty();
-    }
-
     private static String normalize(String message) {
         String decomposed = Normalizer.normalize(
                 message.toLowerCase(Locale.ROOT),
