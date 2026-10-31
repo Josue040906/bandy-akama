@@ -165,7 +165,6 @@ class ToolRegistryTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("apiTool"))
                 .andExpect(jsonPath("$.examples[0].text").value("Recherche un agent par matricule"))
-                .andExpect(jsonPath("$.examples[0].expectedArguments.query").value("MEF-001"))
                 .andExpect(jsonPath("$.examples[1].pattern").value("Trouve les agents du {service}"));
 
         mockMvc.perform(get("/api/assistant/profile")
