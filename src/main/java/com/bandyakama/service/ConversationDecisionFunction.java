@@ -29,13 +29,13 @@ final class ConversationDecisionFunction {
                 if ("operation".equals(parameter.getName())) {
                     continue;
                 }
-                parameterProperties.put(
-                        parameter.getName(),
-                        Schema.builder()
-                                .type(geminiType(parameter.getType()))
-                                .description(parameter.getDescription())
-                                .build()
-                );
+                Schema.Builder parameterSchema = Schema.builder()
+                        .type(geminiType(parameter.getType()))
+                        .description(parameter.getDescription());
+                if (parameter.getAllowedValues() != null) {
+                    parameterSchema.format("enum").enum_(parameter.getAllowedValues());
+                }
+                parameterProperties.put(parameter.getName(), parameterSchema.build());
                 if (parameter.isRequired()) {
                     requiredParameters.add(parameter.getName());
                 }
@@ -79,7 +79,7 @@ final class ConversationDecisionFunction {
                                 .enum_(enabledTools.stream().map(ToolDefinition::getName).toList())
                                 .description("Outil métier autorisé, absent si clarification ou réponse directe.")
                                 .nullable(true).build(),
-                        "operation", stringSchema("Opération métier demandée, si l’outil en utilise une."),
+                        "operation", operationSchema(enabledTools),
                         "toolArguments", Schema.builder()
                                 .type("OBJECT").properties(toolArgumentSchemas)
                                 .description("Objet d’arguments indexé par le nom exact de l’outil sélectionné. Ne renseigner que l’objet correspondant à toolName.")
@@ -114,6 +114,26 @@ final class ConversationDecisionFunction {
                         .mode(FunctionCallingConfigMode.Known.ANY)
                         .allowedFunctionNames(NAME)
                         .build())
+                .build();
+    }
+
+    private static Schema operationSchema(List<ToolDefinition> enabledTools) {
+        List<String> operations = enabledTools.stream()
+                .flatMap(tool -> tool.getParameters().stream())
+                .filter(parameter -> "operation".equals(parameter.getName()))
+                .filter(parameter -> parameter.getAllowedValues() != null)
+                .flatMap(parameter -> parameter.getAllowedValues().stream())
+                .distinct()
+                .toList();
+        if (operations.isEmpty()) {
+            return stringSchema("Opération métier demandée, si l’outil en utilise une.");
+        }
+        return Schema.builder()
+                .type("STRING")
+                .format("enum")
+                .enum_(operations)
+                .description("Opération autorisée parmi les opérations déclarées par les outils activés.")
+                .nullable(true)
                 .build();
     }
 
