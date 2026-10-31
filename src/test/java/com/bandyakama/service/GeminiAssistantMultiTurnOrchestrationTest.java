@@ -13,7 +13,6 @@ import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Chat;
-import com.google.genai.types.Content;
 import com.google.genai.types.FunctionCall;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
@@ -29,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 class GeminiAssistantMultiTurnOrchestrationTest {
@@ -113,7 +113,13 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         assertFalse(second.resetConversationState());
         assertEquals("Six agents trouvés.", first.message());
         assertEquals("Deux femmes correspondent.", second.message());
-        verify(toolExecutor, times(2)).execute(eq(search), anyMap(), eq("Bearer test"), any());
+        verify(toolExecutor).execute(eq(search), argThat(args ->
+                "{\\"service\\":\\"Administration générale\\"}".equals(args.get("criteriaJson"))
+        ), eq("Bearer test"), any());
+        verify(toolExecutor).execute(eq(search), argThat(args ->
+                "{\\"service\\":\\"Administration générale\\",\\"sexe\\":\\"F\\"}"
+                        .equals(args.get("criteriaJson"))
+        ), eq("Bearer test"), any());
         verify(gateway, times(4)).createChat(eq("gemini-test"), any());
     }
 
