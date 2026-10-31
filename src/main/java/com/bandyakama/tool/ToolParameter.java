@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.List;
+
 public class ToolParameter {
 
     @NotBlank
@@ -22,6 +24,9 @@ public class ToolParameter {
     private String location;
 
     private boolean required;
+
+    @Size(max = 100)
+    private List<@NotBlank @Size(max = 120) String> allowedValues;
 
     public ToolParameter() {
     }
@@ -78,6 +83,14 @@ public class ToolParameter {
         this.required = required;
     }
 
+    public List<String> getAllowedValues() {
+        return allowedValues;
+    }
+
+    public void setAllowedValues(List<String> allowedValues) {
+        this.allowedValues = allowedValues == null ? null : List.copyOf(allowedValues);
+    }
+
     public void validate() {
         if (name == null || !name.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
             throw new IllegalArgumentException("Nom de paramètre invalide.");
@@ -93,6 +106,18 @@ public class ToolParameter {
             throw new IllegalArgumentException(
                     "Emplacement de paramètre non pris en charge : " + location
             );
+        }
+        if (allowedValues != null) {
+            if (!"string".equalsIgnoreCase(type)
+                    || allowedValues.isEmpty()
+                    || allowedValues.stream().anyMatch(value ->
+                            value == null || value.isBlank() || value.length() > 120)
+                    || allowedValues.stream().distinct().count() != allowedValues.size()) {
+                throw new IllegalArgumentException(
+                        "Les valeurs autorisées doivent être une liste non vide, unique et de type string : "
+                                + name
+                );
+            }
         }
     }
 }
