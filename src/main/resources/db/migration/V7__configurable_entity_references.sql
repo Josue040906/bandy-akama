@@ -22,3 +22,7 @@ SET reference_type = CASE name
     ELSE reference_type
 END
 WHERE name IN ('directionId', 'serviceId', 'posteId', 'employeId');
+
+UPDATE bandy_tool_parameter
+SET reference_type = 'STRUCTURE'
+WHERE tool_name = 'get_organization_info' AND name = 'id';
