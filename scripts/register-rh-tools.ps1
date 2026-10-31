@@ -235,13 +235,33 @@ foreach ($tool in $tools) {
         $uri = $toolsUri
     }
     try {
-        $result = Invoke-RestMethod `
+        $response = Invoke-WebRequest `
             -Uri $uri `
             -Method $method `
             -Headers $headers `
             -ContentType 'application/json; charset=utf-8' `
             -Body $bodyBytes `
-            -TimeoutSec 15
+            -TimeoutSec 15 `
+            -UseBasicParsing
+
+        # Windows PowerShell 5.1 may decode JSON response text using an
+        # incorrect/default charset. Read the original response bytes as UTF-8.
+        $responseStream = $response.RawContentStream
+        $responseStream.Position = 0
+        $reader = New-Object System.IO.StreamReader(
+            $responseStream,
+            [System.Text.Encoding]::UTF8,
+            $true
+        )
+        try {
+            $responseJson = $reader.ReadToEnd()
+        } finally {
+            $reader.Dispose()
+        }
+        if ([string]::IsNullOrWhiteSpace($responseJson)) {
+            throw "Bandy returned an empty response for $($tool.name)."
+        }
+        $result = $responseJson | ConvertFrom-Json
     } catch {
         $statusCode = if ($_.Exception.Response) {
             [int]$_.Exception.Response.StatusCode
