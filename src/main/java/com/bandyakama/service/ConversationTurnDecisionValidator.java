@@ -78,6 +78,10 @@ final class ConversationTurnDecisionValidator {
         }
 
         if (decision.referencedEntity() == null) {
+            if (decision.intentType() == ConversationTurnDecision.IntentType.NEW_INTENT
+                    && hasScopedIdentifier(decision.arguments())) {
+                throw invalidDecision("Une nouvelle intention qui cible une structure doit fournir une entité explicitement résolue.");
+            }
             validateScopedIdsHaveKnownEntities(decision.arguments(), activeState);
         }
         if (decision.referencedEntity() != null) {
@@ -100,6 +104,12 @@ final class ConversationTurnDecisionValidator {
         }
     }
 
+    private boolean hasScopedIdentifier(Map<String, Object> arguments) {
+        return arguments.containsKey("directionId")
+                || arguments.containsKey("serviceId")
+                || arguments.containsKey("posteId")
+                || arguments.containsKey("employeId");
+    }
     private void validateScopedIdsHaveKnownEntities(
             Map<String, Object> arguments,
             JsonNode activeState
