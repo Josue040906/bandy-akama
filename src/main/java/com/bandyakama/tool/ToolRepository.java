@@ -11,9 +11,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Repository
 public class ToolRepository {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final RowMapper<ToolDefinition> TOOL_ROW_MAPPER =
             (resultSet, rowNumber) -> {
                 ToolDefinition tool = new ToolDefinition(
@@ -39,6 +42,18 @@ public class ToolRepository {
                         resultSet.getBoolean("required")
                 );
                 parameter.setLocation(resultSet.getString("location"));
+                String allowedValues = resultSet.getString("allowed_values");
+                if (allowedValues != null && !allowedValues.isBlank()) {
+                    try {
+                        parameter.setAllowedValues(OBJECT_MAPPER.readValue(
+                                allowedValues, new TypeReference<List<String>>() {}
+                        ));
+                    } catch (java.io.IOException invalidValues) {
+                        throw new IllegalStateException(
+                                "Valeurs autorisées invalides pour le paramètre.", invalidValues
+                        );
+                    }
+                }
                 return parameter;
             };
 
@@ -110,8 +125,8 @@ public class ToolRepository {
             ToolParameter parameter = parameters.get(index);
             jdbcTemplate.update("""
                     INSERT INTO bandy_tool_parameter (
-                        tool_name, name, type, description, location, required, position
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        tool_name, name, type, description, location, required, position, allowed_values
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     tool.getName(),
                     parameter.getName(),
@@ -119,7 +134,8 @@ public class ToolRepository {
                     parameter.getDescription(),
                     parameter.getLocation(),
                     parameter.isRequired(),
-                    index
+                    index,
+                    serializeAllowedValues(parameter.getAllowedValues())
             );
         }
         return loadParameters(tool);
@@ -156,9 +172,22 @@ public class ToolRepository {
         ) > 0;
     }
 
+    private String serializeAllowedValues(List<String> allowedValues) {
+        if (allowedValues == null) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(allowedValues);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+            throw new IllegalArgumentException(
+                    "Impossible de sérialiser les valeurs autorisées.", exception
+            );
+        }
+    }
+
     private ToolDefinition loadParameters(ToolDefinition tool) {
         tool.setParameters(jdbcTemplate.query(
-                "SELECT name, type, description, location, required "
+                "SELECT name, type, description, location, required, allowed_values "
                         + "FROM bandy_tool_parameter WHERE tool_name = ? "
                         + "ORDER BY position",
                 PARAMETER_ROW_MAPPER,
@@ -185,7 +214,7 @@ public class ToolRepository {
                 new ArrayList<>()
         ));
         jdbcTemplate.query(
-                "SELECT tool_name, name, type, description, location, required "
+                "SELECT tool_name, name, type, description, location, required, allowed_values "
                         + "FROM bandy_tool_parameter WHERE tool_name IN ("
                         + placeholders + ") ORDER BY tool_name, position",
                 resultSet -> {
