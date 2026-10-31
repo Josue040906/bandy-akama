@@ -120,7 +120,7 @@ public final class ConversationEntityReferenceExtractor {
         node.fields().forEachRemaining(entry -> {
             String childType = typeForCollection(entry.getKey());
             visit(entry.getValue(),
-                    childType == null ? typeForChildren : childType,
+                    childType,
                     parentForChildren,
                     found);
         });
