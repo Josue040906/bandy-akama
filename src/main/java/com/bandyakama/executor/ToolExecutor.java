@@ -197,6 +197,12 @@ public class ToolExecutor {
                         "Type invalide pour le paramètre : " + parameter.getName()
                 );
             }
+            if (value != null && parameter.getAllowedValues() != null
+                    && !parameter.getAllowedValues().contains(value)) {
+                throw new IllegalArgumentException(
+                        "Valeur non autorisée pour le paramètre : " + parameter.getName()
+                );
+            }
         });
         if (!declaredNames.containsAll(arguments.keySet())) {
             throw new IllegalArgumentException("Un argument non déclaré a été fourni.");
