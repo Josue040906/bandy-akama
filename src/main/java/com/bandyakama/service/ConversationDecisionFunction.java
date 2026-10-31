@@ -26,6 +26,9 @@ final class ConversationDecisionFunction {
             Map<String, Schema> parameterProperties = new LinkedHashMap<>();
             List<String> requiredParameters = new java.util.ArrayList<>();
             for (ToolParameter parameter : tool.getParameters()) {
+                if ("operation".equals(parameter.getName())) {
+                    continue;
+                }
                 parameterProperties.put(
                         parameter.getName(),
                         Schema.builder()
