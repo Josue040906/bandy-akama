@@ -1,5 +1,7 @@
 ALTER TABLE bandy_tool_example
-    ADD COLUMN pattern_text VARCHAR(500),
+    ADD COLUMN pattern_text VARCHAR(500);
+
+ALTER TABLE bandy_tool_example
     ADD COLUMN expected_arguments TEXT NOT NULL DEFAULT '{}';
 
 UPDATE bandy_tool_example
