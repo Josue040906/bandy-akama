@@ -99,9 +99,11 @@ final class ConversationTurnDecisionValidator {
                             parameter.getReferenceType(), decision.referencedEntity().type()))
                     .filter(parameter -> decision.arguments().containsKey(parameter.getName()))
                     .toList();
-            if (matchingReferenceParameters.stream().anyMatch(parameter ->
-                    !String.valueOf(decision.referencedEntity().id()).equals(
-                            String.valueOf(decision.arguments().get(parameter.getName())))) {
+            if (matchingReferenceParameters.stream().anyMatch(parameter -> {
+                Object argumentId = decision.arguments().get(parameter.getName());
+                return !String.valueOf(decision.referencedEntity().id())
+                        .equals(String.valueOf(argumentId));
+            })) {
                 throw invalidDecision(
                         "L’identifiant de l’entité et les paramètres de ciblage ne correspondent pas."
                 );
