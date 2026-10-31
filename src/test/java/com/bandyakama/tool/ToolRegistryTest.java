@@ -75,6 +75,19 @@ class ToolRegistryTest {
         assertFalse(loaded.isEnabled());
     }
     @Test
+    void persistsAllowedParameterValues() {
+        ToolDefinition tool = tool("constrainedTool", "GET");
+        tool.getParameters().get(0).setAllowedValues(List.of("LIST", "COUNT"));
+        registry.register(tool);
+
+        assertEquals(
+                List.of("LIST", "COUNT"),
+                registry.findByName("constrainedTool").orElseThrow()
+                        .getParameters().get(0).getAllowedValues()
+        );
+    }
+
+    @Test
     void updatingAToolReplacesItsStoredDefinition() {
         registry.register(tool("agentSearch", "GET"));
         registry.register(tool("agentSearch", "POST"));
