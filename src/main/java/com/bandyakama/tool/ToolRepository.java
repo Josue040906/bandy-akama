@@ -30,6 +30,8 @@ public class ToolRepository {
                 tool.setEnabled(resultSet.getBoolean("enabled"));
                 tool.setAssistantEnabled(resultSet.getBoolean("assistant_enabled"));
                 tool.setSensitive(resultSet.getBoolean("sensitive"));
+                tool.setResultEntityType(resultSet.getString("result_entity_type"));
+                tool.setResultCollectionKey(resultSet.getString("result_collection_key"));
                 return tool;
             };
 
@@ -42,6 +44,7 @@ public class ToolRepository {
                         resultSet.getBoolean("required")
                 );
                 parameter.setLocation(resultSet.getString("location"));
+                parameter.setReferenceType(resultSet.getString("reference_type"));
                 String allowedValues = resultSet.getString("allowed_values");
                 if (allowedValues != null && !allowedValues.isBlank()) {
                     try {
@@ -65,7 +68,7 @@ public class ToolRepository {
 
     public List<ToolDefinition> findAll() {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, assistant_enabled, sensitive "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, assistant_enabled, sensitive, result_entity_type, result_collection_key "
                         + "FROM bandy_tool ORDER BY name",
                 TOOL_ROW_MAPPER
         );
@@ -99,8 +102,8 @@ public class ToolRepository {
                 jdbcTemplate.update("""
                         INSERT INTO bandy_tool (
                             name, description, when_to_use, http_method, endpoint_url,
-                            enabled, assistant_enabled, sensitive, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            enabled, assistant_enabled, sensitive, result_entity_type, result_collection_key, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """,
                         tool.getName(),
                         tool.getDescription(),
@@ -109,7 +112,9 @@ public class ToolRepository {
                         tool.getUrl(),
                         tool.isEnabled(),
                         tool.isAssistantEnabled(),
-                        tool.isSensitive()
+                        tool.isSensitive(),
+                        tool.getResultEntityType(),
+                        tool.getResultCollectionKey()
                 );
             } catch (DuplicateKeyException concurrentInsert) {
                 updateTool(tool);
@@ -125,8 +130,8 @@ public class ToolRepository {
             ToolParameter parameter = parameters.get(index);
             jdbcTemplate.update("""
                     INSERT INTO bandy_tool_parameter (
-                        tool_name, name, type, description, location, required, position, allowed_values
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                        tool_name, name, type, description, location, required, position, allowed_values, reference_type
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     tool.getName(),
                     parameter.getName(),
@@ -135,7 +140,8 @@ public class ToolRepository {
                     parameter.getLocation(),
                     parameter.isRequired(),
                     index,
-                    serializeAllowedValues(parameter.getAllowedValues())
+                    serializeAllowedValues(parameter.getAllowedValues()),
+                    parameter.getReferenceType()
             );
         }
         return loadParameters(tool);
@@ -151,6 +157,8 @@ public class ToolRepository {
                     enabled = ?,
                     assistant_enabled = ?,
                     sensitive = ?,
+                    result_entity_type = ?,
+                    result_collection_key = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE name = ?
                 """,
@@ -161,6 +169,8 @@ public class ToolRepository {
                 tool.isEnabled(),
                 tool.isAssistantEnabled(),
                 tool.isSensitive(),
+                tool.getResultEntityType(),
+                tool.getResultCollectionKey(),
                 tool.getName()
         );
     }
@@ -187,7 +197,7 @@ public class ToolRepository {
 
     private ToolDefinition loadParameters(ToolDefinition tool) {
         tool.setParameters(jdbcTemplate.query(
-                "SELECT name, type, description, location, required, allowed_values "
+                "SELECT name, type, description, location, required, allowed_values, reference_type "
                         + "FROM bandy_tool_parameter WHERE tool_name = ? "
                         + "ORDER BY position",
                 PARAMETER_ROW_MAPPER,
@@ -214,7 +224,7 @@ public class ToolRepository {
                 new ArrayList<>()
         ));
         jdbcTemplate.query(
-                "SELECT tool_name, name, type, description, location, required, allowed_values "
+                "SELECT tool_name, name, type, description, location, required, allowed_values, reference_type "
                         + "FROM bandy_tool_parameter WHERE tool_name IN ("
                         + placeholders + ") ORDER BY tool_name, position",
                 resultSet -> {
