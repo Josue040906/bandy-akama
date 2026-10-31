@@ -108,7 +108,7 @@ class ConversationTurnDecisionValidatorTest {
                 "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
                 Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 99),
                 entity, false, null, null);
-        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+        assertThrows(ConversationClarificationRequiredException.class,
                 () -> validator.validate(decision,
                         Map.of(organizationTool.getName(), organizationTool),
                         "Références aux résultats métier précédents :\\n[]",
