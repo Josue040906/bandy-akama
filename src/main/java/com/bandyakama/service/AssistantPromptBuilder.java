@@ -69,10 +69,14 @@ final class AssistantPromptBuilder {
                     .append("  Quand l’utiliser : ").append(tool.getWhenToUse()).append("\n");
             if (tool.getResultEntityType() != null) {
                 instruction.append("  Références extraites du résultat : entités de type ")
-                        .append(tool.getResultEntityType())
-                        .append(" dans la collection ")
-                        .append(tool.getResultCollectionKey())
-                        .append(".\n");
+                        .append(tool.getResultEntityType());
+                if (tool.getResultCollectionKey() != null) {
+                    instruction.append(" dans la collection ")
+                            .append(tool.getResultCollectionKey());
+                } else {
+                    instruction.append(" dans la réponse complète, en tenant compte des collections imbriquées.");
+                }
+                instruction.append(".\n");
             }
             instruction.append("  Paramètres :\n");
             List<ToolParameter> parameters = tool.getParameters() == null
