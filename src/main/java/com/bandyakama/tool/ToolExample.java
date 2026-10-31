@@ -37,6 +37,20 @@ public class ToolExample {
                 : new LinkedHashMap<>(expectedArguments);
     }
 
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof ToolExample example)) return false;
+        return java.util.Objects.equals(text, example.text)
+                && java.util.Objects.equals(pattern, example.pattern)
+                && java.util.Objects.equals(expectedArguments, example.expectedArguments);
+    }
+
+    @Override
+    public int hashCode() {
+        return java.util.Objects.hash(text, pattern, expectedArguments);
+    }
+
     public void validate() {
         if (text == null || text.isBlank() || text.length() > 500) {
             throw new IllegalArgumentException(
