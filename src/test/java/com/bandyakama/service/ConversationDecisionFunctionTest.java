@@ -28,6 +28,19 @@ class ConversationDecisionFunctionTest {
     }
 
     @Test
+    void keepsOperationAtDecisionLevelAndOtherArgumentsInsideSelectedTool() {
+        var schema = ConversationDecisionFunction.declaration(List.of(organizationTool()))
+                .functionDeclarations().orElseThrow().get(0)
+                .parameters().orElseThrow();
+        var properties = schema.properties().orElseThrow();
+        assertTrue(properties.containsKey("operation"));
+        var organizationArguments = properties.get("toolArguments")
+                .properties().orElseThrow().get("get_organization_info")
+                .properties().orElseThrow();
+        assertTrue(organizationArguments.containsKey("directionId"));
+        org.junit.jupiter.api.Assertions.assertFalse(organizationArguments.containsKey("operation"));
+    }
+    @Test
     void forcesGeminiToReturnTheStructuredDecisionFunction() {
         var config = ConversationDecisionFunction.forcedFunctionConfig();
         var functionConfig = config.functionCallingConfig().orElseThrow();
