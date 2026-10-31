@@ -29,6 +29,10 @@ public class ToolParameter {
     @Size(max = 100)
     private List<@NotBlank @Size(max = 120) String> allowedValues;
 
+    @Size(max = 40)
+    @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]{0,39}")
+    private String referenceType;
+
     public ToolParameter() {
     }
 
