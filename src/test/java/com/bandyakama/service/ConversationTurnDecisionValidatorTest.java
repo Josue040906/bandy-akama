@@ -42,6 +42,30 @@ class ConversationTurnDecisionValidatorTest {
     }
 
     @Test
+    void acceptsDirectResponseForAnIndependentNewIntent() {
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.NEW_INTENT,
+                null, null, Map.of(), null, false, null,
+                "Il y a 12 directions."
+        );
+        assertDoesNotThrow(() -> validator.validate(
+                decision, Map.of(), "", new ObjectMapper().createObjectNode()
+        ));
+    }
+
+    @Test
+    void acceptsClarificationForAnIndependentNewIntent() {
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.NEW_INTENT,
+                null, null, Map.of(), null, true,
+                "Quelle direction souhaites-tu consulter ?", null
+        );
+        assertDoesNotThrow(() -> validator.validate(
+                decision, Map.of(), "", new ObjectMapper().createObjectNode()
+        ));
+    }
+
+    @Test
     void rejectsAnUnknownTool() {
         var decision = decision("delete_everything", null, Map.of());
         assertThrows(org.springframework.web.server.ResponseStatusException.class,
