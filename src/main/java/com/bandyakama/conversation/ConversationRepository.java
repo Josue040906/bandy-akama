@@ -399,24 +399,32 @@ public class ConversationRepository {
         }
 
         ensureMemory(conversationId);
-        // Legacy versions could persist complete HR profiles in active_state.
-        // Remove that payload before exposing the state to the model.
-        jdbcTemplate.update("""
-                UPDATE bandy_conversation_memory
-                SET active_state = active_state - 'profiles',
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE conversation_id = ?
-                    AND jsonb_exists(active_state, 'profiles')
-                """,
-                conversationId
-        );
-        JsonNode activeState = readStoredJson(jdbcTemplate.queryForObject("""
+        String storedState = jdbcTemplate.queryForObject("""
                 SELECT active_state::text FROM bandy_conversation_memory
                 WHERE conversation_id = ?
                 """,
                 String.class,
                 conversationId
-        ));
+        );
+        JsonNode activeState = readStoredJson(storedState);
+        // Legacy versions could persist complete HR profiles in active_state.
+        // Sanitize the JSON in Java so this remains compatible with PostgreSQL
+        // and the H2 database used by the test suite.
+        if (activeState.isObject() && activeState.has("profiles")) {
+            ObjectNode sanitizedState = ((ObjectNode) activeState).deepCopy();
+            sanitizedState.remove("profiles");
+            String sanitizedJson = toJson(sanitizedState);
+            jdbcTemplate.update("""
+                    UPDATE bandy_conversation_memory
+                    SET active_state = CAST(? AS JSONB),
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE conversation_id = ?
+                    """,
+                    sanitizedJson,
+                    conversationId
+            );
+            activeState = sanitizedState;
+        }
         return new RequestStart(
                 null,
                 claimId,
