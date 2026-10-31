@@ -37,14 +37,41 @@ public final class ConversationEntityReferenceExtractor {
         }
         JsonNode root = MAPPER.valueToTree(result);
         JsonNode collection = collectionKey == null || collectionKey.isBlank()
-                ? root : root.path(collectionKey);
-        if (collection.isMissingNode() || collection.isNull()) {
+                ? root : findCollection(root, collectionKey);
+        if (collection == null || collection.isNull()) {
             return List.of();
         }
         Map<String, ConversationTurnDecision.ReferencedEntity> found =
                 new LinkedHashMap<>();
         visit(collection, rootEntityType, null, found);
         return List.copyOf(found.values());
+    }
+
+    private static JsonNode findCollection(JsonNode node, String collectionKey) {
+        if (node == null || node.isNull()) {
+            return null;
+        }
+        if (node.isObject()) {
+            JsonNode direct = node.get(collectionKey);
+            if (direct != null && !direct.isNull()) {
+                return direct;
+            }
+            var fields = node.elements();
+            while (fields.hasNext()) {
+                JsonNode found = findCollection(fields.next(), collectionKey);
+                if (found != null) {
+                    return found;
+                }
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) {
+                JsonNode found = findCollection(child, collectionKey);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private static void visit(
