@@ -92,6 +92,14 @@ public class ToolParameter {
         this.allowedValues = allowedValues == null ? null : new ArrayList<>(allowedValues);
     }
 
+    public String getReferenceType() {
+        return referenceType;
+    }
+
+    public void setReferenceType(String referenceType) {
+        this.referenceType = referenceType;
+    }
+
     public void validate() {
         if (name == null || !name.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
             throw new IllegalArgumentException("Nom de paramètre invalide.");
