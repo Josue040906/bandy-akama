@@ -252,6 +252,50 @@ class ConversationIntentResolverTest {
         );
     }
 
+
+    @Test
+    void routesExplicitOrganizationQuestionsAwayFromAgentSearchAndProfileIntents() {
+        JsonNode profileLookup = objectMapper.createObjectNode()
+                .put("toolName", "get_agent_profile");
+
+        for (JsonNode state : new JsonNode[]{activeState, profileLookup}) {
+            for (String question : new String[]{
+                    "Combien y a-t-il de directions au MEF ?",
+                    "Quels sont les services de la Direction Financière ?",
+                    "Liste les postes du Service du Personnel.",
+                    "Qui est responsable du Service du Personnel ?",
+                    "Présente l'organigramme du MEF."
+            }) {
+                assertEquals(
+                        ConversationIntentResolver.Decision.NEW_INTENT,
+                        resolver.resolve(question, state),
+                        question
+                );
+            }
+        }
+    }
+
+    @Test
+    void keepsOrganizationFollowUpsInTheOrganizationIntent() {
+        JsonNode organizationState = objectMapper.createObjectNode()
+                .put("toolName", "get_organization_info");
+
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve(
+                        "Et les services de cette direction ?",
+                        organizationState
+                )
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve(
+                        "Combien y a-t-il de postes ?",
+                        organizationState
+                )
+        );
+    }
+
     @Test
     void keepsActiveSearchStateWhenTheUserSendsOnlyAGreeting() {
         assertEquals(
