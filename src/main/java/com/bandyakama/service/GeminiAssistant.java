@@ -1097,7 +1097,7 @@ public class GeminiAssistant {
 
     static String toolDescription(ToolDefinition definition) {
         String description = definition.getDescription()
-                + "\\nQuand l’utiliser : "
+                + "\nQuand l’utiliser : "
                 + definition.getWhenToUse();
         List<String> examples = definition.getExamples() == null
                 ? List.of()
@@ -1106,7 +1106,7 @@ public class GeminiAssistant {
                         .limit(8)
                         .toList();
         if (!examples.isEmpty()) {
-            description += "\\nExemples de demandes correspondantes : "
+            description += "\nExemples de demandes correspondantes : "
                     + String.join(" ; ", examples);
         }
         return description;
