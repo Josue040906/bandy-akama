@@ -263,12 +263,14 @@ foreach ($tool in $tools) {
             throw "Bandy retained an unexpected example text or pattern at position $index for $($tool.name)."
         }
         foreach ($argumentName in $expectedExample.expectedArguments.Keys) {
-            if (-not $registeredExample.expectedArguments.ContainsKey($argumentName) -or
-                $registeredExample.expectedArguments[$argumentName] -ne $expectedExample.expectedArguments[$argumentName]) {
+            $registeredArgumentNames = @($registeredExample.expectedArguments.PSObject.Properties.Name)
+            if (($registeredArgumentNames -notcontains $argumentName) -or
+                $registeredExample.expectedArguments.$argumentName -ne $expectedExample.expectedArguments[$argumentName]) {
                 throw "Bandy retained an unexpected expected-argument value for $argumentName at example $index of $($tool.name)."
             }
         }
-        if ($registeredExample.expectedArguments.Count -ne $expectedExample.expectedArguments.Count) {
+        $registeredArgumentCount = @($registeredExample.expectedArguments.PSObject.Properties).Count
+        if ($registeredArgumentCount -ne $expectedExample.expectedArguments.Count) {
             throw "Bandy retained an unexpected expected-argument count at example $index of $($tool.name)."
         }
     }
