@@ -72,9 +72,9 @@ final class AssistantPromptBuilder {
                         .append(tool.getResultEntityType())
                         .append(" dans la collection ")
                         .append(tool.getResultCollectionKey())
-                        .append(".\\n");
+                        .append(".\n");
             }
-            instruction.append("  Paramètres :\\n");
+            instruction.append("  Paramètres :\n");
             List<ToolParameter> parameters = tool.getParameters() == null
                     ? List.of() : tool.getParameters();
             if (parameters.isEmpty()) {
