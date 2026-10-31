@@ -159,7 +159,7 @@ class ConversationMigrationTest {
         assertEquals("DIRECTION", jdbc.queryForObject(
                 "SELECT result_entity_type FROM bandy_tool WHERE name = 'get_organization_info'",
                 String.class));
-        assertEquals(null, jdbc.queryForObject(
+        assertNull(jdbc.queryForObject(
                 "SELECT result_collection_key FROM bandy_tool WHERE name = 'get_organization_info'",
                 String.class));
     }
