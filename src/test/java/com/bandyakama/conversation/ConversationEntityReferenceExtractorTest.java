@@ -62,6 +62,24 @@ class ConversationEntityReferenceExtractorTest {
     }
 
     @Test
+    void findsConfiguredCollectionInsideWrappedApiResponse() {
+        Map<String, Object> result = Map.of(
+                "data", Map.of(
+                        "records", List.of(
+                                Map.of("id", 41, "name", "Direction des ressources")
+                        )
+                )
+        );
+
+        var references = ConversationEntityReferenceExtractor.extract(
+                result, "DIRECTION", "records"
+        );
+
+        assertEquals(1, references.size());
+        assertEquals(41L, references.get(0).id());
+    }
+
+    @Test
     void doesNotExtractObjectsWithoutKnownOrganizationalType() {
         var references = ConversationEntityReferenceExtractor.extract(
                 Map.of("metadata", Map.of("id", 77, "name", "Not an organization"))
