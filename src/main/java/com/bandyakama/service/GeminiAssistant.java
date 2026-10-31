@@ -827,10 +827,6 @@ public class GeminiAssistant {
         }
     }
 
-    private boolean isSensitiveReadTool(String name) {
-        return Set.of("get_agent_profile", "search_agents").contains(name);
-    }
-
     static Optional<Map<String, Object>> profileLookupError(
             String toolName,
             HttpStatusCode status
