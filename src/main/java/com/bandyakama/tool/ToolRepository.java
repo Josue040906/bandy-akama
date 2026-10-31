@@ -203,8 +203,9 @@ public class ToolRepository {
                 "SELECT tool_name, example_text FROM bandy_tool_example "
                         + "WHERE enabled = TRUE AND tool_name IN (" + placeholders + ") "
                         + "ORDER BY tool_name, position",
-                resultSet -> examplesByTool.get(resultSet.getString("tool_name"))
-                        .add(resultSet.getString("example_text")),
+                (org.springframework.jdbc.core.RowCallbackHandler) resultSet ->
+                        examplesByTool.get(resultSet.getString("tool_name"))
+                                .add(resultSet.getString("example_text")),
                 tools.stream().map(ToolDefinition::getName).toArray()
         );
         tools.forEach(tool -> tool.setExamples(examplesByTool.get(tool.getName())));
