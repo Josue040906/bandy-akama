@@ -83,7 +83,7 @@ final class AssistantPromptBuilder {
                                 .append(String.join(", ", parameter.getAllowedValues()))
                                 .append(".");
                     }
-                    instruction.append("\\n");
+                    instruction.append("\n");
                 }
             }
         }
