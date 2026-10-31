@@ -64,7 +64,7 @@ class ConversationDecisionFunctionTest {
                 .properties().orElseThrow();
         assertEquals("STRING", toolSchemas.get("first_tool")
                 .properties().orElseThrow().get("shared")
-                .type().orElseThrow().toString());
+                .type().orElseThrow().knownEnum().toString());
         assertEquals("INTEGER", toolSchemas.get("second_tool")
                 .properties().orElseThrow().get("shared")
                 .type().orElseThrow().toString());
