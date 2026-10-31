@@ -34,6 +34,10 @@ class ConversationDecisionFunctionTest {
                 .parameters().orElseThrow();
         var properties = schema.properties().orElseThrow();
         assertTrue(properties.containsKey("operation"));
+        assertTrue(properties.get("intentType").description().orElseThrow()
+                .contains("l’état actif doit être réinitialisé"));
+        assertTrue(properties.get("directResponse").description().orElseThrow()
+                .contains("NEW_INTENT"));
         var organizationArguments = properties.get("toolArguments")
                 .properties().orElseThrow().get("get_organization_info")
                 .properties().orElseThrow();
