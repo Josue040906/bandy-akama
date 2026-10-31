@@ -260,7 +260,9 @@ foreach ($tool in $tools) {
         $registeredExample = $registeredExamples[$index]
         if ($registeredExample.text -ne $expectedExample.text -or
             $registeredExample.pattern -ne $expectedExample.pattern) {
-            throw "Bandy retained an unexpected example text or pattern at position $index for $($tool.name)."
+            $actualExampleJson = $registeredExample | ConvertTo-Json -Depth 5 -Compress
+            $expectedExampleJson = $expectedExample | ConvertTo-Json -Depth 5 -Compress
+            throw "Example mismatch for $($tool.name) at position $index. Expected: $expectedExampleJson. Received: $actualExampleJson"
         }
         foreach ($argumentName in $expectedExample.expectedArguments.Keys) {
             $registeredArgumentNames = @($registeredExample.expectedArguments.PSObject.Properties.Name)
