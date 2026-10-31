@@ -10,7 +10,7 @@ ALTER TABLE bandy_tool
 -- Existing organization result shape is now declared by its tool metadata.
 UPDATE bandy_tool
 SET result_entity_type = 'DIRECTION',
-    result_collection_key = 'directions'
+    result_collection_key = NULL
 WHERE name = 'get_organization_info';
 
 UPDATE bandy_tool_parameter
