@@ -58,7 +58,7 @@ final class ConversationDecisionFunction {
         Schema entitySchema = Schema.builder()
                 .type("OBJECT")
                 .properties(Map.of(
-                        "type", stringSchema("Type de l’entité : DIRECTION, SERVICE, POSTE, AGENT..."),
+                        "type", stringSchema("Type exact de l’entité, tel qu’il est déclaré par les métadonnées métier et présent dans le contexte."),
                         "id", Schema.builder().type("INTEGER")
                                 .description("Identifiant réel retourné par une source métier.").build(),
                         "name", stringSchema("Nom exact de l’entité identifiée."),
