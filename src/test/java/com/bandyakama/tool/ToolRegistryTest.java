@@ -112,6 +112,17 @@ class ToolRegistryTest {
     }
 
     @Test
+    void allowsWholeResultEntityExtractionWithoutOneFixedCollectionKey() {
+        ToolDefinition tool = tool("multiCollectionLookup", "GET");
+        tool.setResultEntityType("DIRECTION");
+        registry.register(tool);
+
+        ToolDefinition loaded = registry.findByName("multiCollectionLookup").orElseThrow();
+        assertEquals("DIRECTION", loaded.getResultEntityType());
+        assertEquals(null, loaded.getResultCollectionKey());
+    }
+
+    @Test
     void updatingAToolReplacesItsStoredDefinition() {
         registry.register(tool("agentSearch", "GET"));
         registry.register(tool("agentSearch", "POST"));
