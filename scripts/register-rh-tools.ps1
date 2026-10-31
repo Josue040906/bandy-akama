@@ -216,7 +216,17 @@ foreach ($tool in $tools) {
         Where-Object { $_.name -eq $tool.name } |
         Select-Object -First 1)
     $jsonBody = $tool | ConvertTo-Json -Depth 10
-    $bodyBytes = [Text.Encoding]::UTF8.GetBytes($jsonBody)
+    # Send JSON as ASCII-only Unicode escapes. This avoids legacy Windows
+    # PowerShell/.NET HTTP charset ambiguities while preserving every character.
+    $asciiJsonBody = [regex]::Replace(
+        $jsonBody,
+        '[^\x00-\x7F]',
+        [System.Text.RegularExpressions.MatchEvaluator]{
+            param($match)
+            return '\u{0:X4}' -f [int][char]$match.Value
+        }
+    )
+    $bodyBytes = [Text.Encoding]::ASCII.GetBytes($asciiJsonBody)
     if ($existingTool.Count -gt 0) {
         $method = 'Put'
         $uri = "$toolsUri/$($tool.name)"
