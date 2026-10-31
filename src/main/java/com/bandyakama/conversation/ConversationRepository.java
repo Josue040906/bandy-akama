@@ -507,6 +507,14 @@ public class ConversationRepository {
                         .filter(result -> !sensitiveToolNames.contains(result.name()))
                         .toList();
         long nextSequence = nextSequence(conversationId);
+        if (activeEntity != null) {
+            JsonNode currentState = readStoredJson(state);
+            ObjectNode enrichedState = currentState.isObject()
+                    ? ((ObjectNode) currentState).deepCopy()
+                    : objectMapper.createObjectNode();
+            enrichedState.set("activeEntity", objectMapper.valueToTree(activeEntity));
+            state = toJson(enrichedState);
+        }
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             String content = toJson(toolResult.result());
             ObjectNode metadata = objectMapper.createObjectNode();
@@ -533,6 +541,12 @@ public class ConversationRepository {
                 "resetConversationState",
                 response.resetConversationState()
         );
+        if (response.activeEntity() != null) {
+            assistantMetadata.set(
+                    "activeEntity",
+                    objectMapper.valueToTree(response.activeEntity())
+            );
+        }
         insertMessage(
                 conversationId,
                 idempotencyKey,
@@ -546,7 +560,8 @@ public class ConversationRepository {
                 conversationId,
                 stateUpdates(response),
                 persistentToolResults,
-                response.resetConversationState()
+                response.resetConversationState(),
+                response.activeEntity()
         );
 
         ChatResponse persistedResponse = new ChatResponse(
@@ -657,7 +672,8 @@ public class ConversationRepository {
             UUID conversationId,
             List<ChatResponse.ToolState> toolStates,
             List<ChatResponse.ToolResult> persistentToolResults,
-            boolean clearConversationState
+            boolean clearConversationState,
+            com.bandyakama.conversation.ConversationTurnDecision.ReferencedEntity activeEntity
     ) {
         MemorySnapshot memory = jdbcTemplate.queryForObject("""
                         SELECT summary, active_state::text AS active_state,
@@ -1134,6 +1150,21 @@ public class ConversationRepository {
             }
         }
 
+        HistoricalMessage latestEntityMessage = history.stream()
+                .filter(message -> "ASSISTANT".equals(message.role()))
+                .filter(message -> message.metadata().path("activeEntity").isObject())
+                .filter(message -> message.sequenceNumber() > latestResetSequence
+                        || java.util.Objects.equals(message.requestId(), resetRequestId))
+                .max(java.util.Comparator.comparingLong(HistoricalMessage::sequenceNumber))
+                .orElse(null);
+        if (latestEntityMessage != null) {
+            ObjectNode rebuiltState = readStoredJson(state).isObject()
+                    ? ((ObjectNode) readStoredJson(state)).deepCopy()
+                    : objectMapper.createObjectNode();
+            rebuiltState.set("activeEntity",
+                    latestEntityMessage.metadata().path("activeEntity").deepCopy());
+            state = toJson(rebuiltState);
+        }
         long summarizedThrough = summaryCutoff(conversationId);
         String summary = "";
         for (HistoricalMessage message : history) {
