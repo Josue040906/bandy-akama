@@ -152,12 +152,12 @@ class ToolRegistryTest {
                                     {
                                       "text": "Recherche un agent par matricule",
                                       "pattern": "Recherche un agent par {matricule}",
-                                      "expectedArguments": {"query": "MEF-001"}
+                                      "expectedArguments": {}
                                     },
                                     {
                                       "text": "Trouve les agents du service financier",
                                       "pattern": "Trouve les agents du {service}",
-                                      "expectedArguments": {"query": "service financier"}
+                                      "expectedArguments": {}
                                     }
                                   ]
                                 }
