@@ -103,6 +103,7 @@ class AssistantConfigurationRepositoryTest {
                     http_method VARCHAR(10),
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
+                    assistant_enabled BOOLEAN,
                     sensitive BOOLEAN
                 )
                 """);
@@ -128,15 +129,15 @@ class AssistantConfigurationRepositoryTest {
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool
                 (name, description, when_to_use, http_method, endpoint_url,
-                 enabled, sensitive) VALUES
+                 enabled, assistant_enabled, sensitive) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
-                 'GET', 'http://localhost/profile', TRUE, TRUE),
+                 'GET', 'http://localhost/profile', TRUE, TRUE, TRUE),
                 ('search_agents', 'Agent search', 'For agent searches',
-                 'POST', 'http://localhost/search', TRUE, TRUE),
+                 'POST', 'http://localhost/search', TRUE, TRUE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
-                 'GET', 'http://localhost/organization', TRUE, FALSE),
+                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, TRUE)
+                 'http://localhost/legacy', TRUE, FALSE, TRUE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
