@@ -72,7 +72,7 @@ final class ConversationDecisionFunction {
                         "intentType", Schema.builder()
                                 .type("STRING").format("enum")
                                 .enum_("CONTINUATION", "NEW_INTENT", "DIRECT_RESPONSE")
-                                .description("Interprétation de la relation avec les échanges précédents.")
+                                .description("CONTINUATION : la demande dépend du contexte actif. NEW_INTENT : demande indépendante ou changement de sujet, même si une réponse directe ou une clarification suffit ; l’état actif doit être réinitialisé. DIRECT_RESPONSE : réponse sans outil qui reste dans le sujet actif.")
                                 .build(),
                         "toolName", Schema.builder()
                                 .type("STRING").format("enum")
