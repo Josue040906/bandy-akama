@@ -1077,9 +1077,7 @@ public class GeminiAssistant {
         List<FunctionDeclaration> declarations = new ArrayList<>(definitions.stream()
                 .map(definition -> FunctionDeclaration.builder()
                         .name(definition.getName())
-                        .description(definition.getDescription()
-                                + "\nQuand l’utiliser : "
-                                + definition.getWhenToUse())
+                        .description(toolDescription(definition))
                         .parameters(toGeminiSchema(definition.getParameters()))
                         .build())
                 .toList());
@@ -1095,6 +1093,23 @@ public class GeminiAssistant {
                 .parameters(Schema.builder().type("OBJECT").build())
                 .build());
         return Tool.builder().functionDeclarations(declarations).build();
+    }
+
+    static String toolDescription(ToolDefinition definition) {
+        String description = definition.getDescription()
+                + "\\nQuand l’utiliser : "
+                + definition.getWhenToUse();
+        List<String> examples = definition.getExamples() == null
+                ? List.of()
+                : definition.getExamples().stream()
+                        .filter(example -> example != null && !example.isBlank())
+                        .limit(8)
+                        .toList();
+        if (!examples.isEmpty()) {
+            description += "\\nExemples de demandes correspondantes : "
+                    + String.join(" ; ", examples);
+        }
+        return description;
     }
 
     private static Schema toGeminiSchema(List<ToolParameter> parameters) {
