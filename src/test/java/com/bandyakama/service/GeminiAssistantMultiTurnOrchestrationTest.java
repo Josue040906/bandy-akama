@@ -4,6 +4,7 @@ import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantConfigurationSnapshot;
 import com.bandyakama.assistant.AssistantProfile;
 import com.bandyakama.conversation.ConversationStateMerger;
+import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.gemini.GeminiChatGateway;
 import com.bandyakama.gemini.GeminiClientFactory;
@@ -124,6 +125,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         when(part.functionCall()).thenReturn(Optional.of(call));
         GenerateContentResponse response = mock(GenerateContentResponse.class);
         when(response.parts()).thenReturn(List.of(part));
+        when(response.usageMetadata()).thenReturn(Optional.empty());
         return response;
     }
 
@@ -131,6 +133,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         GenerateContentResponse response = mock(GenerateContentResponse.class);
         when(response.text()).thenReturn(text);
         when(response.parts()).thenReturn(List.of());
+        when(response.usageMetadata()).thenReturn(Optional.empty());
         return response;
     }
 }
