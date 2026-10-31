@@ -213,11 +213,6 @@ public class ConversationService {
         }
 
         try {
-            ConversationIntentResolver.Decision decision = measured(
-                    requestId,
-                    "intent_resolution",
-                    () -> intentResolver.resolve(message, request.activeState())
-            );
             var greeting = ConversationIntentResolver.greetingResponse(message);
             if (greeting.isPresent()) {
                 long greetingStartedAt = System.nanoTime();
@@ -230,70 +225,36 @@ public class ConversationService {
                         requestId,
                         "response_persistence",
                         () -> repository.completeRequest(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                response
+                                conversationId, requestId, request.claimId(), response
                         )
                 );
                 performanceTelemetry.stage(
-                        requestId,
-                        "deterministic_greeting",
-                        greetingStartedAt,
-                        true
+                        requestId, "deterministic_greeting", greetingStartedAt, true
                 );
                 return response;
             }
 
-            var newQuestion = ConversationIntentResolver.newQuestionResponse(
-                    message
-            );
+            var newQuestion = ConversationIntentResolver.newQuestionResponse(message);
             if (newQuestion.isPresent()) {
                 ChatResponse response = new ChatResponse(
-                        newQuestion.get(),
-                        java.util.List.of(),
-                        conversationId
+                        newQuestion.get(), java.util.List.of(), conversationId
                 ).withConversationStateReset(true);
                 measured(
-                        requestId,
-                        "response_persistence",
+                        requestId, "response_persistence",
                         () -> repository.completeRequest(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                response
+                                conversationId, requestId, request.claimId(), response
                         )
                 );
                 return response;
             }
 
-            boolean resetState = decision
-                    == ConversationIntentResolver.Decision.NEW_INTENT;
-            JsonNode stateForRequest = decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? request.activeState()
-                    : null;
-            String classifiedContext = measured(
+            String conversationContext = measured(
                     requestId,
                     "context_preparation",
                     () -> repository.contextForModelRequest(
-                            conversationId,
-                            requestId,
-                            stateForRequest,
-                            decision
-                                    == ConversationIntentResolver.Decision.CONTINUATION
+                            conversationId, requestId, request.activeState(), true
                     )
-            )
-                    + "\n\nDécision de continuité prise par Bandy : "
-                    + (decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? "CONTINUATION. Utilise le fil complet pour déterminer si la "
-                            + "demande actuelle se rattache au sujet précédent. "
-                            + "Réutilise les données déjà chargées seulement si elles "
-                            + "répondent à cette demande."
-                    : "NOUVELLE INTENTION explicitement détectée. Ignore les "
-                            + "filtres et résultats précédents pour décider des "
-                            + "critères de cette demande.");
+            );
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
@@ -301,21 +262,20 @@ public class ConversationService {
                             ? assistant.respond(
                                     message,
                                     authorization,
-                                    classifiedContext,
+                                    conversationContext,
                                     requestId,
                                     stateForRequest
                             )
                             : assistant.respond(
                                     message,
                                     authorization,
-                                    classifiedContext,
+                                    conversationContext,
                                     requestId,
                                     stateForRequest,
                                     tokenConsumer
                             )
             );
-            ChatResponse completedResponse = response.withConversationId(conversationId)
-                    .withConversationStateReset(resetState);
+            ChatResponse completedResponse = response.withConversationId(conversationId);
             measured(
                     requestId,
                     "response_persistence",
