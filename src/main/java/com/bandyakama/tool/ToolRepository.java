@@ -15,7 +15,8 @@ import java.util.Map;
 import java.util.Optional;
 
 @Repository
-public class ToolRepository {\n    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+public class ToolRepository {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final RowMapper<ToolDefinition> TOOL_ROW_MAPPER =
             (resultSet, rowNumber) -> {
                 ToolDefinition tool = new ToolDefinition(
