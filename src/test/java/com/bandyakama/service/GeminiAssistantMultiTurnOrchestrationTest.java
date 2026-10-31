@@ -75,7 +75,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
                         "intentType", "NEW_INTENT",
                         "toolName", "search_agents",
                         "toolArguments", Map.of("search_agents", Map.of(
-                                "criteriaJson", "{\\"service\\":\\"Administration générale\\"}"
+                                "criteriaJson", serviceCriteria
                         )),
                         "needsClarification", false
                 )
@@ -85,7 +85,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
                         "intentType", "CONTINUATION",
                         "toolName", "search_agents",
                         "toolArguments", Map.of("search_agents", Map.of(
-                                "criteriaJson", "{\\"service\\":\\"Administration générale\\",\\"sexe\\":\\"F\\"}"
+                                "criteriaJson", womenCriteria
                         )),
                         "needsClarification", false
                 )
