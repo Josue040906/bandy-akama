@@ -51,7 +51,7 @@ class AssistantConfigurationRepositoryTest {
             assertEquals("DIRECTION", organization.getResultEntityType());
             assertEquals("directions", organization.getResultCollectionKey());
             assertEquals("DIRECTION", organization.getParameters().stream()
-                    .filter(parameter -> "query".equals(parameter.getName()))
+                    .filter(parameter -> "directionId".equals(parameter.getName()))
                     .findFirst().orElseThrow().getReferenceType());
             assertEquals(
                     List.of("LIST_DIRECTIONS", "COUNT_EMPLOYEES_BY_STRUCTURE"),
@@ -163,13 +163,13 @@ class AssistantConfigurationRepositoryTest {
                 (name, description, when_to_use, http_method, endpoint_url,
                  enabled, assistant_enabled, sensitive, result_entity_type, result_collection_key) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
-                 'GET', 'http://localhost/profile', TRUE, TRUE, TRUE),
+                 'GET', 'http://localhost/profile', TRUE, TRUE, TRUE, NULL, NULL),
                 ('search_agents', 'Agent search', 'For agent searches',
-                 'POST', 'http://localhost/search', TRUE, TRUE, TRUE),
+                 'POST', 'http://localhost/search', TRUE, TRUE, TRUE, NULL, NULL),
                 ('get_organization_info', 'Organization', 'For organization questions',
                  'GET', 'http://localhost/organization', TRUE, TRUE, FALSE, 'DIRECTION', 'directions'),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, FALSE, TRUE)
+                 'http://localhost/legacy', TRUE, FALSE, TRUE, NULL, NULL)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
@@ -183,9 +183,9 @@ class AssistantConfigurationRepositoryTest {
                  'body', FALSE, 2, '["LIST","COUNT"]', NULL),
                 ('get_organization_info', 'operation', 'string', 'Organization operation',
                  'query', TRUE, 1, '["LIST_DIRECTIONS","COUNT_EMPLOYEES_BY_STRUCTURE"]', NULL),
-                ('get_organization_info', 'query', 'string', 'Organization query',
+                ('get_organization_info', 'directionId', 'integer', 'Direction identifier',
                  'query', FALSE, 2, NULL, 'DIRECTION'),
-                ('get_organization_info', 'scope', 'string', 'Scope',
+                ('get_organization_info', 'serviceId', 'integer', 'Service identifier',
                  'query', FALSE, 3, NULL, 'SERVICE'),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
                  'query', TRUE, 1, NULL, NULL)
