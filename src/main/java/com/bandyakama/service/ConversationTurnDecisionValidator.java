@@ -83,60 +83,61 @@ final class ConversationTurnDecisionValidator {
 
         if (decision.referencedEntity() == null) {
             if (decision.intentType() == ConversationTurnDecision.IntentType.NEW_INTENT
-                    && hasScopedIdentifier(decision.arguments())) {
-                throw clarification("Quelle structure souhaites-tu consulter exactement : une direction, un service ou un poste ?");
+                    && hasReferencedIdentifier(decision.arguments(), tool)) {
+                throw clarification("Quelle entité souhaites-tu consulter exactement ? Peux-tu préciser son nom ?");
             }
-            validateScopedIdsHaveKnownEntities(decision.arguments(), activeState);
+            validateReferencedIdsHaveKnownEntities(decision.arguments(), tool, activeState);
         }
         if (decision.referencedEntity() != null) {
             if (!isReferencedEntityGrounded(decision, conversationContext, activeState)) {
                 throw clarification("Je ne parviens pas à confirmer à quelle structure tu fais référence. Peux-tu préciser son nom ?");
             }
-            Map<String, Object> entityArguments = decision.arguments();
-            String scopedArgument = switch (decision.referencedEntity().type().toUpperCase()) {
-                case "DIRECTION" -> "directionId";
-                case "SERVICE" -> "serviceId";
-                case "POSTE" -> "posteId";
-                case "AGENT", "EMPLOYE" -> "employeId";
-                default -> null;
-            };
-            if (scopedArgument != null && entityArguments.containsKey(scopedArgument)
-                    && !String.valueOf(decision.referencedEntity().id())
-                    .equals(String.valueOf(entityArguments.get(scopedArgument)))) {
-                throw invalidDecision("L’identifiant de l’entité et le paramètre de ciblage ne correspondent pas.");
-            }
+            tool.getParameters().stream()
+                    .filter(parameter -> parameter.getReferenceType() != null)
+                    .filter(parameter -> parameter.getReferenceType()
+                            .equalsIgnoreCase(decision.referencedEntity().type()))
+                    .filter(parameter -> decision.arguments().containsKey(parameter.getName()))
+                    .findFirst()
+                    .ifPresent(parameter -> {
+                        Object argumentId = decision.arguments().get(parameter.getName());
+                        if (!String.valueOf(decision.referencedEntity().id())
+                                .equals(String.valueOf(argumentId))) {
+                            throw invalidDecision(
+                                    "L’identifiant de l’entité et le paramètre de ciblage ne correspondent pas."
+                            );
+                        }
+                    });
         }
     }
 
-    private boolean hasScopedIdentifier(Map<String, Object> arguments) {
-        return arguments.containsKey("directionId")
-                || arguments.containsKey("serviceId")
-                || arguments.containsKey("posteId")
-                || arguments.containsKey("employeId");
-    }
-    private void validateScopedIdsHaveKnownEntities(
+    private boolean hasReferencedIdentifier(
             Map<String, Object> arguments,
+            ToolDefinition tool
+    ) {
+        return tool.getParameters().stream()
+                .filter(parameter -> parameter.getReferenceType() != null)
+                .anyMatch(parameter -> arguments.containsKey(parameter.getName()));
+    }
+
+    private void validateReferencedIdsHaveKnownEntities(
+            Map<String, Object> arguments,
+            ToolDefinition tool,
             JsonNode activeState
     ) {
-        Map<String, String> scopedTypes = Map.of(
-                "directionId", "DIRECTION",
-                "serviceId", "SERVICE",
-                "posteId", "POSTE",
-                "employeId", "AGENT"
-        );
-        for (Map.Entry<String, String> scoped : scopedTypes.entrySet()) {
-            Object rawId = arguments.get(scoped.getKey());
-            if (rawId == null) {
+        for (ToolParameter parameter : tool.getParameters()) {
+            String referenceType = parameter.getReferenceType();
+            Object rawId = arguments.get(parameter.getName());
+            if (referenceType == null || rawId == null) {
                 continue;
             }
             long id;
             try {
                 id = new BigDecimal(rawId.toString()).longValueExact();
             } catch (NumberFormatException | ArithmeticException invalidId) {
-                throw invalidDecision("Un identifiant de structure n’est pas un entier valide.");
+                throw invalidDecision("Un identifiant d’entité n’est pas un entier valide.");
             }
-            if (!hasKnownEntity(activeState, scoped.getValue(), id)) {
-                throw clarification("Je ne retrouve pas cette structure parmi les entités déjà identifiées. Peux-tu préciser son nom ?");
+            if (!hasKnownEntity(activeState, referenceType, id)) {
+                throw clarification("Je ne retrouve pas cette entité parmi les résultats précédents. Peux-tu préciser son nom ?");
             }
         }
     }
