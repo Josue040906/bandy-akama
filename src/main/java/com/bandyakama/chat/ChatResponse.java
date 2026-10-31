@@ -36,6 +36,15 @@ public record ChatResponse(
         this(message, toolResults, conversationId, resetConversationState, List.of(), null);
     }
 
+    public ChatResponse(
+            String message,
+            List<ToolResult> toolResults,
+            UUID conversationId,
+            boolean resetConversationState,
+            List<ToolState> toolStates
+    ) {
+        this(message, toolResults, conversationId, resetConversationState, toolStates, null);
+    }
     public ChatResponse withConversationId(UUID id) {
         return new ChatResponse(
                 message,
