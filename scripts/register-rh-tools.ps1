@@ -98,6 +98,8 @@ $tools = @(
         enabled = $true
         assistantEnabled = $true
         sensitive = $true
+        resultEntityType = 'DIRECTION'
+        resultCollectionKey = 'directions'
         parameters = @(
             @{
                 name = 'operation'
@@ -134,6 +136,7 @@ $tools = @(
                 description = 'Identifiant de la direction pour filtrer les services, postes, responsables, hiérarchie ou comptages.'
                 required = $false
                 location = 'query'
+                referenceType = 'DIRECTION'
             },
             @{
                 name = 'serviceId'
@@ -141,6 +144,7 @@ $tools = @(
                 description = 'Identifiant du service pour filtrer les postes, responsables ou comptages.'
                 required = $false
                 location = 'query'
+                referenceType = 'SERVICE'
             },
             @{
                 name = 'query'
@@ -239,6 +243,9 @@ foreach ($tool in $tools) {
         $registeredAllowedValues = @($parameter.allowedValues)
         if (($expectedAllowedValues -join '|') -ne ($registeredAllowedValues -join '|')) {
             throw "Bandy retained unexpected allowed values for parameter $($expectedParameter.name) of $($tool.name)."
+        }
+        if ($parameter.referenceType -ne $expectedParameter.referenceType) {
+            throw "Bandy retained an unexpected entity reference type for parameter $($expectedParameter.name) of $($tool.name)."
         }
     }
     Write-Output "Registered tool: $($tool.name) ($method); verified parameters: $($registeredParameters -join ', ')"
