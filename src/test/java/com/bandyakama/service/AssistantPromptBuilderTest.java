@@ -4,6 +4,9 @@ import com.bandyakama.assistant.AssistantProfile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.List;
+import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolParameter;
 
 class AssistantPromptBuilderTest {
     @Test
@@ -13,6 +16,11 @@ class AssistantPromptBuilderTest {
                         "Bandy",
                         "Assistant RH",
                         "Consignes configurées."
+                ),
+                List.of(
+                        tool("search_agents", "Recherche les agents.", "criteriaJson"),
+                        tool("get_agent_profile", "Consulte le profil actuel.", "query"),
+                        tool("get_organization_info", "Consulte l’organisation.", "operation")
                 )
         );
 
@@ -33,4 +41,14 @@ class AssistantPromptBuilderTest {
                 "Ne demande jamais si l’utilisateur veut poursuivre"
         ));
     }
+    private ToolDefinition tool(String name, String description, String parameterName) {
+        ToolDefinition tool = new ToolDefinition(
+                name, description, "GET", "https://example.test/api", List.of(
+                        new ToolParameter(parameterName, "string", "Paramètre de test.", true)
+                )
+        );
+        tool.setWhenToUse("Utiliser pour le cas décrit.");
+        return tool;
+    }
+
 }
