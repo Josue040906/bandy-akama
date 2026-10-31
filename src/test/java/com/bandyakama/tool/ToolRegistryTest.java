@@ -97,6 +97,21 @@ class ToolRegistryTest {
     }
 
     @Test
+    void persistsEntityReferenceMetadataForToolsAndParameters() {
+        ToolDefinition tool = tool("organizationLookup", "GET");
+        tool.setResultEntityType("DIVISION");
+        tool.setResultCollectionKey("records");
+        tool.getParameters().get(0).setType("integer");
+        tool.getParameters().get(0).setReferenceType("DIVISION");
+        registry.register(tool);
+
+        ToolDefinition loaded = registry.findByName("organizationLookup").orElseThrow();
+        assertEquals("DIVISION", loaded.getResultEntityType());
+        assertEquals("records", loaded.getResultCollectionKey());
+        assertEquals("DIVISION", loaded.getParameters().get(0).getReferenceType());
+    }
+
+    @Test
     void updatingAToolReplacesItsStoredDefinition() {
         registry.register(tool("agentSearch", "GET"));
         registry.register(tool("agentSearch", "POST"));
