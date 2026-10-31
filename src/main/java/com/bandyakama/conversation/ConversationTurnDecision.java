@@ -41,12 +41,8 @@ public record ConversationTurnDecision(
             }
             return;
         }
-        if (intentType == IntentType.DIRECT_RESPONSE) {
-            if (directResponse == null || directResponse.isBlank()) {
-                throw new IllegalArgumentException(
-                        "Une réponse directe non vide est obligatoire pour DIRECT_RESPONSE."
-                );
-            }
+        boolean hasDirectResponse = directResponse != null && !directResponse.isBlank();
+        if (hasDirectResponse) {
             if (toolName != null || !arguments.isEmpty()) {
                 throw new IllegalArgumentException(
                         "Une réponse directe ne doit pas déclencher d’outil métier."
@@ -54,14 +50,14 @@ public record ConversationTurnDecision(
             }
             return;
         }
+        if (intentType == IntentType.DIRECT_RESPONSE) {
+            throw new IllegalArgumentException(
+                    "Une réponse directe non vide est obligatoire pour DIRECT_RESPONSE."
+            );
+        }
         if (toolName == null || toolName.isBlank()) {
             throw new IllegalArgumentException(
                     "Un outil autorisé doit être sélectionné pour cette intention."
-            );
-        }
-        if (directResponse != null && !directResponse.isBlank()) {
-            throw new IllegalArgumentException(
-                    "Une intention avec outil ne doit pas contenir de réponse directe."
             );
         }
     }
