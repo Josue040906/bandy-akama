@@ -231,20 +231,6 @@ public class ConversationService {
                 return response;
             }
 
-            var newQuestion = ConversationShortcuts.newQuestionResponse(message);
-            if (newQuestion.isPresent()) {
-                ChatResponse response = new ChatResponse(
-                        newQuestion.get(), java.util.List.of(), conversationId
-                ).withConversationStateReset(true);
-                measured(
-                        requestId, "response_persistence",
-                        () -> repository.completeRequest(
-                                conversationId, requestId, request.claimId(), response
-                        )
-                );
-                return response;
-            }
-
             String conversationContext = measured(
                     requestId,
                     "context_preparation",
