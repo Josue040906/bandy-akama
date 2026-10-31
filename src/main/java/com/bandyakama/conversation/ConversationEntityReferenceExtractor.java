@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
-/** Extracts only non-personal organizational entity identifiers from organization-tool results. */
+/** Extracts non-personal entity references using tool-declared result metadata. */
 public final class ConversationEntityReferenceExtractor {
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final int MAX_REFERENCES = 200;
