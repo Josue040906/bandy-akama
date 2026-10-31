@@ -3,7 +3,6 @@ package com.bandyakama.conversation;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -94,7 +93,7 @@ public final class ConversationEntityReferenceExtractor {
             return null;
         }
         try {
-            long value = node.isNumber()
+            long value = node.isIntegralNumber()
                     ? node.longValue()
                     : Long.parseLong(node.asText());
             return value > 0 ? value : null;
