@@ -38,7 +38,7 @@ final class ConversationTurnDecisionValidator {
         if (decision.intentType() == ConversationTurnDecision.IntentType.DIRECT_RESPONSE) {
             if (decision.referencedEntity() != null
                     && !isReferencedEntityGrounded(decision, conversationContext, activeState)) {
-                throw invalidDecision("L’entité de la réponse directe n’est pas confirmée par le contexte.");
+                throw clarification("Je ne parviens pas à identifier avec certitude l’entité évoquée. Peux-tu préciser son nom ?");
             }
             return;
         }
@@ -58,7 +58,8 @@ final class ConversationTurnDecisionValidator {
             Object value = arguments.get(parameter.getName());
             if (parameter.isRequired() && (value == null
                     || value instanceof String text && text.isBlank())) {
-                throw invalidDecision("Un argument obligatoire est absent : " + parameter.getName());
+                throw clarification("Pour effectuer cette opération, peux-tu préciser : "
+                        + parameter.getDescription() + " ?");
             }
             if (value != null && !matchesType(parameter.getType(), value)) {
                 throw invalidDecision("Le type de l’argument est invalide : " + parameter.getName());
@@ -80,13 +81,13 @@ final class ConversationTurnDecisionValidator {
         if (decision.referencedEntity() == null) {
             if (decision.intentType() == ConversationTurnDecision.IntentType.NEW_INTENT
                     && hasScopedIdentifier(decision.arguments())) {
-                throw invalidDecision("Une nouvelle intention qui cible une structure doit fournir une entité explicitement résolue.");
+                throw clarification("Quelle structure souhaites-tu consulter exactement : une direction, un service ou un poste ?");
             }
             validateScopedIdsHaveKnownEntities(decision.arguments(), activeState);
         }
         if (decision.referencedEntity() != null) {
             if (!isReferencedEntityGrounded(decision, conversationContext, activeState)) {
-                throw invalidDecision("L’entité référencée n’est pas confirmée par le contexte précédent.");
+                throw clarification("Je ne parviens pas à confirmer à quelle structure tu fais référence. Peux-tu préciser son nom ?");
             }
             Map<String, Object> entityArguments = decision.arguments();
             String scopedArgument = switch (decision.referencedEntity().type().toUpperCase()) {
@@ -132,8 +133,7 @@ final class ConversationTurnDecisionValidator {
                 throw invalidDecision("Un identifiant de structure n’est pas un entier valide.");
             }
             if (!hasKnownEntity(activeState, scoped.getValue(), id)) {
-                throw invalidDecision("L’identifiant " + scoped.getKey()
-                        + " n’est pas confirmé par les entités déjà connues de la conversation.");
+                throw clarification("Je ne retrouve pas cette structure parmi les entités déjà identifiées. Peux-tu préciser son nom ?");
             }
         }
     }
@@ -256,6 +256,9 @@ final class ConversationTurnDecisionValidator {
         }
     }
 
+    private ConversationClarificationRequiredException clarification(String question) {
+        return new ConversationClarificationRequiredException(question);
+    }
     private ResponseStatusException invalidDecision(String reason) {
         return new ResponseStatusException(
                 HttpStatus.BAD_GATEWAY,
