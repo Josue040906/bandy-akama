@@ -28,14 +28,17 @@ public class AssistantConfigurationRepository {
                    parameter.type AS parameter_type,
                    parameter.description AS parameter_description,
                    parameter.location AS parameter_location,
-                   parameter.required AS parameter_required
+                   parameter.required AS parameter_required,
+                   example.example_text AS example_text
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
                    ON t.enabled = TRUE AND t.approved_for_gemini = TRUE
             LEFT JOIN bandy_tool_parameter parameter
                    ON parameter.tool_name = t.name
+            LEFT JOIN bandy_tool_example example
+                   ON example.tool_name = t.name AND example.enabled = TRUE
             WHERE p.id = 1
-            ORDER BY t.name, parameter.position
+            ORDER BY t.name, parameter.position, example.position
             """;
 
     private final JdbcTemplate jdbcTemplate;
@@ -92,7 +95,9 @@ public class AssistantConfigurationRepository {
                 });
 
                 String parameterName = resultSet.getString("parameter_name");
-                if (parameterName != null) {
+                if (parameterName != null
+                        && tools.get(toolName).getParameters().stream()
+                                .noneMatch(existing -> existing.getName().equals(parameterName))) {
                     ToolParameter parameter = new ToolParameter(
                             parameterName,
                             resultSet.getString("parameter_type"),
@@ -103,6 +108,12 @@ public class AssistantConfigurationRepository {
                             resultSet.getString("parameter_location")
                     );
                     tool.getParameters().add(parameter);
+                }
+
+                String exampleText = resultSet.getString("example_text");
+                if (exampleText != null
+                        && !tool.getExamples().contains(exampleText)) {
+                    tool.getExamples().add(exampleText);
                 }
             } while (resultSet.next());
 
