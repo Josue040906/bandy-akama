@@ -1,6 +1,8 @@
 package com.bandyakama.conversation;
 
 import java.util.Map;
+import java.util.LinkedHashMap;
+import java.util.Collections;
 
 /**
  * Structured interpretation of one user turn, produced by Gemini and
@@ -17,7 +19,8 @@ public record ConversationTurnDecision(
         String directResponse
 ) {
     public ConversationTurnDecision {
-        arguments = arguments == null ? Map.of() : Map.copyOf(arguments);
+        arguments = arguments == null ? Map.of()
+                : Collections.unmodifiableMap(new LinkedHashMap<>(arguments));
     }
 
     public void validate() {
