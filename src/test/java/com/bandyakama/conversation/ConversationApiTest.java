@@ -710,7 +710,7 @@ class ConversationApiTest {
         );
         assertTrue(states.getAllValues().get(1).path("criteria").path("filters")
                 .toString().contains("Personnel"));
-        assertEquals("{}", states.getAllValues().get(2).toString());
+        assertNull(states.getAllValues().get(2));
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
         assertEquals(0, readMemoryJson(
                 conversationId,
