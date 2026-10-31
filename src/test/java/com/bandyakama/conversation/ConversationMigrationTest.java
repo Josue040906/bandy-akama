@@ -121,6 +121,32 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
         assertTrue(hasTable(jdbc, "bandy_tool_example"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_example", "example_text"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_example", "position"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_example", "enabled"));
+        jdbc.update("""
+                INSERT INTO bandy_tool (
+                    name, description, when_to_use, http_method, endpoint_url,
+                    enabled, updated_at
+                ) VALUES ('migration_test_tool', 'Test', 'Test', 'GET',
+                    'https://example.test', TRUE, CURRENT_TIMESTAMP)
+                """);
+        jdbc.update("""
+                INSERT INTO bandy_tool_example (
+                    tool_name, example_text, position, enabled
+                ) VALUES ('migration_test_tool', 'Test example', 0, TRUE)
+                """);
+        assertEquals(1, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bandy_tool_example WHERE tool_name = ?",
+                Integer.class,
+                "migration_test_tool"
+        ));
+        jdbc.update("DELETE FROM bandy_tool WHERE name = ?", "migration_test_tool");
+        assertEquals(0, jdbc.queryForObject(
+                "SELECT COUNT(*) FROM bandy_tool_example WHERE tool_name = ?",
+                Integer.class,
+                "migration_test_tool"
+        ));
         assertTrue(hasColumn(
                 jdbc,
                 "bandy_conversation_message",
