@@ -207,6 +207,10 @@ foreach ($tool in $tools) {
     if ($registeredParameters.Count -ne $expectedParameters.Count) {
         throw "Bandy did not retain the expected parameter list for $($tool.name)."
     }
+    if ($result.resultEntityType -ne $tool.resultEntityType -or
+        $result.resultCollectionKey -ne $tool.resultCollectionKey) {
+        throw "Bandy retained unexpected result entity metadata for $($tool.name)."
+    }
     foreach ($parameterName in $expectedParameters) {
         if ($registeredParameters -notcontains $parameterName) {
             throw "Bandy did not retain parameter $parameterName for $($tool.name)."
