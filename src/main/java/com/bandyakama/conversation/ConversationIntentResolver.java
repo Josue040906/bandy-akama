@@ -97,11 +97,10 @@ public class ConversationIntentResolver {
         if (NEW_QUESTION_REPLY.matcher(normalized).find()) {
             return Decision.NEW_INTENT;
         }
-        if (ORGANIZATION_DATA_QUESTION.matcher(normalized).matches()
-                && !"get_organization_info".equals(
-                        activeState.path("toolName").asText()
-                )) {
-            return Decision.NEW_INTENT;
+        if (ORGANIZATION_DATA_QUESTION.matcher(normalized).matches()) {
+            return "get_organization_info".equals(
+                    activeState.path("toolName").asText()
+            ) ? Decision.CONTINUATION : Decision.NEW_INTENT;
         }
         if ("get_agent_profile".equals(
                 activeState.path("toolName").asText()
