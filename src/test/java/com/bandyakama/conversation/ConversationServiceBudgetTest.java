@@ -42,7 +42,7 @@ class ConversationServiceBudgetTest {
                 claimId,
                 new ObjectMapper().createObjectNode()
         ));
-        when(repository.contextForRequest(
+        when(repository.contextForModelRequest(
                 any(),
                 any(),
                 any(),
