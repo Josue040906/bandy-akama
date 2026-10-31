@@ -69,6 +69,39 @@ class ConversationTurnDecisionValidatorTest {
                 decision, Map.of(), "", new ObjectMapper().createObjectNode()));
     }
 
+    @Test
+    void acceptsAnEntityPresentInPreviousStructuredBusinessResults() {
+        var entity = new ConversationTurnDecision.ReferencedEntity(
+                "DIRECTION", 1L, "Direction Générale de l'Administration", null, null);
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.CONTINUATION,
+                "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
+                Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 1),
+                entity, false, null, null);
+        String context = "Références aux résultats métier précédents :\\n"
+                + "[{\\"toolName\\":\\"get_organization_info\\",\\"result\\":{"
+                + "directions\\":[{\\"id\\":1,\\"nom\\":\\"Direction Générale de l'Administration\\"}]}}]\\n"
+                + "Résumé extractif des échanges plus anciens :\\n";
+        assertDoesNotThrow(() -> validator.validate(
+                decision, Map.of(organizationTool.getName(), organizationTool),
+                context, new ObjectMapper().createObjectNode()));
+    }
+
+    @Test
+    void rejectsAnEntityNotPresentInPriorResultsOrActiveState() {
+        var entity = new ConversationTurnDecision.ReferencedEntity(
+                "DIRECTION", 99L, "Direction inventée", null, null);
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.CONTINUATION,
+                "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
+                Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 99),
+                entity, false, null, null);
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> validator.validate(decision,
+                        Map.of(organizationTool.getName(), organizationTool),
+                        "Références aux résultats métier précédents :\\n[]",
+                        new ObjectMapper().createObjectNode()));
+    }
     private ConversationTurnDecision decision(
             String toolName, String operation, Map<String, Object> arguments) {
         return new ConversationTurnDecision(
