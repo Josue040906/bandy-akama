@@ -784,6 +784,73 @@ class ConversationApiTest {
     }
 
     @Test
+    void removingAFilterPersistsOnlyTheRemainingCriteria() throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Femmes du Service du Personnel.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(),
+                                Map.of("criteriaJson",
+                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"Service du Personnel\\"},"
+                                                + "{\\"field\\":\\"sexe\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"F\\"}]}")
+                        ))
+                ),
+                new ChatResponse(
+                        "Tous les agents du Service du Personnel.",
+                        List.of(new ChatResponse.ToolResult(
+                                "searchEmployees",
+                                List.of(),
+                                Map.of("criteriaJson",
+                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"Service du Personnel\\"}]}")
+                        ))
+                ),
+                new ChatResponse("Le filtre sexe a été retiré.", List.of())
+        );
+
+        send(conversationId, "42", "Cherche les femmes du Service du Personnel.");
+        send(conversationId, "42", "Retire le critère sexe, je veux tous les agents du service.");
+        send(conversationId, "42", "Affiche les résultats.");
+
+        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
+        verify(assistant, times(3)).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                states.capture()
+        );
+
+        JsonNode stateBeforeRemoval = states.getAllValues().get(1);
+        assertEquals(2, stateBeforeRemoval.path("criteria").path("filters").size());
+        JsonNode stateAfterRemoval = states.getAllValues().get(2);
+        var remainingFilters = stateAfterRemoval.path("criteria").path("filters");
+        assertEquals(1, remainingFilters.size());
+        assertEquals("service", remainingFilters.get(0).path("field").asText());
+        assertEquals(
+                "Service du Personnel",
+                remainingFilters.get(0).path("value").asText()
+        );
+
+        JsonNode persistedState = readMemoryJson(conversationId, "active_state");
+        assertEquals(1, persistedState.path("criteria").path("filters").size());
+        assertFalse(persistedState.toString().contains("\\"sexe\\""));
+    }
+
+    @Test
     void passesPreviousStateToModelButDoesNotCarryOldFiltersIntoNewSearch()
             throws Exception {
         UUID conversationId = createConversation("42");
