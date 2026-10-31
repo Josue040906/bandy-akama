@@ -77,8 +77,13 @@ final class AssistantPromptBuilder {
                     instruction.append("    - ").append(parameter.getName())
                             .append(" (").append(parameter.getType())
                             .append(parameter.isRequired() ? ", obligatoire" : ", facultatif")
-                            .append(") : ").append(parameter.getDescription())
-                            .append("\n");
+                            .append(") : ").append(parameter.getDescription());
+                    if (parameter.getAllowedValues() != null) {
+                        instruction.append(" Valeurs autorisées : ")
+                                .append(String.join(", ", parameter.getAllowedValues()))
+                                .append(".");
+                    }
+                    instruction.append("\\n");
                 }
             }
         }
