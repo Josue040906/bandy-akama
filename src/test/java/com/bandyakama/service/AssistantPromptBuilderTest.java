@@ -37,6 +37,10 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Quand l’utiliser"));
         assertTrue(instruction.contains("Ne demande jamais si l’utilisateur veut poursuivre"));
         assertTrue(instruction.contains("ne remplace pas son dossier actuel"));
+        assertTrue(instruction.contains("remplace l’ancien filtre"));
+        assertTrue(instruction.contains("NEW_INTENT"));
+        assertTrue(instruction.contains("DIRECT_RESPONSE"));
+        assertTrue(instruction.contains("arguments complets"));
     }
     private ToolDefinition tool(String name, String description, String parameterName) {
         ToolDefinition tool = new ToolDefinition(
