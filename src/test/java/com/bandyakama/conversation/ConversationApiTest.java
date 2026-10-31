@@ -368,7 +368,7 @@ class ConversationApiTest {
     }
 
     @Test
-    keepsAgentIdentityContextWithoutPersistingTheLoadedProfilePayload()
+    void keepsAgentIdentityContextWithoutPersistingTheLoadedProfilePayload()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
