@@ -19,21 +19,18 @@ import java.util.UUID;
 public class ConversationService {
     private final ConversationRepository repository;
     private final GeminiAssistant assistant;
-    private final ConversationIntentResolver intentResolver;
     private final PerformanceTelemetry performanceTelemetry;
     private final int turnBudgetMillis;
 
     public ConversationService(
             ConversationRepository repository,
             GeminiAssistant assistant,
-            ConversationIntentResolver intentResolver,
             PerformanceTelemetry performanceTelemetry,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
     ) {
         this.repository = repository;
         this.assistant = assistant;
-        this.intentResolver = intentResolver;
         this.performanceTelemetry = performanceTelemetry;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
@@ -213,7 +210,7 @@ public class ConversationService {
         }
 
         try {
-            var greeting = ConversationIntentResolver.greetingResponse(message);
+            var greeting = ConversationShortcuts.greetingResponse(message);
             if (greeting.isPresent()) {
                 long greetingStartedAt = System.nanoTime();
                 ChatResponse response = new ChatResponse(
@@ -234,7 +231,7 @@ public class ConversationService {
                 return response;
             }
 
-            var newQuestion = ConversationIntentResolver.newQuestionResponse(message);
+            var newQuestion = ConversationShortcuts.newQuestionResponse(message);
             if (newQuestion.isPresent()) {
                 ChatResponse response = new ChatResponse(
                         newQuestion.get(), java.util.List.of(), conversationId
