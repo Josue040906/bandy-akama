@@ -146,9 +146,14 @@ final class ConversationTurnDecisionValidator {
         if (declaredType.equalsIgnoreCase(actualType)) {
             return true;
         }
-        return "STRUCTURE".equalsIgnoreCase(declaredType)
-                && Set.of("DIRECTION", "SERVICE", "POSTE")
-                .contains(actualType.toUpperCase());
+        if ("STRUCTURE".equalsIgnoreCase(declaredType)) {
+            return Set.of("DIRECTION", "SERVICE", "POSTE")
+                    .contains(actualType.toUpperCase(java.util.Locale.ROOT));
+        }
+        return ("AGENT".equalsIgnoreCase(declaredType)
+                && "EMPLOYE".equalsIgnoreCase(actualType))
+                || ("EMPLOYE".equalsIgnoreCase(declaredType)
+                && "AGENT".equalsIgnoreCase(actualType));
     }
 
     private boolean hasKnownEntity(JsonNode activeState, String type, long id) {
