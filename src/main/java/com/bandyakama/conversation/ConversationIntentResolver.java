@@ -64,6 +64,14 @@ public class ConversationIntentResolver {
             "\\b(?:direction|service|departement|structure|unite|bureau|"
                     + "division|cellule)\\b"
     );
+    private static final Pattern ORGANIZATION_DATA_QUESTION = Pattern.compile(
+            "^(?:(?:combien\\b.*\\b(?:directions?|services?|postes?|agents?|effectifs?)\\b)|"
+                    + "(?:quel(?:s|les)?\\b.*\\b(?:directions?|services?|postes?|responsables?|hierarchie|organigramme)\\b)|"
+                    + "(?:liste|affiche|presente|decris|explique|donne[- ]moi)\\b.*"
+                    + "\\b(?:directions?|services?|postes?|responsables?|hierarchie|organigramme)\\b|"
+                    + "(?:qui\\s+(?:est|sont)\\b.*\\b(?:responsable|chef|directeur|directrice)\\b)"
+                    + ").*$"
+    );
     private static final Pattern PERSONAL_PROFILE_QUESTION = Pattern.compile(
             "\\b(?:que\\s+sais[- ]tu\\s+(?:sur|de)\\s+moi|"
                     + "qu['’ ]est[- ]ce\\s+que\\s+tu\\s+sais\\s+(?:sur|de)\\s+moi|"
@@ -87,6 +95,12 @@ public class ConversationIntentResolver {
             return Decision.NEW_INTENT;
         }
         if (NEW_QUESTION_REPLY.matcher(normalized).find()) {
+            return Decision.NEW_INTENT;
+        }
+        if (ORGANIZATION_DATA_QUESTION.matcher(normalized).matches()
+                && !"get_organization_info".equals(
+                        activeState.path("toolName").asText()
+                )) {
             return Decision.NEW_INTENT;
         }
         if ("get_agent_profile".equals(
