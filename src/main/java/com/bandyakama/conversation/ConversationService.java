@@ -264,14 +264,14 @@ public class ConversationService {
                                     authorization,
                                     conversationContext,
                                     requestId,
-                                    stateForRequest
+                                    request.activeState()
                             )
                             : assistant.respond(
                                     message,
                                     authorization,
                                     conversationContext,
                                     requestId,
-                                    stateForRequest,
+                                    request.activeState(),
                                     tokenConsumer
                             )
             );
