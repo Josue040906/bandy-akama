@@ -102,6 +102,31 @@ class ConversationTurnDecisionValidatorTest {
                         "Références aux résultats métier précédents :\\n[]",
                         new ObjectMapper().createObjectNode()));
     }
+    @Test
+    void acceptsAnEntityPersistedInTheActiveConversationState() throws Exception {
+        var entity = new ConversationTurnDecision.ReferencedEntity(
+                "DIRECTION", 1L, "Direction Générale de l'Administration", null, null);
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.CONTINUATION,
+                "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
+                Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 1),
+                entity, false, null, null);
+        var activeState = new ObjectMapper().readTree("""
+                {
+                  "entityReferences": [
+                    {
+                      "type": "DIRECTION",
+                      "id": 1,
+                      "name": "Direction Générale de l'Administration"
+                    }
+                  ]
+                }
+                """);
+        assertDoesNotThrow(() -> validator.validate(
+                decision, Map.of(organizationTool.getName(), organizationTool),
+                "", activeState));
+    }
+
     private ConversationTurnDecision decision(
             String toolName, String operation, Map<String, Object> arguments) {
         return new ConversationTurnDecision(
