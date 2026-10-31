@@ -13,15 +13,15 @@ SET result_entity_type = 'DIRECTION',
     result_collection_key = NULL
 WHERE name = 'get_organization_info';
 
+-- These identifiers belong to the organization lookup contract only.
+-- Other tools may reuse parameter names without referring to the same entity.
 UPDATE bandy_tool_parameter
 SET reference_type = CASE name
     WHEN 'directionId' THEN 'DIRECTION'
     WHEN 'serviceId' THEN 'SERVICE'
-    WHEN 'posteId' THEN 'POSTE'
-    WHEN 'employeId' THEN 'AGENT'
-    ELSE reference_type
 END
-WHERE name IN ('directionId', 'serviceId', 'posteId', 'employeId');
+WHERE tool_name = 'get_organization_info'
+  AND name IN ('directionId', 'serviceId');
 
 UPDATE bandy_tool_parameter
 SET reference_type = 'STRUCTURE'
