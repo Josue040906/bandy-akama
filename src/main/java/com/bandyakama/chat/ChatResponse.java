@@ -1,6 +1,7 @@
 package com.bandyakama.chat;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.bandyakama.conversation.ConversationTurnDecision;
 
 import java.util.List;
 import java.util.Map;
@@ -11,10 +12,11 @@ public record ChatResponse(
         List<ToolResult> toolResults,
         UUID conversationId,
         @JsonIgnore boolean resetConversationState,
-        @JsonIgnore List<ToolState> toolStates
+        @JsonIgnore List<ToolState> toolStates,
+        @JsonIgnore ConversationTurnDecision.ReferencedEntity activeEntity
 ) {
     public ChatResponse(String message, List<ToolResult> toolResults) {
-        this(message, toolResults, null, false, List.of());
+        this(message, toolResults, null, false, List.of(), null);
     }
 
     public ChatResponse(
@@ -22,7 +24,7 @@ public record ChatResponse(
             List<ToolResult> toolResults,
             UUID conversationId
     ) {
-        this(message, toolResults, conversationId, false, List.of());
+        this(message, toolResults, conversationId, false, List.of(), null);
     }
 
     public ChatResponse(
@@ -31,7 +33,7 @@ public record ChatResponse(
             UUID conversationId,
             boolean resetConversationState
     ) {
-        this(message, toolResults, conversationId, resetConversationState, List.of());
+        this(message, toolResults, conversationId, resetConversationState, List.of(), null);
     }
 
     public ChatResponse withConversationId(UUID id) {
@@ -40,12 +42,13 @@ public record ChatResponse(
                 toolResults,
                 id,
                 resetConversationState,
-                toolStates
+                toolStates,
+                activeEntity
         );
     }
 
     public ChatResponse withConversationStateReset(boolean reset) {
-        return new ChatResponse(message, toolResults, conversationId, reset, toolStates);
+        return new ChatResponse(message, toolResults, conversationId, reset, toolStates, activeEntity);
     }
 
     public record ToolState(
