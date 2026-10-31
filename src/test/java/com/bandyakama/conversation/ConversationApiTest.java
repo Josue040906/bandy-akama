@@ -657,7 +657,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void explicitNewQuestionResetsStateWithoutCallingTheAssistant()
+    void routesExplicitNewTopicWithQuestionThroughAssistantAndResetsState()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -673,28 +673,34 @@ class ConversationApiTest {
                                 "searchEmployees",
                                 List.of(Map.of("matricule", "A-7")),
                                 Map.of("criteriaJson",
-                                        "{\"filters\":[{\"field\":\"service\","
-                                                + "\"operator\":\"EQ\","
-                                                + "\"value\":\"Personnel\"}]}")
+                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
+                                                + "\\"operator\\":\\"EQ\\","
+                                                + "\\"value\\":\\"Personnel\\"}]}")
                         ))
                 ),
-                new ChatResponse("Voici une réponse indépendante.", List.of())
+                new ChatResponse(
+                        "Il y a 12 directions.",
+                        List.of(),
+                        null,
+                        true
+                ),
+                new ChatResponse("La demande suivante est indépendante.", List.of())
         );
 
         send(conversationId, "42", "Cherche les agents du Personnel.");
-        var acknowledgement = send(
+        var independentQuestion = send(
                 conversationId,
                 "42",
-                "Une nouvelle question"
+                "Je veux poser une nouvelle question : combien y a-t-il de directions ?"
         );
-        send(conversationId, "42", "Combien y a-t-il de directions ?");
+        send(conversationId, "42", "Et les services ?");
 
         assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
-                objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
+                "Il y a 12 directions.",
+                objectMapper.readTree(independentQuestion.getResponse().getContentAsString())
                         .path("message").asText()
         );
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
@@ -702,10 +708,10 @@ class ConversationApiTest {
                 nullable(JsonNode.class)
         );
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
-        assertFalse(
-                readMemoryJson(conversationId, "result_references")
-                        .toString().contains("A-7")
-        );
+        assertEquals(0, readMemoryJson(
+                conversationId,
+                "result_references"
+        ).size());
     }
 
     @Test
