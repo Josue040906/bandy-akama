@@ -28,14 +28,17 @@ class ConversationEntityReferenceExtractorTest {
         var references = ConversationEntityReferenceExtractor.extract(result);
 
         assertEquals(3, references.size());
-        var direction = references.get(0);
+        var direction = references.stream().filter(ref -> "DIRECTION".equals(ref.type()))
+                .findFirst().orElseThrow();
         assertEquals("DIRECTION", direction.type());
         assertEquals(1L, direction.id());
         assertEquals("Direction Générale de l'Administration", direction.name());
-        var service = references.get(1);
+        var service = references.stream().filter(ref -> "SERVICE".equals(ref.type()))
+                .findFirst().orElseThrow();
         assertEquals("SERVICE", service.type());
         assertEquals(1L, service.parentId());
-        var poste = references.get(2);
+        var poste = references.stream().filter(ref -> "POSTE".equals(ref.type()))
+                .findFirst().orElseThrow();
         assertEquals("POSTE", poste.type());
         assertEquals(4L, poste.parentId());
     }
