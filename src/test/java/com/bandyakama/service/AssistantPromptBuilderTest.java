@@ -41,6 +41,7 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("NEW_INTENT"));
         assertTrue(instruction.contains("DIRECT_RESPONSE"));
         assertTrue(instruction.contains("arguments complets"));
+        assertTrue(instruction.contains("Valeurs autorisées : LIST_DIRECTIONS, COUNT_DIRECTIONS."));
         assertTrue(instruction.contains(
                 "GESTION DU CONTEXTE CONVERSATIONNEL ET DES FILTRES :\n"
                         + "- CONTINUATION :"
@@ -53,6 +54,11 @@ class AssistantPromptBuilderTest {
                 )
         );
         tool.setWhenToUse("Utiliser pour le cas décrit.");
+        if ("operation".equals(parameterName)) {
+            tool.getParameters().get(0).setAllowedValues(
+                    List.of("LIST_DIRECTIONS", "COUNT_DIRECTIONS")
+            );
+        }
         return tool;
     }
 
