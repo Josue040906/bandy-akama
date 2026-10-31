@@ -263,8 +263,10 @@ public class GeminiAssistant {
         }
 
         AssistantProfile profile = configuration.profile();
-        String systemInstruction = AssistantPromptBuilder.buildSystemInstruction(profile);
         List<ToolDefinition> registeredTools = selectAllowedTools(configuration.enabledTools());
+        String systemInstruction = AssistantPromptBuilder.buildSystemInstruction(
+                profile, registeredTools
+        );
         if (registeredTools.isEmpty()) {
             throw new ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
