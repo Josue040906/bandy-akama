@@ -77,6 +77,9 @@ final class ConversationTurnDecisionValidator {
             throw invalidDecision("Une opération a été fournie pour un outil qui n’en déclare pas.");
         }
 
+        if (decision.referencedEntity() == null) {
+            validateScopedIdsHaveKnownEntities(decision.arguments(), activeState);
+        }
         if (decision.referencedEntity() != null) {
             if (!isReferencedEntityGrounded(decision, conversationContext, activeState)) {
                 throw invalidDecision("L’entité référencée n’est pas confirmée par le contexte précédent.");
@@ -97,6 +100,55 @@ final class ConversationTurnDecisionValidator {
         }
     }
 
+    private void validateScopedIdsHaveKnownEntities(
+            Map<String, Object> arguments,
+            JsonNode activeState
+    ) {
+        Map<String, String> scopedTypes = Map.of(
+                "directionId", "DIRECTION",
+                "serviceId", "SERVICE",
+                "posteId", "POSTE",
+                "employeId", "AGENT"
+        );
+        for (Map.Entry<String, String> scoped : scopedTypes.entrySet()) {
+            Object rawId = arguments.get(scoped.getKey());
+            if (rawId == null) {
+                continue;
+            }
+            long id;
+            try {
+                id = new BigDecimal(rawId.toString()).longValueExact();
+            } catch (NumberFormatException | ArithmeticException invalidId) {
+                throw invalidDecision("Un identifiant de structure n’est pas un entier valide.");
+            }
+            if (!hasKnownEntity(activeState, scoped.getValue(), id)) {
+                throw invalidDecision("L’identifiant " + scoped.getKey()
+                        + " n’est pas confirmé par les entités déjà connues de la conversation.");
+            }
+        }
+    }
+
+    private boolean hasKnownEntity(JsonNode activeState, String type, long id) {
+        if (activeState == null || activeState.isNull()) {
+            return false;
+        }
+        JsonNode activeEntity = activeState.path("activeEntity");
+        if (activeEntity.isObject()
+                && type.equalsIgnoreCase(activeEntity.path("type").asText())
+                && activeEntity.path("id").asLong(-1) == id) {
+            return true;
+        }
+        JsonNode references = activeState.path("entityReferences");
+        if (references.isArray()) {
+            for (JsonNode reference : references) {
+                if (type.equalsIgnoreCase(reference.path("type").asText())
+                        && reference.path("id").asLong(-1) == id) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     private boolean isReferencedEntityGrounded(
             ConversationTurnDecision decision,
             String context,
