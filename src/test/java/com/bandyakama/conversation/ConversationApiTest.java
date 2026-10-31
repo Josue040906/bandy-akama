@@ -480,7 +480,7 @@ class ConversationApiTest {
         );
         String unexpectedContext = contexts.getAllValues().get(3);
         assertFalse(unexpectedContext.contains("Licence en Gestion RH"));
-        assertTrue(unexpectedContext.contains("CONTINUATION"));
+        assertTrue(unexpectedContext.contains("État structuré précédent"));
         var unexpectedHistory = ConversationPromptContext.parse(
                 unexpectedContext,
                 objectMapper
@@ -774,7 +774,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void aNewOrganizationSearchDoesNotReceiveThePreviousFilters()
+    void passesPreviousStateToModelButDoesNotCarryOldFiltersIntoNewSearch()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -835,8 +835,17 @@ class ConversationApiTest {
                 states.capture()
         );
         assertNull(states.getAllValues().get(0));
-        assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        JsonNode previousState = states.getAllValues().get(1);
+        assertNotNull(previousState);
+        assertEquals(
+                "Direction Générale",
+                previousState.path("criteria").path("filters").get(0)
+                        .path("value").asText()
+        );
+        assertTrue(contexts.getAllValues().get(1)
+                .contains("État structuré précédent"));
+        assertTrue(contexts.getAllValues().get(1)
+                .contains("Direction Générale"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
