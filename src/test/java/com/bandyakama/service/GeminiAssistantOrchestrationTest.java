@@ -72,6 +72,26 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
+    void includesConfiguredExamplesInGeminiFunctionDescription() {
+        ToolDefinition definition = namedTool("search_agents");
+        definition.setExamples(List.of(
+                "Trouve les agents du service financier",
+                "Qui travaille à la direction générale ?"
+        ));
+
+        Tool tool = GeminiAssistant.toGeminiTool(List.of(definition));
+        String description = tool.functionDeclarations().orElseThrow().stream()
+                .filter(declaration -> declaration.name().orElseThrow()
+                        .equals("search_agents"))
+                .findFirst().orElseThrow()
+                .description().orElseThrow();
+
+        assertTrue(description.contains("Formulations"));
+        assertTrue(description.contains("Trouve les agents du service financier"));
+        assertTrue(description.contains("Qui travaille à la direction générale ?"));
+    }
+
+    @Test
     void declaresContextResetAsAModelControlledConversationAction() {
         Tool tool = GeminiAssistant.toGeminiTool(
                 List.of(namedTool("search_agents"))
