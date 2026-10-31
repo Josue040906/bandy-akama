@@ -206,6 +206,8 @@ class ConversationTurnDecisionValidatorTest {
         tool.getParameters().get(0).setAllowedValues(List.of(
                 "LIST_DIRECTIONS", "COUNT_EMPLOYEES_BY_STRUCTURE"
         ));
+        tool.getParameters().get(1).setReferenceType("DIRECTION");
+        tool.getParameters().get(2).setReferenceType("SERVICE");
         tool.setWhenToUse("Consulter les structures du MEF.");
         return tool;
     }
