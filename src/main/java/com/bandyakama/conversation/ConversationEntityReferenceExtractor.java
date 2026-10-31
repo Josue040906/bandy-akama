@@ -69,11 +69,12 @@ public final class ConversationEntityReferenceExtractor {
                     current);
         }
 
+        ConversationTurnDecision.ReferencedEntity parentForChildren = current;
         node.fields().forEachRemaining(entry -> {
             String childType = typeForCollection(entry.getKey());
             visit(entry.getValue(),
                     childType == null ? ownType : childType,
-                    current,
+                    parentForChildren,
                     found);
         });
     }
