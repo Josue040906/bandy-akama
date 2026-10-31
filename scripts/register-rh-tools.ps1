@@ -48,10 +48,34 @@ $tools = @(
         description = 'Recherche unifiée des agents par critères RH exacts et approximatifs. Utiliser pour toute identification initiale, y compris les noms mal orthographiés et les recherches multicritères. Deux filtres FUZZY séparés pour nom et prénom; resultMode=COUNT pour un total exact.'
         whenToUse = 'Point d’entrée obligatoire pour toute recherche/identification initiale d’agent, même si l’utilisateur demande directement un profil. Extraire du même message le nom/prénom (FUZZY séparément si faute possible) et tous les autres critères explicitement mentionnés (âge, sexe, adresse, embauche, poste, service, direction, carrière, diplômes), puis les combiner dans un seul criteriaJson. Ne pas appeler get_agent_profile avant cette recherche. Si plusieurs candidats restent, les présenter et demander un critère distinctif; si un candidat est clairement identifié, appeler ensuite get_agent_profile avec son matricule. criteriaJson doit contenir 1 à 10 filtres valides. IMPORTANT pour l’âge: chaque filtre age doit avoir une valeur entière unique. Pour une tranche de 36 à 40 ans, utiliser deux filtres distincts {"field":"age","operator":"GTE","value":36} et {"field":"age","operator":"LTE","value":40}; ne jamais utiliser BETWEEN avec age ni envoyer [36,40]. Pour les autres nombres, respecter également une valeur numérique unique par filtre. COUNT donne le total exact côté backend; ne jamais compter une page. LIST affiche les correspondances.'
         examples = @(
-            'Quels agents travaillent au service de l’administration générale ?',
-            'Trouve les agents de sexe féminin affectés à la direction des finances.',
-            'Je cherche les agents recrutés après le 1er janvier 2020.',
-            'Recherche un agent dont le nom ressemble à Rakoto.'
+            @{
+                text = 'Quels agents travaillent au service de l’administration générale ?'
+                pattern = 'Quels agents travaillent au service de {service} ?'
+                expectedArguments = @{
+                    criteriaJson = '{"filters":[{"field":"service","operator":"CONTAINS","value":"administration générale"}],"limit":20,"offset":0}'
+                }
+            },
+            @{
+                text = 'Trouve les agents de sexe féminin affectés à la direction des finances.'
+                pattern = 'Trouve les agents de sexe {sexe} affectés à la direction des {direction}.'
+                expectedArguments = @{
+                    criteriaJson = '{"filters":[{"field":"sexe","operator":"EQ","value":"F"},{"field":"direction","operator":"CONTAINS","value":"finances"}],"limit":20,"offset":0}'
+                }
+            },
+            @{
+                text = 'Je cherche les agents recrutés après le 1er janvier 2020.'
+                pattern = 'Je cherche les agents recrutés après le {date_embauche}.'
+                expectedArguments = @{
+                    criteriaJson = '{"filters":[{"field":"date_embauche","operator":"AFTER","value":"2020-01-01"}],"limit":20,"offset":0}'
+                }
+            },
+            @{
+                text = 'Recherche un agent dont le nom ressemble à Rakoto.'
+                pattern = 'Recherche un agent dont le nom ressemble à {nom}.'
+                expectedArguments = @{
+                    criteriaJson = '{"filters":[{"field":"nom","operator":"FUZZY","value":"Rakoto"}],"limit":20,"offset":0}'
+                }
+            }
         )
         method = 'POST'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
@@ -80,9 +104,21 @@ $tools = @(
         description = 'Récupère le profil détaillé d’un agent déjà identifié par la recherche unifiée search_agents, de préférence à partir de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle, affectation, parcours de carrière, diplômes et analyse d’évolution calculée par le backend.'
         whenToUse = 'Appeler uniquement après search_agents, lorsque la liste des candidats a permis d’identifier clairement un agent. Utiliser de préférence le matricule exact retourné par la recherche dans query. Pour une faute de frappe, un nom incertain ou plusieurs candidats, revenir à search_agents et combiner les critères disponibles au lieu d’appeler directement ce profil. Si plusieurs candidats restent, demander un critère distinctif; ne jamais choisir au hasard. S’appuyer sur les valeurs retournées par l’API; ne jamais déduire une information absente ni présenter une éligibilité indicative comme une décision administrative. Ne rappeler l’outil que si une donnée manque ou doit être actualisée.'
         examples = @(
-            'Maintenant, affiche son profil détaillé.',
-            'Je voudrais consulter ses diplômes et son parcours de carrière.',
-            'Donne-moi les informations professionnelles de cet agent.'
+            @{
+                text = 'Maintenant, affiche son profil détaillé.'
+                pattern = 'Maintenant, affiche le profil détaillé de {agent_reference}.'
+                expectedArguments = @{}
+            },
+            @{
+                text = 'Je voudrais consulter ses diplômes et son parcours de carrière.'
+                pattern = 'Je voudrais consulter les diplômes et le parcours de carrière de {agent_reference}.'
+                expectedArguments = @{}
+            },
+            @{
+                text = 'Donne-moi les informations professionnelles de cet agent.'
+                pattern = 'Donne-moi les informations professionnelles de {agent_reference}.'
+                expectedArguments = @{}
+            }
         )
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/profil/agent"
@@ -104,10 +140,38 @@ $tools = @(
         description = 'Recherche les directions, services et postes avec leurs rattachements et descriptions réellement enregistrés.'
         whenToUse = 'Pour expliquer la structure des directions, services et postes, leurs rattachements ou leurs descriptions disponibles. Ne pas inventer de responsabilités absentes des données.'
         examples = @(
-            'Quels services sont rattachés à cette direction ?',
-            'Donne-moi les informations sur le service de l’administration générale.',
-            'Comment est organisée cette direction ?',
-            'Quels postes sont enregistrés dans ce service ?'
+            @{
+                text = 'Quels services sont rattachés à la direction générale ?'
+                pattern = 'Quels services sont rattachés à {direction} ?'
+                expectedArguments = @{
+                    query = 'direction générale'
+                    scope = 'DIRECTION'
+                }
+            },
+            @{
+                text = 'Donne-moi les informations sur le service de l’administration générale.'
+                pattern = 'Donne-moi les informations sur le service {service}.'
+                expectedArguments = @{
+                    query = 'administration générale'
+                    scope = 'SERVICE'
+                }
+            },
+            @{
+                text = 'Comment est organisée cette direction ?'
+                pattern = 'Comment est organisée {direction_reference} ?'
+                expectedArguments = @{
+                    query = 'direction'
+                    scope = 'DIRECTION'
+                }
+            },
+            @{
+                text = 'Quels postes sont enregistrés dans ce service ?'
+                pattern = 'Quels postes sont enregistrés dans {service_reference} ?'
+                expectedArguments = @{
+                    query = 'service'
+                    scope = 'SERVICE'
+                }
+            }
         )
         method = 'GET'
         url = "$($assistantRhApiUrl.TrimEnd('/'))/api/assistant/organization"
@@ -192,8 +256,20 @@ foreach ($tool in $tools) {
         throw "Bandy did not retain the expected examples for $($tool.name)."
     }
     for ($index = 0; $index -lt $tool.examples.Count; $index++) {
-        if ($registeredExamples[$index] -ne $tool.examples[$index]) {
-            throw "Bandy retained an unexpected example at position $index for $($tool.name)."
+        $expectedExample = $tool.examples[$index]
+        $registeredExample = $registeredExamples[$index]
+        if ($registeredExample.text -ne $expectedExample.text -or
+            $registeredExample.pattern -ne $expectedExample.pattern) {
+            throw "Bandy retained an unexpected example text or pattern at position $index for $($tool.name)."
+        }
+        foreach ($argumentName in $expectedExample.expectedArguments.Keys) {
+            if (-not $registeredExample.expectedArguments.ContainsKey($argumentName) -or
+                $registeredExample.expectedArguments[$argumentName] -ne $expectedExample.expectedArguments[$argumentName]) {
+                throw "Bandy retained an unexpected expected-argument value for $argumentName at example $index of $($tool.name)."
+            }
+        }
+        if ($registeredExample.expectedArguments.Count -ne $expectedExample.expectedArguments.Count) {
+            throw "Bandy retained an unexpected expected-argument count at example $index of $($tool.name)."
         }
     }
     if ($result.method -and $result.method -ne $tool.method) {
