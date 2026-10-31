@@ -30,6 +30,8 @@ public class ToolDefinition {
 
     private boolean enabled = true;
 
+    private boolean assistantEnabled;
+
     private boolean sensitive;
 
     @NotBlank
@@ -73,6 +75,9 @@ public class ToolDefinition {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isAssistantEnabled() { return assistantEnabled; }
+    public void setAssistantEnabled(boolean assistantEnabled) { this.assistantEnabled = assistantEnabled; }
 
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
