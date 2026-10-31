@@ -27,6 +27,26 @@ public final class ConversationEntityReferenceExtractor {
         return List.copyOf(found.values());
     }
 
+    public static List<ConversationTurnDecision.ReferencedEntity> extract(
+            Object result,
+            String rootEntityType,
+            String collectionKey
+    ) {
+        if (result == null || rootEntityType == null || rootEntityType.isBlank()) {
+            return List.of();
+        }
+        JsonNode root = MAPPER.valueToTree(result);
+        JsonNode collection = collectionKey == null || collectionKey.isBlank()
+                ? root : root.path(collectionKey);
+        if (collection.isMissingNode() || collection.isNull()) {
+            return List.of();
+        }
+        Map<String, ConversationTurnDecision.ReferencedEntity> found =
+                new LinkedHashMap<>();
+        visit(collection, rootEntityType, null, found);
+        return List.copyOf(found.values());
+    }
+
     private static void visit(
             JsonNode node,
             String inheritedType,
