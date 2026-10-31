@@ -45,6 +45,14 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            var organization = snapshot.enabledTools().stream()
+                    .filter(tool -> "get_organization_info".equals(tool.getName()))
+                    .findFirst().orElseThrow();
+            assertEquals("DIRECTION", organization.getResultEntityType());
+            assertEquals("directions", organization.getResultCollectionKey());
+            assertEquals("DIRECTION", organization.getParameters().stream()
+                    .filter(parameter -> "query".equals(parameter.getName()))
+                    .findFirst().orElseThrow().getReferenceType());
             assertEquals(
                     List.of("LIST_DIRECTIONS", "COUNT_EMPLOYEES_BY_STRUCTURE"),
                     snapshot.enabledTools().stream()
@@ -124,7 +132,9 @@ class AssistantConfigurationRepositoryTest {
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
                     assistant_enabled BOOLEAN,
-                    sensitive BOOLEAN
+                    sensitive BOOLEAN,
+                    result_entity_type VARCHAR(40),
+                    result_collection_key VARCHAR(64)
                 )
                 """);
         jdbcTemplate.execute("""
@@ -136,7 +146,8 @@ class AssistantConfigurationRepositoryTest {
                     location VARCHAR(10),
                     required BOOLEAN,
                     position INTEGER,
-                    allowed_values VARCHAR(2000)
+                    allowed_values VARCHAR(2000),
+                    reference_type VARCHAR(40)
                 )
                 """);
     }
@@ -150,34 +161,34 @@ class AssistantConfigurationRepositoryTest {
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool
                 (name, description, when_to_use, http_method, endpoint_url,
-                 enabled, assistant_enabled, sensitive) VALUES
+                 enabled, assistant_enabled, sensitive, result_entity_type, result_collection_key) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
                  'GET', 'http://localhost/profile', TRUE, TRUE, TRUE),
                 ('search_agents', 'Agent search', 'For agent searches',
                  'POST', 'http://localhost/search', TRUE, TRUE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
-                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE),
+                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE, 'DIRECTION', 'directions'),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
                  'http://localhost/legacy', TRUE, FALSE, TRUE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
-                (tool_name, name, type, description, location, required, position, allowed_values)
+                (tool_name, name, type, description, location, required, position, allowed_values, reference_type)
                 VALUES
                 ('get_agent_profile', 'nom_agent', 'string', 'Agent name',
-                 'query', TRUE, 1, NULL),
+                 'query', TRUE, 1, NULL, NULL),
                 ('search_agents', 'criteriaJson', 'string', 'Search criteria',
-                 'body', TRUE, 1, NULL),
+                 'body', TRUE, 1, NULL, NULL),
                 ('search_agents', 'resultMode', 'string', 'Result mode',
-                 'body', FALSE, 2, '["LIST","COUNT"]'),
+                 'body', FALSE, 2, '["LIST","COUNT"]', NULL),
                 ('get_organization_info', 'operation', 'string', 'Organization operation',
-                 'query', TRUE, 1, '["LIST_DIRECTIONS","COUNT_EMPLOYEES_BY_STRUCTURE"]'),
+                 'query', TRUE, 1, '["LIST_DIRECTIONS","COUNT_EMPLOYEES_BY_STRUCTURE"]', NULL),
                 ('get_organization_info', 'query', 'string', 'Organization query',
-                 'query', FALSE, 2, NULL),
+                 'query', FALSE, 2, NULL, 'DIRECTION'),
                 ('get_organization_info', 'scope', 'string', 'Scope',
-                 'query', FALSE, 3, NULL),
+                 'query', FALSE, 3, NULL, 'SERVICE'),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
-                 'query', TRUE, 1, NULL)
+                 'query', TRUE, 1, NULL, NULL)
                 """);
     }
 
