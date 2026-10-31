@@ -416,9 +416,13 @@ public class GeminiAssistant {
                     + "du résultat obtenu. Pouvez-vous préciser votre demande ?";
         }
         List<ConversationTurnDecision.ReferencedEntity> entityReferences =
-                "get_organization_info".equals(decision.toolName())
-                        ? ConversationEntityReferenceExtractor.extract(result)
-                        : List.of();
+                selectedTool.getResultEntityType() == null
+                        ? List.of()
+                        : ConversationEntityReferenceExtractor.extract(
+                                result,
+                                selectedTool.getResultEntityType(),
+                                selectedTool.getResultCollectionKey()
+                        );
         return new ChatResponse(finalMessage, executedResults, null, resetState,
                 toolStates, decision.referencedEntity(), entityReferences);
     }
