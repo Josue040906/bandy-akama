@@ -366,7 +366,7 @@ public class GeminiAssistant {
                         .mapToInt(tool -> tool.getDescription().length()
                                 + tool.getWhenToUse().length()
                                 + tool.getExamples().stream()
-                                        .mapToInt(String::length)
+                                        .mapToInt(example -> example.getText().length() + example.getPattern().length())
                                         .sum())
                         .sum()
         );
@@ -1102,15 +1102,20 @@ public class GeminiAssistant {
         String description = definition.getDescription()
                 + "\nQuand l’utiliser : "
                 + definition.getWhenToUse();
-        List<String> examples = definition.getExamples() == null
+        List<com.bandyakama.tool.ToolExample> examples = definition.getExamples() == null
                 ? List.of()
                 : definition.getExamples().stream()
-                        .filter(example -> example != null && !example.isBlank())
+                        .filter(example -> example != null && example.getText() != null
+                                && !example.getText().isBlank())
                         .limit(8)
                         .toList();
         if (!examples.isEmpty()) {
-            description += "\nExemples de demandes correspondantes : "
-                    + String.join(" ; ", examples);
+            description += "\nExemples de demandes correspondantes (formulation réelle ; "
+                    + "structure indicative) : "
+                    + examples.stream()
+                            .map(example -> example.getText() + " [modèle : "
+                                    + example.getPattern() + "]")
+                            .collect(java.util.stream.Collectors.joining(" ; "));
         }
         return description;
     }

@@ -2,6 +2,8 @@ package com.bandyakama.assistant;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.jdbc.core.JdbcTemplate;
+import com.bandyakama.tool.ToolExample;
+import java.util.Map;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabase;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
@@ -45,8 +47,12 @@ class AssistantConfigurationRepositoryTest {
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
             assertEquals(
-                    List.of("Montre-moi le dossier de cet agent",
-                            "Je voudrais consulter son profil"),
+                    List.of(
+                            new ToolExample("Montre-moi le dossier de cet agent",
+                                    "Montre-moi le dossier de cet {agent}", Map.of()),
+                            new ToolExample("Je voudrais consulter son profil",
+                                    "Je voudrais consulter le profil de cet {agent}", Map.of())
+                    ),
                     snapshot.enabledTools().get(0).getExamples()
             );
             assertTrue(snapshot.enabledTools().stream()
@@ -116,6 +122,8 @@ class AssistantConfigurationRepositoryTest {
                 CREATE TABLE bandy_tool_example (
                     tool_name VARCHAR(64),
                     example_text VARCHAR(500),
+                    pattern_text VARCHAR(500) NOT NULL,
+                    expected_arguments TEXT NOT NULL,
                     position INTEGER,
                     enabled BOOLEAN
                 )
@@ -156,10 +164,10 @@ class AssistantConfigurationRepositoryTest {
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_example
-                (tool_name, example_text, position, enabled) VALUES
-                ('get_agent_profile', 'Montre-moi le dossier de cet agent', 0, TRUE),
-                ('get_agent_profile', 'Je voudrais consulter son profil', 1, TRUE),
-                ('get_agent_profile', 'Exemple désactivé', 2, FALSE)
+                (tool_name, example_text, pattern_text, expected_arguments, position, enabled) VALUES
+                ('get_agent_profile', 'Montre-moi le dossier de cet agent', 'Montre-moi le dossier de cet {agent}', '{}', 0, TRUE),
+                ('get_agent_profile', 'Je voudrais consulter son profil', 'Je voudrais consulter le profil de cet {agent}', '{}', 1, TRUE),
+                ('get_agent_profile', 'Exemple désactivé', 'Exemple désactivé', '{}', 2, FALSE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter

@@ -10,6 +10,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -48,8 +49,12 @@ class ToolRegistryTest {
         assertEquals("query", loaded.getParameters().get(0).getName());
         assertTrue(loaded.isEnabled());
         assertFalse(loaded.isSensitive());
-        assertEquals(List.of("Trouve les agents du service financier"),
-                loaded.getExamples());
+        assertEquals("Trouve les agents du service financier",
+                loaded.getExamples().get(0).getText());
+        assertEquals("Trouve les agents du {service}",
+                loaded.getExamples().get(0).getPattern());
+        assertEquals(Map.of("query", "service financier"),
+                loaded.getExamples().get(0).getExpectedArguments());
     }
 
     @Test
@@ -144,15 +149,23 @@ class ToolRegistryTest {
                                   "url": "https://example.test/api",
                                   "parameters": [],
                                   "examples": [
-                                    "Recherche un agent par matricule",
-                                    "Trouve les agents du service financier"
+                                    {
+                                      "text": "Recherche un agent par matricule",
+                                      "pattern": "Recherche un agent par {matricule}",
+                                      "expectedArguments": {}
+                                    },
+                                    {
+                                      "text": "Trouve les agents du service financier",
+                                      "pattern": "Trouve les agents du {service}",
+                                      "expectedArguments": {}
+                                    }
                                   ]
                                 }
                                 """))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("apiTool"))
-                .andExpect(jsonPath("$.examples[0]").value("Recherche un agent par matricule"))
-                .andExpect(jsonPath("$.examples[1]").value("Trouve les agents du service financier"));
+                .andExpect(jsonPath("$.examples[0].text").value("Recherche un agent par matricule"))
+                .andExpect(jsonPath("$.examples[1].pattern").value("Trouve les agents du {service}"));
 
         mockMvc.perform(get("/api/assistant/profile")
                         .header("X-Bandy-Registration-Key", registrationKey))
@@ -214,7 +227,11 @@ class ToolRegistryTest {
                 List.of(query)
         );
         tool.setWhenToUse("Use when looking for agents.");
-        tool.setExamples(List.of("Trouve les agents du service financier"));
+        tool.setExamples(List.of(new ToolExample(
+                "Trouve les agents du service financier",
+                "Trouve les agents du {service}",
+                Map.of("query", "service financier")
+        )));
         return tool;
     }
 }

@@ -124,6 +124,8 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_tool_example", "example_text"));
         assertTrue(hasColumn(jdbc, "bandy_tool_example", "position"));
         assertTrue(hasColumn(jdbc, "bandy_tool_example", "enabled"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_example", "pattern_text"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_example", "expected_arguments"));
         jdbc.update("""
                 INSERT INTO bandy_tool (
                     name, description, when_to_use, http_method, endpoint_url,
@@ -133,8 +135,8 @@ class ConversationMigrationTest {
                 """);
         jdbc.update("""
                 INSERT INTO bandy_tool_example (
-                    tool_name, example_text, position, enabled
-                ) VALUES ('migration_test_tool', 'Test example', 0, TRUE)
+                    tool_name, example_text, pattern_text, expected_arguments, position, enabled
+                ) VALUES ('migration_test_tool', 'Test example', 'Test {query}', '{}', 0, TRUE)
                 """);
         assertEquals(1, jdbc.queryForObject(
                 "SELECT COUNT(*) FROM bandy_tool_example WHERE tool_name = ?",

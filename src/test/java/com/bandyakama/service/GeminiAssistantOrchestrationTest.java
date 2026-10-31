@@ -9,6 +9,8 @@ import com.google.genai.types.ThinkingLevel;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolExample;
+import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
@@ -75,8 +77,10 @@ class GeminiAssistantOrchestrationTest {
     void includesConfiguredExamplesInGeminiFunctionDescription() {
         ToolDefinition definition = namedTool("search_agents");
         definition.setExamples(List.of(
-                "Trouve les agents du service financier",
-                "Qui travaille à la direction générale ?"
+                new ToolExample("Trouve les agents du service financier",
+                        "Trouve les agents du {service}", Map.of("criteriaJson", "{\"filters\":[]}")),
+                new ToolExample("Qui travaille à la direction générale ?",
+                        "Qui travaille à la {direction} ?", Map.of("criteriaJson", "{\"filters\":[]}"))
         ));
 
         Tool tool = GeminiAssistant.toGeminiTool(List.of(definition));
@@ -88,6 +92,7 @@ class GeminiAssistantOrchestrationTest {
 
         assertTrue(description.contains("Exemples de demandes correspondantes"));
         assertTrue(description.contains("Trouve les agents du service financier"));
+        assertTrue(description.contains("Trouve les agents du {service}"));
         assertTrue(description.contains("Qui travaille à la direction générale ?"));
     }
 

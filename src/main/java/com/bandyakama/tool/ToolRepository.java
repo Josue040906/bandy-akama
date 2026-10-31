@@ -1,5 +1,7 @@
 package com.bandyakama.tool;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.dao.DuplicateKeyException;
@@ -14,6 +16,7 @@ import java.util.Optional;
 
 @Repository
 public class ToolRepository {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final RowMapper<ToolDefinition> TOOL_ROW_MAPPER =
             (resultSet, rowNumber) -> {
                 ToolDefinition tool = new ToolDefinition(
@@ -131,17 +134,21 @@ public class ToolRepository {
                 "DELETE FROM bandy_tool_example WHERE tool_name = ?",
                 tool.getName()
         );
-        List<String> examples = tool.getExamples() == null
+        List<ToolExample> examples = tool.getExamples() == null
                 ? List.of()
                 : tool.getExamples();
         for (int index = 0; index < examples.size(); index++) {
+            ToolExample example = examples.get(index);
             jdbcTemplate.update("""
                     INSERT INTO bandy_tool_example (
-                        tool_name, example_text, position, enabled
-                    ) VALUES (?, ?, ?, TRUE)
+                        tool_name, example_text, pattern_text,
+                        expected_arguments, position, enabled
+                    ) VALUES (?, ?, ?, ?, ?, TRUE)
                     """,
                     tool.getName(),
-                    examples.get(index).trim(),
+                    example.getText().trim(),
+                    example.getPattern().trim(),
+                    writeExpectedArguments(example),
                     index
             );
         }
@@ -179,11 +186,48 @@ public class ToolRepository {
         ) > 0;
     }
 
+    private static String writeExpectedArguments(ToolExample example) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(example.getExpectedArguments());
+        } catch (JsonProcessingException exception) {
+            throw new IllegalArgumentException(
+                    "Impossible de sérialiser les arguments attendus de l’exemple.",
+                    exception
+            );
+        }
+    }
+
+    private static ToolExample readExample(
+            String text,
+            String pattern,
+            String expectedArgumentsJson
+    ) {
+        try {
+            Map<String, Object> expectedArguments = OBJECT_MAPPER.readValue(
+                    expectedArgumentsJson,
+                    OBJECT_MAPPER.getTypeFactory().constructMapType(
+                            HashMap.class, String.class, Object.class
+                    )
+            );
+            return new ToolExample(text, pattern, expectedArguments);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException(
+                    "Les arguments attendus d’un exemple sont illisibles.",
+                    exception
+            );
+        }
+    }
+
     private ToolDefinition loadExamples(ToolDefinition tool) {
         tool.setExamples(jdbcTemplate.query(
-                "SELECT example_text FROM bandy_tool_example "
+                "SELECT example_text, pattern_text, expected_arguments "
+                        + "FROM bandy_tool_example "
                         + "WHERE tool_name = ? AND enabled = TRUE ORDER BY position",
-                (resultSet, rowNumber) -> resultSet.getString("example_text"),
+                (resultSet, rowNumber) -> readExample(
+                        resultSet.getString("example_text"),
+                        resultSet.getString("pattern_text"),
+                        resultSet.getString("expected_arguments")
+                ),
                 tool.getName()
         ));
         return tool;
@@ -197,15 +241,20 @@ public class ToolRepository {
                 ", ",
                 java.util.Collections.nCopies(tools.size(), "?")
         );
-        Map<String, List<String>> examplesByTool = new HashMap<>();
+        Map<String, List<ToolExample>> examplesByTool = new HashMap<>();
         tools.forEach(tool -> examplesByTool.put(tool.getName(), new ArrayList<>()));
         jdbcTemplate.query(
-                "SELECT tool_name, example_text FROM bandy_tool_example "
+                "SELECT tool_name, example_text, pattern_text, expected_arguments "
+                        + "FROM bandy_tool_example "
                         + "WHERE enabled = TRUE AND tool_name IN (" + placeholders + ") "
                         + "ORDER BY tool_name, position",
                 (org.springframework.jdbc.core.RowCallbackHandler) resultSet ->
                         examplesByTool.get(resultSet.getString("tool_name"))
-                                .add(resultSet.getString("example_text")),
+                                .add(readExample(
+                                        resultSet.getString("example_text"),
+                                        resultSet.getString("pattern_text"),
+                                        resultSet.getString("expected_arguments")
+                                )),
                 tools.stream().map(ToolDefinition::getName).toArray()
         );
         tools.forEach(tool -> tool.setExamples(examplesByTool.get(tool.getName())));
