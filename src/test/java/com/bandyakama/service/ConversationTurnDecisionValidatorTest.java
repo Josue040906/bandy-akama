@@ -55,6 +55,40 @@ class ConversationTurnDecisionValidatorTest {
     }
 
     @Test
+    void validatesCustomEntityReferenceWithoutDomainSpecificParameterNames() throws Exception {
+        ToolParameter divisionId = new ToolParameter(
+                "divisionKey", "integer", "Identifiant de la division", true
+        );
+        divisionId.setReferenceType("DIVISION");
+        ToolDefinition divisionTool = new ToolDefinition(
+                "get_division", "Division lookup", "GET",
+                "http://localhost/api/divisions", List.of(divisionId)
+        );
+        divisionTool.setWhenToUse("Consulter une division.");
+        var entity = new ConversationTurnDecision.ReferencedEntity(
+                "DIVISION", 31L, "Division des systèmes", null, null
+        );
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.CONTINUATION,
+                "get_division", null, Map.of("divisionKey", 31),
+                entity, false, null, null
+        );
+        var state = new ObjectMapper().readTree("""
+                {
+                  "activeEntity": {
+                    "type": "DIVISION",
+                    "id": 31,
+                    "name": "Division des systèmes"
+                  }
+                }
+                """);
+
+        assertDoesNotThrow(() -> validator.validate(
+                decision, Map.of("get_division", divisionTool), "", state
+        ));
+    }
+
+    @Test
     void acceptsDirectResponseForAnIndependentNewIntent() {
         var decision = new ConversationTurnDecision(
                 ConversationTurnDecision.IntentType.NEW_INTENT,
