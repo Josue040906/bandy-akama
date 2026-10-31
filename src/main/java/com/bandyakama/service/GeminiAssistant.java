@@ -364,7 +364,10 @@ public class GeminiAssistant {
                 registeredTools.size(),
                 registeredTools.stream()
                         .mapToInt(tool -> tool.getDescription().length()
-                                + tool.getWhenToUse().length())
+                                + tool.getWhenToUse().length()
+                                + tool.getExamples().stream()
+                                        .mapToInt(String::length)
+                                        .sum())
                         .sum()
         );
         performanceTelemetry.modelConfiguration(
