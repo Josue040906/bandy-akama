@@ -124,16 +124,6 @@ public class ToolDefinition {
             if (!parameterNames.containsAll(example.getExpectedArguments().keySet())) {
                 throw new IllegalArgumentException("Un exemple référence un paramètre non déclaré pour " + name + ".");
             }
-            java.util.regex.Matcher matcher = java.util.regex.Pattern
-                    .compile("\\{([A-Za-z][A-Za-z0-9_]{0,63})}")
-                    .matcher(example.getPattern());
-            while (matcher.find()) {
-                String argument = matcher.group(1);
-                if (!parameterNames.contains(argument)
-                        || !example.getExpectedArguments().containsKey(argument)) {
-                    throw new IllegalArgumentException("Le modèle référence un paramètre sans valeur attendue : " + argument);
-                }
-            }
         }
         try {
             String checkedUrl = url.replaceAll("\\{[A-Za-z][A-Za-z0-9_]{0,63}}", "path-value");
