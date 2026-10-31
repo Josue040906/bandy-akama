@@ -781,7 +781,7 @@ public class GeminiAssistant {
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
                     invocationCache.get(name, arguments),
-                    definition.isSensitive() || isSensitiveReadTool(name)
+                    definition.isSensitive()
             );
         }
 
@@ -795,7 +795,7 @@ public class GeminiAssistant {
             invocationCache.put(name, arguments, result);
             return new ToolExecutionResult(
                     result,
-                    definition.isSensitive() || isSensitiveReadTool(name)
+                    definition.isSensitive()
             );
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(
@@ -809,7 +809,7 @@ public class GeminiAssistant {
             if (profileLookupResult.isPresent()) {
                 return new ToolExecutionResult(
                         profileLookupResult.get(),
-                        definition.isSensitive() || isSensitiveReadTool(name)
+                        definition.isSensitive()
                 );
             }
 
