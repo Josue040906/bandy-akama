@@ -54,7 +54,8 @@ public class ToolRepository {
                         + "FROM bandy_tool ORDER BY name",
                 TOOL_ROW_MAPPER
         );
-        return loadParameters(tools);
+        loadParameters(tools);
+        return loadExamples(tools);
     }
 
     public List<ToolDefinition> findEnabled() {
@@ -63,7 +64,8 @@ public class ToolRepository {
                         + "FROM bandy_tool WHERE enabled = TRUE ORDER BY name",
                 TOOL_ROW_MAPPER
         );
-        return loadParameters(tools);
+        loadParameters(tools);
+        return loadExamples(tools);
     }
 
     public Optional<ToolDefinition> findByName(String name) {
@@ -73,7 +75,9 @@ public class ToolRepository {
                 TOOL_ROW_MAPPER,
                 name
         );
-        return tools.stream().findFirst().map(this::loadParameters);
+        return tools.stream().findFirst()
+                .map(this::loadParameters)
+                .map(this::loadExamples);
     }
 
     @Transactional
@@ -122,7 +126,26 @@ public class ToolRepository {
                     index
             );
         }
-        return loadParameters(tool);
+
+        jdbcTemplate.update(
+                "DELETE FROM bandy_tool_example WHERE tool_name = ?",
+                tool.getName()
+        );
+        List<String> examples = tool.getExamples() == null
+                ? List.of()
+                : tool.getExamples();
+        for (int index = 0; index < examples.size(); index++) {
+            jdbcTemplate.update("""
+                    INSERT INTO bandy_tool_example (
+                        tool_name, example_text, position, enabled
+                    ) VALUES (?, ?, ?, TRUE)
+                    """,
+                    tool.getName(),
+                    examples.get(index).trim(),
+                    index
+            );
+        }
+        return loadExamples(loadParameters(tool));
     }
 
     private int updateTool(ToolDefinition tool) {
@@ -154,6 +177,38 @@ public class ToolRepository {
                 "DELETE FROM bandy_tool WHERE name = ?",
                 name
         ) > 0;
+    }
+
+    private ToolDefinition loadExamples(ToolDefinition tool) {
+        tool.setExamples(jdbcTemplate.query(
+                "SELECT example_text FROM bandy_tool_example "
+                        + "WHERE tool_name = ? AND enabled = TRUE ORDER BY position",
+                (resultSet, rowNumber) -> resultSet.getString("example_text"),
+                tool.getName()
+        ));
+        return tool;
+    }
+
+    private List<ToolDefinition> loadExamples(List<ToolDefinition> tools) {
+        if (tools.isEmpty()) {
+            return tools;
+        }
+        String placeholders = String.join(
+                ", ",
+                java.util.Collections.nCopies(tools.size(), "?")
+        );
+        Map<String, List<String>> examplesByTool = new HashMap<>();
+        tools.forEach(tool -> examplesByTool.put(tool.getName(), new ArrayList<>()));
+        jdbcTemplate.query(
+                "SELECT tool_name, example_text FROM bandy_tool_example "
+                        + "WHERE enabled = TRUE AND tool_name IN (" + placeholders + ") "
+                        + "ORDER BY tool_name, position",
+                resultSet -> examplesByTool.get(resultSet.getString("tool_name"))
+                        .add(resultSet.getString("example_text")),
+                tools.stream().map(ToolDefinition::getName).toArray()
+        );
+        tools.forEach(tool -> tool.setExamples(examplesByTool.get(tool.getName())));
+        return tools;
     }
 
     private ToolDefinition loadParameters(ToolDefinition tool) {
