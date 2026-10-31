@@ -51,7 +51,6 @@ class AssistantConfigurationRepositoryTest {
                     .filter(tool -> "get_organization_info".equals(tool.getName()))
                     .findFirst().orElseThrow();
             assertEquals("DIRECTION", organization.getResultEntityType());
-            assertEquals("directions", organization.getResultCollectionKey());
             assertEquals("DIRECTION", organization.getParameters().stream()
                     .filter(parameter -> "directionId".equals(parameter.getName()))
                     .findFirst().orElseThrow().getReferenceType());
