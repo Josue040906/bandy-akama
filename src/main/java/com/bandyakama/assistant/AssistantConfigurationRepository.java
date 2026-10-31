@@ -15,7 +15,8 @@ import java.util.Map;
 import java.util.HashMap;
 
 @Repository
-public class AssistantConfigurationRepository {\n    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+public class AssistantConfigurationRepository {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String CONFIGURATION_QUERY = """
             SELECT p.name AS profile_name,
                    p.role AS profile_role,
@@ -33,7 +34,9 @@ public class AssistantConfigurationRepository {\n    private static final Object
                    parameter.description AS parameter_description,
                    parameter.location AS parameter_location,
                    parameter.required AS parameter_required,
-                   example.example_text AS example_text,\n                   example.pattern_text AS example_pattern,\n                   example.expected_arguments AS example_expected_arguments
+                   example.example_text AS example_text,
+                   example.pattern_text AS example_pattern,
+                   example.expected_arguments AS example_expected_arguments
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
                    ON t.enabled = TRUE AND t.approved_for_gemini = TRUE
