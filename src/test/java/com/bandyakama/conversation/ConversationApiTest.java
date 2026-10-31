@@ -452,6 +452,8 @@ class ConversationApiTest {
         assertTrue(academicContext.contains("CONTINUATION"));
         assertFalse(readMemoryJson(conversationId, "active_state")
                 .path("profiles").isObject());
+        assertFalse(readMemoryJson(conversationId, "result_references")
+                .toString().contains("Licence en Gestion RH"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
@@ -1319,6 +1321,7 @@ class ConversationApiTest {
 
         JsonNode state = readMemoryJson(conversationId, "active_state");
         assertFalse(state.has("profiles"));
+        assertFalse(state.toString().contains("Diplôme confidentiel"));
         assertEquals("service-1", state.path("activeEntity").path("id").asText());
         assertEquals("service-1", state.path("entityReferences").get(0).path("id").asText());
         var capturedState = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
