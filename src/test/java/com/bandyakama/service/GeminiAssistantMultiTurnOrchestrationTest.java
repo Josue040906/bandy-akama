@@ -34,7 +34,7 @@ import static org.mockito.Mockito.*;
 class GeminiAssistantMultiTurnOrchestrationTest {
 
     @Test
-    void executesModelDecisionsWithCompleteCriteriaAcrossFollowUpTurns() {
+    void executesModelDecisionsWithCompleteCriteriaAcrossFollowUpTurns() throws Exception {
         var factory = mock(GeminiClientFactory.class);
         var gateway = mock(GeminiChatGateway.class);
         var configurationRepository = mock(AssistantConfigurationRepository.class);
@@ -67,6 +67,9 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         when(gateway.createChat(any(), any()))
                 .thenReturn(decisionChat, finalChat1, decisionChat, finalChat2);
 
+        ObjectMapper mapper = new ObjectMapper();
+        String serviceCriteria = mapper.writeValueAsString(Map.of("service", "Administration générale"));
+        String womenCriteria = mapper.writeValueAsString(Map.of("service", "Administration générale", "sexe", "F"));
         GenerateContentResponse firstDecision = decision(
                 Map.of(
                         "intentType", "NEW_INTENT",
@@ -103,10 +106,12 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         );
 
         var first = assistant.respond("Cherche les agents de l'administration générale", "Bearer test");
+        String history = mapper.writeValueAsString(List.of(
+                Map.of("role", "user", "content", "Cherche les agents de l'administration générale"),
+                Map.of("role", "assistant", "content", "Six agents trouvés.")
+        ));
         String followUpContext = "Filtres actifs : service=Administration générale"
-                + ConversationPromptContext.marker()
-                + "[{\\"role\\":\\"user\\",\\"content\\":\\"Cherche les agents de l'administration générale\\"},"
-                + "{\\"role\\":\\"assistant\\",\\"content\\":\\"Six agents trouvés.\\"}]";
+                + ConversationPromptContext.marker() + history;
         var second = assistant.respond("Combien sont des femmes ?", "Bearer test", followUpContext);
 
         assertTrue(first.resetConversationState());
@@ -114,11 +119,10 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         assertEquals("Six agents trouvés.", first.message());
         assertEquals("Deux femmes correspondent.", second.message());
         verify(toolExecutor).execute(eq(search), argThat(args ->
-                "{\\"service\\":\\"Administration générale\\"}".equals(args.get("criteriaJson"))
+                serviceCriteria.equals(args.get("criteriaJson"))
         ), eq("Bearer test"), any());
         verify(toolExecutor).execute(eq(search), argThat(args ->
-                "{\\"service\\":\\"Administration générale\\",\\"sexe\\":\\"F\\"}"
-                        .equals(args.get("criteriaJson"))
+                womenCriteria.equals(args.get("criteriaJson"))
         ), eq("Bearer test"), any());
         verify(gateway, times(4)).createChat(eq("gemini-test"), any());
     }
