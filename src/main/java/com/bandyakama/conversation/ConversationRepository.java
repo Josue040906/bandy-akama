@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,11 +30,6 @@ import java.util.UUID;
 
 @Repository
 public class ConversationRepository {
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(ConversationRepository.class);
-    private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
-    private static final int MAX_CACHED_PROFILES = 3;
-
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
@@ -406,6 +399,17 @@ public class ConversationRepository {
         }
 
         ensureMemory(conversationId);
+        // Legacy versions could persist complete HR profiles in active_state.
+        // Remove that payload before exposing the state to the model.
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory
+                SET active_state = active_state - 'profiles',
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ?
+                    AND jsonb_exists(active_state, 'profiles')
+                """,
+                conversationId
+        );
         JsonNode activeState = readStoredJson(jdbcTemplate.queryForObject("""
                 SELECT active_state::text FROM bandy_conversation_memory
                 WHERE conversation_id = ?
@@ -691,53 +695,32 @@ public class ConversationRepository {
                 conversationId
         );
         String state = memory.activeState();
-        state = clearConversationState
-                ? "{}"
-                : toJson(readStoredJson(state));
+        if (clearConversationState) {
+            state = "{}";
+        } else {
+            JsonNode existingState = readStoredJson(state);
+            ObjectNode sanitizedState = existingState.isObject()
+                    ? ((ObjectNode) existingState).deepCopy()
+                    : objectMapper.createObjectNode();
+            // Never carry legacy full-profile caches into the next memory snapshot.
+            sanitizedState.remove("profiles");
+            state = toJson(sanitizedState);
+        }
         ArrayNode references = readArray(memory.resultReferences());
         if (clearConversationState) {
             references.removeAll();
         }
         for (ChatResponse.ToolState toolState : toolStates) {
             JsonNode previousState = readStoredJson(state);
-            ObjectNode cachedProfiles = previousState.path("profiles").isObject()
-                    ? ((ObjectNode) previousState.path("profiles")).deepCopy()
-                    : objectMapper.createObjectNode();
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
-            );            if (previousState.path("activeEntity").isObject()) {
+            );
+            if (previousState.path("activeEntity").isObject()) {
                 nextState.set("activeEntity", previousState.path("activeEntity").deepCopy());
             }
             if (previousState.path("entityReferences").isArray()) {
                 nextState.set("entityReferences", previousState.path("entityReferences").deepCopy());
-            }
-            if ("get_agent_profile".equals(toolState.name())
-                    && toolState.result() != null) {
-                JsonNode profile = objectMapper.valueToTree(toolState.result());
-                String serializedProfile = toJson(profile);
-                if (serializedProfile.length()
-                        <= MAX_CACHED_PROFILE_CHARACTERS) {
-                    cachedProfiles.set(
-                            profileCacheKey(toolState.arguments(), profile),
-                            profile
-                    );
-                    while (cachedProfiles.size() > MAX_CACHED_PROFILES) {
-                        cachedProfiles.remove(
-                                cachedProfiles.fieldNames().next()
-                        );
-                    }
-                } else {
-                    LOGGER.warn(
-                            "Assistant profile cache skipped because the result "
-                                    + "exceeded {} characters (actual: {}).",
-                            MAX_CACHED_PROFILE_CHARACTERS,
-                            serializedProfile.length()
-                    );
-                }
-            }
-            if (!cachedProfiles.isEmpty()) {
-                nextState.set("profiles", cachedProfiles);
             }
             state = toJson(nextState);
         }
@@ -813,9 +796,7 @@ public class ConversationRepository {
                 .map(result -> new ChatResponse.ToolState(
                         result.name(),
                         result.arguments(),
-                        "get_agent_profile".equals(result.name())
-                                ? result.result()
-                                : null
+                        null
                 ))
                 .toList();
     }
@@ -1245,17 +1226,6 @@ public class ConversationRepository {
             }
         }
         return state;
-    }
-
-    private String profileCacheKey(
-            Map<String, Object> arguments,
-            JsonNode profile
-    ) {
-        String matricule = profile.path("agent").path("matricule").asText("");
-        String identity = matricule.isBlank()
-                ? String.valueOf(arguments.getOrDefault("nom_agent", ""))
-                : matricule;
-        return identity.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private ChatResponse readSavedResponse(
