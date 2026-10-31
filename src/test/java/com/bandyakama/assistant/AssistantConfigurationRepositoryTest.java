@@ -45,6 +45,13 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertEquals(
+                    List.of("LIST", "COUNT"),
+                    snapshot.enabledTools().stream()
+                            .filter(tool -> "search_agents".equals(tool.getName()))
+                            .findFirst().orElseThrow()
+                            .getParameters().get(1).getAllowedValues()
+            );
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
@@ -118,7 +125,8 @@ class AssistantConfigurationRepositoryTest {
                     description VARCHAR(1000),
                     location VARCHAR(10),
                     required BOOLEAN,
-                    position INTEGER
+                    position INTEGER,
+                    allowed_values VARCHAR(2000)
                 )
                 """);
     }
@@ -144,20 +152,20 @@ class AssistantConfigurationRepositoryTest {
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
-                (tool_name, name, type, description, location, required, position)
+                (tool_name, name, type, description, location, required, position, allowed_values)
                 VALUES
                 ('get_agent_profile', 'nom_agent', 'string', 'Agent name',
-                 'query', TRUE, 1),
+                 'query', TRUE, 1, NULL),
                 ('search_agents', 'criteriaJson', 'string', 'Search criteria',
-                 'body', TRUE, 1),
+                 'body', TRUE, 1, NULL),
                 ('search_agents', 'resultMode', 'string', 'Result mode',
-                 'body', FALSE, 2),
+                 'body', FALSE, 2, '[\\"LIST\\",\\"COUNT\\"]'),
                 ('get_organization_info', 'query', 'string', 'Organization query',
-                 'query', TRUE, 1),
+                 'query', TRUE, 1, NULL),
                 ('get_organization_info', 'scope', 'string', 'Scope',
-                 'query', FALSE, 2),
+                 'query', FALSE, 2, NULL),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
-                 'query', TRUE, 1)
+                 'query', TRUE, 1, NULL)
                 """);
     }
 
