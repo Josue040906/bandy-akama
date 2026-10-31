@@ -116,7 +116,6 @@ public final class ConversationEntityReferenceExtractor {
         }
 
         ConversationTurnDecision.ReferencedEntity parentForChildren = current;
-        String typeForChildren = ownType;
         node.fields().forEachRemaining(entry -> {
             String childType = typeForCollection(entry.getKey());
             visit(entry.getValue(),
