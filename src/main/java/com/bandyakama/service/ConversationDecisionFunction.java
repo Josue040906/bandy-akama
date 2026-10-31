@@ -9,7 +9,6 @@ import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
 import com.google.genai.types.ToolConfig;
 
-import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +58,7 @@ final class ConversationDecisionFunction {
                                 .nullable(true).build()
                 ))
                 .required(List.of("type", "id", "name"))
+                .nullable(true)
                 .build();
 
         Schema decisionSchema = Schema.builder()
@@ -79,7 +79,7 @@ final class ConversationDecisionFunction {
                                 .type("OBJECT").properties(argumentProperties)
                                 .description("Arguments complets de l’action actuelle, sans fusion implicite avec les anciens arguments.")
                                 .build(),
-                        "referencedEntity", entitySchema.toBuilder().nullable(true).build(),
+                        "referencedEntity", entitySchema,
                         "needsClarification", Schema.builder().type("BOOLEAN")
                                 .description("Vrai si une précision est nécessaire avant toute exécution.")
                                 .build(),
