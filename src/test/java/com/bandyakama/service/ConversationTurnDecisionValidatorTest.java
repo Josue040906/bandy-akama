@@ -78,10 +78,10 @@ class ConversationTurnDecisionValidatorTest {
                 "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
                 Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 1),
                 entity, false, null, null);
-        String context = "Références aux résultats métier précédents :\\n"
-                + "[{\\"toolName\\":\\"get_organization_info\\",\\"result\\":{"
-                + "directions\\":[{\\"id\\":1,\\"nom\\":\\"Direction Générale de l'Administration\\"}]}}]\\n"
-                + "Résumé extractif des échanges plus anciens :\\n";
+        String context = "Références aux résultats métier précédents :\n"
+                + "[{\"toolName\":\"get_organization_info\",\"result\":{"
+                + "\"directions\":[{\"id\":1,\"nom\":\"Direction Générale de l'Administration\"}]}}]\n"
+                + "Résumé extractif des échanges plus anciens :\n";
         assertDoesNotThrow(() -> validator.validate(
                 decision, Map.of(organizationTool.getName(), organizationTool),
                 context, new ObjectMapper().createObjectNode()));
