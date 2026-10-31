@@ -94,8 +94,8 @@ final class ConversationTurnDecisionValidator {
             }
             tool.getParameters().stream()
                     .filter(parameter -> parameter.getReferenceType() != null)
-                    .filter(parameter -> parameter.getReferenceType()
-                            .equalsIgnoreCase(decision.referencedEntity().type()))
+                    .filter(parameter -> isCompatibleReferenceType(
+                            parameter.getReferenceType(), decision.referencedEntity().type()))
                     .filter(parameter -> decision.arguments().containsKey(parameter.getName()))
                     .findFirst()
                     .ifPresent(parameter -> {
@@ -142,20 +142,29 @@ final class ConversationTurnDecisionValidator {
         }
     }
 
+    private boolean isCompatibleReferenceType(String declaredType, String actualType) {
+        if (declaredType.equalsIgnoreCase(actualType)) {
+            return true;
+        }
+        return "STRUCTURE".equalsIgnoreCase(declaredType)
+                && Set.of("DIRECTION", "SERVICE", "POSTE")
+                .contains(actualType.toUpperCase());
+    }
+
     private boolean hasKnownEntity(JsonNode activeState, String type, long id) {
         if (activeState == null || activeState.isNull()) {
             return false;
         }
         JsonNode activeEntity = activeState.path("activeEntity");
         if (activeEntity.isObject()
-                && type.equalsIgnoreCase(activeEntity.path("type").asText())
+                && isCompatibleReferenceType(type, activeEntity.path("type").asText())
                 && activeEntity.path("id").asLong(-1) == id) {
             return true;
         }
         JsonNode references = activeState.path("entityReferences");
         if (references.isArray()) {
             for (JsonNode reference : references) {
-                if (type.equalsIgnoreCase(reference.path("type").asText())
+                if (isCompatibleReferenceType(type, reference.path("type").asText())
                         && reference.path("id").asLong(-1) == id) {
                     return true;
                 }
