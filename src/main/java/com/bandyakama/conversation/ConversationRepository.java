@@ -425,10 +425,13 @@ public class ConversationRepository {
             );
             activeState = sanitizedState;
         }
+        JsonNode stateForRequest = activeState.isObject() && activeState.isEmpty()
+                ? null
+                : activeState;
         return new RequestStart(
                 null,
                 claimId,
-                activeState
+                stateForRequest
         );
     }
 
