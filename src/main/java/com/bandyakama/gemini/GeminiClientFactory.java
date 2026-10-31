@@ -36,6 +36,11 @@ public class GeminiClientFactory {
                 .build();
     }
 
+    public GeminiChatGateway createGateway(String apiKey) {
+        Client client = create(apiKey);
+        return (model, config) -> client.chats.create(model, config);
+    }
+
     HttpOptions httpOptions() {
         HttpRetryOptions retryOptions = HttpRetryOptions.builder()
                 .attempts(retryAttempts)

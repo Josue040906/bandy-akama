@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/contextual-intent-resolution
+      - test/gemini-multiturn-orchestration
   pull_request:
     branches:
       - main
