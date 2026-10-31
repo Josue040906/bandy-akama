@@ -62,9 +62,9 @@ class ConversationTurnDecisionValidatorTest {
     }
 
     @Test
-    void rejectsMissingRequiredOperation() {
+    void asksForClarificationWhenARequiredOperationArgumentIsMissing() {
         var decision = decision("get_organization_info",
-                "COUNT_EMPLOYEES_BY_STRUCTURE", Map.of("directionId", 1));
+                "COUNT_EMPLOYEES_BY_STRUCTURE", Map.of());
         assertThrows(ConversationClarificationRequiredException.class,
                 () -> validator.validate(decision,
                         Map.of(organizationTool.getName(), organizationTool),
