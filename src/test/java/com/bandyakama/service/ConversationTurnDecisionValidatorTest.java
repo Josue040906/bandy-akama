@@ -42,6 +42,19 @@ class ConversationTurnDecisionValidatorTest {
     }
 
     @Test
+    void rejectsAnOperationOutsideTheToolAllowedValues() {
+        var decision = decision(
+                "get_organization_info",
+                "DROP_DATABASE",
+                Map.of("operation", "DROP_DATABASE")
+        );
+        assertThrows(org.springframework.web.server.ResponseStatusException.class,
+                () -> validator.validate(decision,
+                        Map.of(organizationTool.getName(), organizationTool),
+                        "", new ObjectMapper().createObjectNode()));
+    }
+
+    @Test
     void acceptsDirectResponseForAnIndependentNewIntent() {
         var decision = new ConversationTurnDecision(
                 ConversationTurnDecision.IntentType.NEW_INTENT,
@@ -190,6 +203,9 @@ class ConversationTurnDecisionValidatorTest {
                         new ToolParameter("directionId", "integer", "Direction", false),
                         new ToolParameter("serviceId", "integer", "Service", false)
                 ));
+        tool.getParameters().get(0).setAllowedValues(List.of(
+                "LIST_DIRECTIONS", "COUNT_EMPLOYEES_BY_STRUCTURE"
+        ));
         tool.setWhenToUse("Consulter les structures du MEF.");
         return tool;
     }
