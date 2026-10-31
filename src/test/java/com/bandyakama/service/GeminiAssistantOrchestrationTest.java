@@ -86,7 +86,7 @@ class GeminiAssistantOrchestrationTest {
                 .findFirst().orElseThrow()
                 .description().orElseThrow();
 
-        assertTrue(description.contains("Formulations"));
+        assertTrue(description.contains("Exemples de demandes correspondantes"));
         assertTrue(description.contains("Trouve les agents du service financier"));
         assertTrue(description.contains("Qui travaille à la direction générale ?"));
     }
