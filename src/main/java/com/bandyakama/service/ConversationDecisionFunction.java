@@ -29,9 +29,14 @@ final class ConversationDecisionFunction {
                 if ("operation".equals(parameter.getName())) {
                     continue;
                 }
+                String parameterDescription = parameter.getDescription();
+                if (parameter.getReferenceType() != null) {
+                    parameterDescription += " Cet identifiant référence une entité de type "
+                            + parameter.getReferenceType() + " déjà identifiée dans le contexte.";
+                }
                 Schema.Builder parameterSchema = Schema.builder()
                         .type(geminiType(parameter.getType()))
-                        .description(parameter.getDescription());
+                        .description(parameterDescription);
                 if (parameter.getAllowedValues() != null) {
                     parameterSchema.format("enum").enum_(parameter.getAllowedValues());
                 }
