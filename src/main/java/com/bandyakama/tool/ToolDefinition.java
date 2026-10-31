@@ -111,9 +111,9 @@ public class ToolDefinition {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException("L’URL de l’outil est obligatoire.");
         }
-        if ((resultEntityType == null) != (resultCollectionKey == null)) {
+        if (resultCollectionKey != null && resultEntityType == null) {
             throw new IllegalArgumentException(
-                    "Le type d’entité et la collection de résultat doivent être déclarés ensemble."
+                    "Une collection de résultat nécessite un type d’entité déclaré."
             );
         }
         if (resultEntityType != null
