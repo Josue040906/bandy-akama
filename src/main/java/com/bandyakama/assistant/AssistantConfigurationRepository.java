@@ -2,6 +2,9 @@ package com.bandyakama.assistant;
 
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
+import com.bandyakama.tool.ToolExample;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -9,9 +12,10 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.HashMap;
 
 @Repository
-public class AssistantConfigurationRepository {
+public class AssistantConfigurationRepository {\n    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String CONFIGURATION_QUERY = """
             SELECT p.name AS profile_name,
                    p.role AS profile_role,
@@ -29,7 +33,7 @@ public class AssistantConfigurationRepository {
                    parameter.description AS parameter_description,
                    parameter.location AS parameter_location,
                    parameter.required AS parameter_required,
-                   example.example_text AS example_text
+                   example.example_text AS example_text,\n                   example.pattern_text AS example_pattern,\n                   example.expected_arguments AS example_expected_arguments
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
                    ON t.enabled = TRUE AND t.approved_for_gemini = TRUE
@@ -111,9 +115,13 @@ public class AssistantConfigurationRepository {
                 }
 
                 String exampleText = resultSet.getString("example_text");
-                if (exampleText != null
-                        && !tool.getExamples().contains(exampleText)) {
-                    tool.getExamples().add(exampleText);
+                if (exampleText != null && tool.getExamples().stream()
+                        .noneMatch(existing -> existing.getText().equals(exampleText))) {
+                    tool.getExamples().add(readExample(
+                            exampleText,
+                            resultSet.getString("example_pattern"),
+                            resultSet.getString("example_expected_arguments")
+                    ));
                 }
             } while (resultSet.next());
 
@@ -122,6 +130,27 @@ public class AssistantConfigurationRepository {
                     List.copyOf(tools.values())
             );
         });
+    }
+
+    private static ToolExample readExample(
+            String text,
+            String pattern,
+            String expectedArgumentsJson
+    ) {
+        try {
+            Map<String, Object> expectedArguments = OBJECT_MAPPER.readValue(
+                    expectedArgumentsJson,
+                    OBJECT_MAPPER.getTypeFactory().constructMapType(
+                            HashMap.class, String.class, Object.class
+                    )
+            );
+            return new ToolExample(text, pattern, expectedArguments);
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException(
+                    "Les arguments attendus d’un exemple sont illisibles.",
+                    exception
+            );
+        }
     }
 
     private static String resultSetValue(
