@@ -18,14 +18,26 @@ class ConversationTurnDecisionValidatorTest {
     private final ToolDefinition organizationTool = organizationTool();
 
     @Test
-    void acceptsACompleteAllowedOrganizationAction() {
-        var decision = decision("get_organization_info",
-                "COUNT_EMPLOYEES_BY_STRUCTURE", Map.of("operation",
-                        "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 1));
-
+    void acceptsACompleteAllowedOrganizationActionWithKnownEntity() throws Exception {
+        var entity = new ConversationTurnDecision.ReferencedEntity(
+                "DIRECTION", 1L, "Direction Générale de l'Administration", null, null);
+        var decision = new ConversationTurnDecision(
+                ConversationTurnDecision.IntentType.CONTINUATION,
+                "get_organization_info", "COUNT_EMPLOYEES_BY_STRUCTURE",
+                Map.of("operation", "COUNT_EMPLOYEES_BY_STRUCTURE", "directionId", 1),
+                entity, false, null, null);
+        var activeState = new ObjectMapper().readTree("""
+                {
+                  "activeEntity": {
+                    "type": "DIRECTION",
+                    "id": 1,
+                    "name": "Direction Générale de l'Administration"
+                  }
+                }
+                """);
         assertDoesNotThrow(() -> validator.validate(
                 decision, Map.of(organizationTool.getName(), organizationTool),
-                "", new ObjectMapper().createObjectNode()
+                "", activeState
         ));
     }
 
