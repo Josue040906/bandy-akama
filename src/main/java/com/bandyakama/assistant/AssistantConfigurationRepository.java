@@ -22,6 +22,7 @@ public class AssistantConfigurationRepository {
                    t.http_method AS tool_http_method,
                    t.endpoint_url AS tool_endpoint_url,
                    t.enabled AS tool_enabled,
+                   t.assistant_enabled AS tool_assistant_enabled,
                    t.sensitive AS tool_sensitive,
                    parameter.name AS parameter_name,
                    parameter.type AS parameter_type,
@@ -30,11 +31,7 @@ public class AssistantConfigurationRepository {
                    parameter.required AS parameter_required
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
-                   ON t.enabled = TRUE AND t.name IN (
-                       'get_agent_profile',
-                       'search_agents',
-                       'get_organization_info'
-                   )
+                   ON t.enabled = TRUE AND t.assistant_enabled = TRUE
             LEFT JOIN bandy_tool_parameter parameter
                    ON parameter.tool_name = t.name
             WHERE p.id = 1
@@ -79,6 +76,9 @@ public class AssistantConfigurationRepository {
                     );
                     try {
                         definition.setEnabled(resultSet.getBoolean("tool_enabled"));
+                        definition.setAssistantEnabled(
+                                resultSet.getBoolean("tool_assistant_enabled")
+                        );
                         definition.setSensitive(
                                 resultSet.getBoolean("tool_sensitive")
                         );
