@@ -4,6 +4,7 @@ import com.bandyakama.assistant.AssistantProfile;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import java.util.ArrayList;
 import java.util.List;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
@@ -62,6 +63,7 @@ class AssistantPromptBuilderTest {
             );
         }
         if ("get_organization_info".equals(name)) {
+            tool.setParameters(new ArrayList<>(tool.getParameters()));
             tool.setResultEntityType("DIRECTION");
             tool.setResultCollectionKey("directions");
             ToolParameter directionId = new ToolParameter(
