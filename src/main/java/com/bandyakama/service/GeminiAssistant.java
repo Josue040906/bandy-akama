@@ -361,6 +361,15 @@ public class GeminiAssistant {
                     }
                 }
             }
+            if (selectedToolName instanceof String selectedName) {
+                ToolDefinition selectedDefinition = enabledTools.get(selectedName);
+                Object operation = rawDecision.get("operation");
+                if (selectedDefinition != null && operation != null
+                        && selectedDefinition.getParameters().stream()
+                        .anyMatch(parameter -> "operation".equals(parameter.getName()))) {
+                    selectedArguments.putIfAbsent("operation", operation);
+                }
+            }
             rawDecision.put("arguments", selectedArguments);
             decision = objectMapper.convertValue(rawDecision, ConversationTurnDecision.class);
         } catch (IllegalArgumentException invalidPayload) {
