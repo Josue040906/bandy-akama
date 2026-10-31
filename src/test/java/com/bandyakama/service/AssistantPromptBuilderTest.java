@@ -41,6 +41,10 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("NEW_INTENT"));
         assertTrue(instruction.contains("DIRECT_RESPONSE"));
         assertTrue(instruction.contains("arguments complets"));
+        assertTrue(instruction.contains(
+                "GESTION DU CONTEXTE CONVERSATIONNEL ET DES FILTRES:\\n"
+                        + "- CONTINUATION:"
+        ));
     }
     private ToolDefinition tool(String name, String description, String parameterName) {
         ToolDefinition tool = new ToolDefinition(
