@@ -102,6 +102,20 @@ public class AssistantConfigurationRepository {
                     parameter.setLocation(
                             resultSet.getString("parameter_location")
                     );
+                    String allowedValues = resultSet.getString("parameter_allowed_values");
+                    if (allowedValues != null && !allowedValues.isBlank()) {
+                        try {
+                            parameter.setAllowedValues(
+                                    new com.fasterxml.jackson.databind.ObjectMapper()
+                                            .readValue(allowedValues,
+                                                    new com.fasterxml.jackson.core.type.TypeReference<List<String>>() {})
+                            );
+                        } catch (java.io.IOException invalidValues) {
+                            throw new IllegalStateException(
+                                    "Valeurs autorisées invalides dans la configuration.", invalidValues
+                            );
+                        }
+                    }
                     tool.getParameters().add(parameter);
                 }
             } while (resultSet.next());
