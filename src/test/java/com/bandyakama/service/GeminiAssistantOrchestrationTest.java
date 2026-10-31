@@ -51,6 +51,9 @@ class GeminiAssistantOrchestrationTest {
         ToolDefinition profileTool = namedTool("get_agent_profile");
         ToolDefinition searchTool = namedTool("search_agents");
         ToolDefinition organizationTool = namedTool("get_organization_info");
+        profileTool.setAssistantEnabled(true);
+        searchTool.setAssistantEnabled(true);
+        organizationTool.setAssistantEnabled(true);
 
         assertEquals(
                 List.of(profileTool, searchTool, organizationTool),
@@ -68,6 +71,16 @@ class GeminiAssistantOrchestrationTest {
         ).isEmpty());
     }
 
+    @Test
+    void excludesToolsNotExplicitlyExposedToTheAssistant() {
+        ToolDefinition exposed = namedTool("dynamic_tool");
+        exposed.setAssistantEnabled(true);
+        ToolDefinition storedButNotExposed = namedTool("legacy_tool");
+
+        assertEquals(List.of(exposed), GeminiAssistant.selectAllowedTools(
+                List.of(exposed, storedButNotExposed)
+        ));
+    }
     @Test
     void mapsPersistedAssistantHistoryToGeminiModelAndUserRoles() {
         List<Content> history = GeminiAssistant.toGeminiHistory(List.of(
@@ -149,6 +162,9 @@ class GeminiAssistantOrchestrationTest {
         ToolDefinition profileTool = namedTool("get_agent_profile");
         ToolDefinition searchTool = namedTool("search_agents");
         ToolDefinition organizationTool = namedTool("get_organization_info");
+        profileTool.setAssistantEnabled(true);
+        searchTool.setAssistantEnabled(true);
+        organizationTool.setAssistantEnabled(true);
 
         assertEquals(
                 List.of(profileTool, searchTool, organizationTool),
