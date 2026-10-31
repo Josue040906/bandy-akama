@@ -50,7 +50,11 @@ class ConversationDecisionFunctionTest {
         tool.getParameters().get(0).setAllowedValues(List.of(
                 "LIST_DIRECTIONS", "COUNT_DIRECTIONS"
         ));
-        tool.getParameters().get(3).setAllowedValues(List.of("LIST", "COUNT"));
+        ToolParameter resultMode = new ToolParameter(
+                "resultMode", "string", "List or count", false
+        );
+        resultMode.setAllowedValues(List.of("LIST", "COUNT"));
+        tool.getParameters().add(resultMode);
 
         var properties = ConversationDecisionFunction.declaration(List.of(tool))
                 .functionDeclarations().orElseThrow().get(0)
@@ -64,7 +68,7 @@ class ConversationDecisionFunctionTest {
                 .get("get_organization_info").properties().orElseThrow();
         assertEquals(
                 List.of("LIST", "COUNT"),
-                arguments.get("query").enum_().orElseThrow()
+                arguments.get("resultMode").enum_().orElseThrow()
         );
     }
 
