@@ -2,6 +2,8 @@ package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationStateMerger;
+import com.bandyakama.conversation.ConversationTurnDecision;
+import com.bandyakama.conversation.ConversationEntityReferenceExtractor;
 import com.bandyakama.conversation.ConversationShortcuts;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.assistant.AssistantConfigurationRepository;
@@ -410,8 +412,12 @@ public class GeminiAssistant {
             finalMessage = "Je n’ai pas pu établir une réponse fiable à partir "
                     + "du résultat obtenu. Pouvez-vous préciser votre demande ?";
         }
+        List<ConversationTurnDecision.ReferencedEntity> entityReferences =
+                "get_organization_info".equals(decision.toolName())
+                        ? ConversationEntityReferenceExtractor.extract(result)
+                        : List.of();
         return new ChatResponse(finalMessage, executedResults, null, resetState,
-                toolStates, decision.referencedEntity());
+                toolStates, decision.referencedEntity(), entityReferences);
     }
     static List<Content> toGeminiHistory(
             List<ConversationPromptContext.Message> history
