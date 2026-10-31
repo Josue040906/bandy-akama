@@ -13,6 +13,7 @@ import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Chat;
+import com.google.common.collect.ImmutableList;
 import com.google.genai.types.FunctionCall;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
@@ -134,7 +135,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
         Part part = mock(Part.class);
         when(part.functionCall()).thenReturn(Optional.of(call));
         GenerateContentResponse response = mock(GenerateContentResponse.class);
-        when(response.parts()).thenReturn(List.of(part));
+        when(response.parts()).thenReturn(ImmutableList.of(part));
         when(response.usageMetadata()).thenReturn(Optional.empty());
         return response;
     }
@@ -142,7 +143,7 @@ class GeminiAssistantMultiTurnOrchestrationTest {
     private GenerateContentResponse textResponse(String text) {
         GenerateContentResponse response = mock(GenerateContentResponse.class);
         when(response.text()).thenReturn(text);
-        when(response.parts()).thenReturn(List.of());
+        when(response.parts()).thenReturn(ImmutableList.of());
         when(response.usageMetadata()).thenReturn(Optional.empty());
         return response;
     }
