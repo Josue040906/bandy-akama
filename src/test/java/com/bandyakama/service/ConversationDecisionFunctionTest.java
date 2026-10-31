@@ -5,6 +5,7 @@ import com.bandyakama.tool.ToolParameter;
 import com.google.genai.types.FunctionCallingConfigMode;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -122,12 +123,12 @@ class ConversationDecisionFunctionTest {
                 "Consultation de l’organisation",
                 "GET",
                 "http://localhost/api/organisation",
-                List.of(
+                new ArrayList<>(List.of(
                         new ToolParameter("operation", "string", "Opération", true),
                         new ToolParameter("directionId", "integer", "Identifiant de direction", false),
                         new ToolParameter("serviceId", "integer", "Identifiant de service", false),
                         new ToolParameter("query", "string", "Recherche textuelle", false)
-                )
+                ))
         );
         tool.getParameters().get(1).setReferenceType("DIRECTION");
         tool.setWhenToUse("Pour consulter les directions, services et postes.");
