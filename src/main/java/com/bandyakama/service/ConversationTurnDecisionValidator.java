@@ -6,7 +6,6 @@ import com.bandyakama.tool.ToolParameter;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.math.BigDecimal;
@@ -15,7 +14,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Validates Gemini's interpretation against enabled tool contracts and trusted context. */
-@Component
 final class ConversationTurnDecisionValidator {
     private static final String REFERENCES_HEADING =
             "Références aux résultats métier précédents :";
