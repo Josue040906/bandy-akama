@@ -700,13 +700,9 @@ public class GeminiAssistant {
         if (availableTools == null) {
             return List.of();
         }
-        Set<String> allowedNames = Set.of(
-                "get_agent_profile",
-                "search_agents",
-                "get_organization_info"
-        );
         return availableTools.stream()
-                .filter(tool -> allowedNames.contains(tool.getName()))
+                .filter(tool -> tool.isEnabled() && tool.isAssistantEnabled())
+                .peek(ToolDefinition::validate)
                 .collect(java.util.stream.Collectors.toMap(
                         ToolDefinition::getName,
                         tool -> tool,
@@ -717,7 +713,6 @@ public class GeminiAssistant {
                 .stream()
                 .toList();
     }
-
     static GenerateContentConfig generationConfig(
             String systemInstruction,
             Tool tool,
