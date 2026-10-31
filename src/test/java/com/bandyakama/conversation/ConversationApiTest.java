@@ -449,7 +449,7 @@ class ConversationApiTest {
         String academicContext = contexts.getAllValues().get(2);
         assertFalse(academicContext.contains("Licence en Gestion RH"));
         assertFalse(academicContext.contains("réutilise-les pour les suivis"));
-        assertTrue(academicContext.contains("CONTINUATION"));
+        assertTrue(academicContext.contains("État structuré précédent"));
         assertFalse(readMemoryJson(conversationId, "active_state")
                 .path("profiles").isObject());
         assertFalse(readMemoryJson(conversationId, "result_references")
