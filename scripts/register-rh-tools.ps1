@@ -129,6 +129,7 @@ $tools = @(
                 description = 'Identifiant de la direction, du service ou du poste pour les opérations GET correspondantes.'
                 required = $false
                 location = 'query'
+                referenceType = 'STRUCTURE'
             },
             @{
                 name = 'directionId'
