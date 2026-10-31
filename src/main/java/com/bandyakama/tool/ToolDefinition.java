@@ -111,6 +111,19 @@ public class ToolDefinition {
         if (url == null || url.isBlank()) {
             throw new IllegalArgumentException("L’URL de l’outil est obligatoire.");
         }
+        if ((resultEntityType == null) != (resultCollectionKey == null)) {
+            throw new IllegalArgumentException(
+                    "Le type d’entité et la collection de résultat doivent être déclarés ensemble."
+            );
+        }
+        if (resultEntityType != null
+                && !resultEntityType.matches("[A-Za-z][A-Za-z0-9_]{0,39}")) {
+            throw new IllegalArgumentException("Type d’entité de résultat invalide.");
+        }
+        if (resultCollectionKey != null
+                && !resultCollectionKey.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
+            throw new IllegalArgumentException("Collection de résultat invalide.");
+        }
         if (parameters == null) {
             parameters = List.of();
         }
