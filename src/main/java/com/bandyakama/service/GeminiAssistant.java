@@ -11,11 +11,11 @@ import com.bandyakama.assistant.AssistantProfile;
 import com.bandyakama.assistant.AssistantConfigurationSnapshot;
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.gemini.GeminiClientFactory;
+import com.bandyakama.gemini.GeminiChatGateway;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
 import com.google.genai.Chat;
-import com.google.genai.Client;
 import com.google.genai.ResponseStream;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
@@ -51,7 +51,7 @@ import java.util.function.Consumer;
 
 @Service
 public class GeminiAssistant {
-    private final Client client;
+    private final GeminiChatGateway chatGateway;
     private final String apiKey;
     private final String model;
     private final AssistantConfigurationRepository configurationRepository;
@@ -82,9 +82,9 @@ public class GeminiAssistant {
             ObjectMapper objectMapper
     ) {
         this.apiKey = apiKey;
-        this.client = apiKey.isBlank()
+        this.chatGateway = apiKey.isBlank()
                 ? null
-                : geminiClientFactory.create(apiKey);
+                : geminiClientFactory.createGateway(apiKey);
         this.geminiTimeoutMillis = geminiClientFactory.timeoutMillis();
         this.geminiRetryAttempts = geminiClientFactory.retryAttempts();
         if (maxToolRounds < 1 || maxToolRounds > 5) {
@@ -325,7 +325,7 @@ public class GeminiAssistant {
         performanceTelemetry.stage(requestId, "assistant_preparation",
                 preparationStartedAt, true);
 
-        Chat decisionChat = client.chats.create(model, decisionConfig);
+        Chat decisionChat = chatGateway.createChat(model, decisionConfig);
         GenerateContentResponse decisionResponse = callModel(
                 requestId, metrics, decisionConfig,
                 requestConfig -> decisionChat.sendMessage(routedMessages, requestConfig)
@@ -390,7 +390,7 @@ public class GeminiAssistant {
         );
 
         GenerateContentConfig finalConfig = finalResponseConfig(systemInstruction);
-        Chat finalChat = client.chats.create(model, finalConfig);
+        Chat finalChat = chatGateway.createChat(model, finalConfig);
         String finalPrompt = "MESSAGE DE L’UTILISATEUR :\n" + message
                 + "\n\nCONTEXTE CONVERSATIONNEL :\n" + promptContext.context()
                 + "\n\nDÉCISION VALIDÉE PAR L’APPLICATION :\n"
