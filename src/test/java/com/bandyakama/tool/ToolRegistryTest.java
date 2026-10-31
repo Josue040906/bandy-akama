@@ -48,6 +48,8 @@ class ToolRegistryTest {
         assertEquals("query", loaded.getParameters().get(0).getName());
         assertTrue(loaded.isEnabled());
         assertFalse(loaded.isSensitive());
+        assertEquals(List.of("Trouve les agents du service financier"),
+                loaded.getExamples());
     }
 
     @Test
@@ -206,6 +208,7 @@ class ToolRegistryTest {
                 List.of(query)
         );
         tool.setWhenToUse("Use when looking for agents.");
+        tool.setExamples(List.of("Trouve les agents du service financier"));
         return tool;
     }
 }
