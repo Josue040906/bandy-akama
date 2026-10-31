@@ -368,7 +368,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void reusesTheLoadedAgentProfileForIdentityCorrectionAndAcademicFollowUp()
+    keepsAgentIdentityContextWithoutPersistingTheLoadedProfilePayload()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -447,8 +447,11 @@ class ConversationApiTest {
         );
 
         String academicContext = contexts.getAllValues().get(2);
-        assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
+        assertFalse(academicContext.contains("Licence en Gestion RH"));
+        assertFalse(academicContext.contains("réutilise-les pour les suivis"));
+        assertTrue(academicContext.contains("CONTINUATION"));
+        assertFalse(readMemoryJson(conversationId, "active_state")
+                .path("profiles").isObject());
         assertTrue(academicContext.contains("CONTINUATION"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
@@ -475,7 +478,7 @@ class ConversationApiTest {
                 requestedMessages.getAllValues().get(2)
         );
         String unexpectedContext = contexts.getAllValues().get(3);
-        assertTrue(unexpectedContext.contains("Licence en Gestion RH"));
+        assertFalse(unexpectedContext.contains("Licence en Gestion RH"));
         assertTrue(unexpectedContext.contains("CONTINUATION"));
         var unexpectedHistory = ConversationPromptContext.parse(
                 unexpectedContext,
@@ -1284,6 +1287,46 @@ class ConversationApiTest {
                         18000
                 )
         );
+    }
+
+    @Test
+    void removesLegacyCachedProfilesBeforePassingConversationStateToAssistant()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory
+                SET active_state = CAST(? AS JSONB)
+                WHERE conversation_id = ?
+                """,
+                """
+                {
+                  "profiles": {
+                    "agent-1": {
+                      "agent": {"matricule": "MEF-PRIVATE-001"},
+                      "diplomes": [{"intitule": "Diplôme confidentiel"}]
+                    }
+                  },
+                  "activeEntity": {"type": "SERVICE", "id": "service-1", "name": "Personnel"},
+                  "entityReferences": [{"type": "SERVICE", "id": "service-1", "name": "Personnel"}]
+                }
+                """,
+                conversationId
+        );
+        when(assistant.respond(
+                anyString(), anyString(), anyString(), any(UUID.class), nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse("Je peux vous aider.", List.of()));
+
+        send(conversationId, "42", "Bonjour");
+
+        JsonNode state = readMemoryJson(conversationId, "active_state");
+        assertFalse(state.has("profiles"));
+        assertEquals("service-1", state.path("activeEntity").path("id").asText());
+        assertEquals("service-1", state.path("entityReferences").get(0).path("id").asText());
+        var capturedState = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
+        verify(assistant).respond(
+                anyString(), anyString(), anyString(), any(UUID.class), capturedState.capture()
+        );
+        assertFalse(capturedState.getValue().has("profiles"));
     }
 
     @Test
