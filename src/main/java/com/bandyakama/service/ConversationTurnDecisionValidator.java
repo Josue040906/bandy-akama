@@ -62,6 +62,11 @@ final class ConversationTurnDecisionValidator {
             if (value != null && !matchesType(parameter.getType(), value)) {
                 throw invalidDecision("Le type de l’argument est invalide : " + parameter.getName());
             }
+            if (value != null && parameter.getAllowedValues() != null
+                    && !parameter.getAllowedValues().contains(value)) {
+                throw invalidDecision("Valeur non autorisée pour le paramètre : "
+                        + parameter.getName());
+            }
         }
         ToolParameter operationParameter = tool.getParameters().stream()
                 .filter(parameter -> "operation".equals(parameter.getName()))
