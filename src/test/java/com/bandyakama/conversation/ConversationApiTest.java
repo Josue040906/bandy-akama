@@ -452,7 +452,6 @@ class ConversationApiTest {
         assertTrue(academicContext.contains("CONTINUATION"));
         assertFalse(readMemoryJson(conversationId, "active_state")
                 .path("profiles").isObject());
-        assertTrue(academicContext.contains("CONTINUATION"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
@@ -1316,7 +1315,7 @@ class ConversationApiTest {
                 anyString(), anyString(), anyString(), any(UUID.class), nullable(JsonNode.class)
         )).thenReturn(new ChatResponse("Je peux vous aider.", List.of()));
 
-        send(conversationId, "42", "Bonjour");
+        send(conversationId, "42", "Montre les agents du service du Personnel.");
 
         JsonNode state = readMemoryJson(conversationId, "active_state");
         assertFalse(state.has("profiles"));
