@@ -539,6 +539,12 @@ public class ConversationRepository {
                     objectMapper.valueToTree(response.activeEntity())
             );
         }
+        if (!response.entityReferences().isEmpty()) {
+            assistantMetadata.set(
+                    "entityReferences",
+                    objectMapper.valueToTree(response.entityReferences())
+            );
+        }
         insertMessage(
                 conversationId,
                 idempotencyKey,
@@ -553,7 +559,8 @@ public class ConversationRepository {
                 stateUpdates(response),
                 persistentToolResults,
                 response.resetConversationState(),
-                response.activeEntity()
+                response.activeEntity(),
+                response.entityReferences()
         );
 
         ChatResponse persistedResponse = new ChatResponse(
@@ -665,7 +672,8 @@ public class ConversationRepository {
             List<ChatResponse.ToolState> toolStates,
             List<ChatResponse.ToolResult> persistentToolResults,
             boolean clearConversationState,
-            com.bandyakama.conversation.ConversationTurnDecision.ReferencedEntity activeEntity
+            com.bandyakama.conversation.ConversationTurnDecision.ReferencedEntity activeEntity,
+            List<com.bandyakama.conversation.ConversationTurnDecision.ReferencedEntity> entityReferences
     ) {
         MemorySnapshot memory = jdbcTemplate.queryForObject("""
                         SELECT summary, active_state::text AS active_state,
@@ -734,6 +742,14 @@ public class ConversationRepository {
                     ? ((ObjectNode) currentState).deepCopy()
                     : objectMapper.createObjectNode();
             enrichedState.set("activeEntity", objectMapper.valueToTree(activeEntity));
+            state = toJson(enrichedState);
+        }
+        if (entityReferences != null && !entityReferences.isEmpty()) {
+            JsonNode currentState = readStoredJson(state);
+            ObjectNode enrichedState = currentState.isObject()
+                    ? ((ObjectNode) currentState).deepCopy()
+                    : objectMapper.createObjectNode();
+            enrichedState.set("entityReferences", objectMapper.valueToTree(entityReferences));
             state = toJson(enrichedState);
         }
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
@@ -1163,6 +1179,23 @@ public class ConversationRepository {
                     : objectMapper.createObjectNode();
             rebuiltState.set("activeEntity",
                     latestEntityMessage.metadata().path("activeEntity").deepCopy());
+            state = toJson(rebuiltState);
+        }
+        HistoricalMessage latestReferencesMessage = history.stream()
+                .filter(message -> "ASSISTANT".equals(message.role()))
+                .filter(message -> message.metadata().path("entityReferences").isArray()
+                        && !message.metadata().path("entityReferences").isEmpty())
+                .filter(message -> message.sequenceNumber() > latestResetSequence
+                        || java.util.Objects.equals(message.requestId(), resetRequestId))
+                .max(java.util.Comparator.comparingLong(HistoricalMessage::sequenceNumber))
+                .orElse(null);
+        if (latestReferencesMessage != null) {
+            JsonNode currentState = readStoredJson(state);
+            ObjectNode rebuiltState = currentState.isObject()
+                    ? ((ObjectNode) currentState).deepCopy()
+                    : objectMapper.createObjectNode();
+            rebuiltState.set("entityReferences",
+                    latestReferencesMessage.metadata().path("entityReferences").deepCopy());
             state = toJson(rebuiltState);
         }
         long summarizedThrough = summaryCutoff(conversationId);
