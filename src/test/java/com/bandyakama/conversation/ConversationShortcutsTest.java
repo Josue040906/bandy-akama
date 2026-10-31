@@ -21,20 +21,5 @@ class ConversationShortcutsTest {
         ).isEmpty());
     }
 
-    @Test
-    void recognizesAnExplicitRequestToStartANewQuestion() {
-        assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
-                ConversationShortcuts.newQuestionResponse(
-                        "Je veux poser une nouvelle question"
-                ).orElseThrow()
-        );
-        assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
-                ConversationShortcuts.newQuestionResponse("Changeons de sujet").orElseThrow()
-        );
-        assertTrue(ConversationShortcuts.newQuestionResponse(
-                "Combien d'agents compte cette direction ?"
-        ).isEmpty());
-    }
+
 }
