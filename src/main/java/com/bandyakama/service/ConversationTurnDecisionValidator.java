@@ -32,8 +32,14 @@ final class ConversationTurnDecisionValidator {
         } catch (IllegalArgumentException invalidDecision) {
             throw invalidDecision(invalidDecision.getMessage());
         }
-        if (decision.needsClarification()
-                || decision.intentType() == ConversationTurnDecision.IntentType.DIRECT_RESPONSE) {
+        if (decision.needsClarification()) {
+            return;
+        }
+        if (decision.intentType() == ConversationTurnDecision.IntentType.DIRECT_RESPONSE) {
+            if (decision.referencedEntity() != null
+                    && !isReferencedEntityGrounded(decision, conversationContext, activeState)) {
+                throw invalidDecision("L’entité de la réponse directe n’est pas confirmée par le contexte.");
+            }
             return;
         }
 
@@ -71,9 +77,23 @@ final class ConversationTurnDecisionValidator {
             throw invalidDecision("Une opération a été fournie pour un outil qui n’en déclare pas.");
         }
 
-        if (decision.referencedEntity() != null
-                && !isReferencedEntityGrounded(decision, conversationContext, activeState)) {
-            throw invalidDecision("L’entité référencée n’est pas confirmée par le contexte précédent.");
+        if (decision.referencedEntity() != null) {
+            if (!isReferencedEntityGrounded(decision, conversationContext, activeState)) {
+                throw invalidDecision("L’entité référencée n’est pas confirmée par le contexte précédent.");
+            }
+            Map<String, Object> entityArguments = decision.arguments();
+            String scopedArgument = switch (decision.referencedEntity().type().toUpperCase()) {
+                case "DIRECTION" -> "directionId";
+                case "SERVICE" -> "serviceId";
+                case "POSTE" -> "posteId";
+                case "AGENT", "EMPLOYE" -> "employeId";
+                default -> null;
+            };
+            if (scopedArgument != null && entityArguments.containsKey(scopedArgument)
+                    && !String.valueOf(decision.referencedEntity().id())
+                    .equals(String.valueOf(entityArguments.get(scopedArgument)))) {
+                throw invalidDecision("L’identifiant de l’entité et le paramètre de ciblage ne correspondent pas.");
+            }
         }
     }
 
