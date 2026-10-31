@@ -68,7 +68,9 @@ class ToolRegistryTest {
         tool.setEnabled(false);
         registry.register(tool);
 
-        ToolDefinition loaded = registry.findByName("assistantOnly").orElseThrow();
+        ToolDefinition loaded = registry.getAll().stream()
+                .filter(item -> item.getName().equals("assistantOnly"))
+                .findFirst().orElseThrow();
         assertTrue(loaded.isAssistantEnabled());
         assertFalse(loaded.isEnabled());
     }
