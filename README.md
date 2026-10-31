@@ -169,10 +169,14 @@ The assistant uses three read-only RH capabilities:
 ```
 
 - `get_organization_info` calls the protected, read-only
-  `GET /api/assistant/organization?query=…&scope=…` route. It returns the real
-  direction → service → post hierarchy and available descriptions, capped at
-  100 rows with an explicit truncation flag. It does not synthesize missing
-  responsibilities.
+  `GET /api/organisation` route. Its required `operation` parameter selects
+  direction, service, post, hierarchy, responsible-person or exact-count
+  operations. Optional `id`, `directionId`, `serviceId` and `query`
+  parameters follow the RH API contract. The tool forwards the signed-in
+  user's bearer token; raw results are treated as sensitive and are not
+  persisted as conversation tool-result messages. The API is the source of
+  truth and does not infer an employee-to-supervisor relationship that is not
+  explicitly stored.
 
 `.\scripts\register-rh-tools.ps1` registers or updates these three tools and
 verifies their parameter names and configured HTTP method/URL. Other tool
