@@ -89,7 +89,7 @@ final class ConversationDecisionFunction {
                                 .description("Vrai si une précision est nécessaire avant toute exécution.")
                                 .build(),
                         "clarificationQuestion", stringSchema("Question à poser si needsClarification vaut true."),
-                        "directResponse", stringSchema("Réponse directe si aucun outil métier n’est nécessaire.")
+                        "directResponse", stringSchema("Réponse sans outil. Pour une demande indépendante, utiliser intentType=NEW_INTENT afin de réinitialiser l’état actif.")
                 ))
                 .required(List.of("intentType", "needsClarification"))
                 .build();
