@@ -8,6 +8,7 @@ import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseBuilder;
 import org.springframework.jdbc.datasource.embedded.EmbeddedDatabaseType;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AssistantConfigurationRepositoryTest {
@@ -32,6 +33,8 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.profile()
             );
             assertEquals(3, snapshot.enabledTools().size());
+            assertFalse(snapshot.enabledTools().stream()
+                    .anyMatch(tool -> "legacy_lookup".equals(tool.getName())));
             assertEquals(
                     "get_agent_profile",
                     snapshot.enabledTools().get(0).getName()
