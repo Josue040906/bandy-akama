@@ -673,9 +673,9 @@ class ConversationApiTest {
                                 "searchEmployees",
                                 List.of(Map.of("matricule", "A-7")),
                                 Map.of("criteriaJson",
-                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"Personnel\\"}]}")
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Personnel\"}]}")
                         ))
                 ),
                 new ChatResponse(
