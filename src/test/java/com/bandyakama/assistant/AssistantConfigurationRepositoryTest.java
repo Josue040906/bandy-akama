@@ -42,6 +42,11 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertEquals(
+                    List.of("Montre-moi le dossier de cet agent",
+                            "Je voudrais consulter son profil"),
+                    snapshot.enabledTools().get(0).getExamples()
+            );
             assertTrue(snapshot.enabledTools().stream()
                     .anyMatch(tool -> tool.getName().equals("new_registered_tool")));
 
@@ -106,6 +111,14 @@ class AssistantConfigurationRepositoryTest {
                 )
                 """);
         jdbcTemplate.execute("""
+                CREATE TABLE bandy_tool_example (
+                    tool_name VARCHAR(64),
+                    example_text VARCHAR(500),
+                    position INTEGER,
+                    enabled BOOLEAN
+                )
+                """);
+        jdbcTemplate.execute("""
                 CREATE TABLE bandy_tool_parameter (
                     tool_name VARCHAR(64),
                     name VARCHAR(64),
@@ -138,6 +151,13 @@ class AssistantConfigurationRepositoryTest {
                  'http://localhost/legacy', TRUE, FALSE, TRUE),
                 ('new_registered_tool', 'New tool', 'Newly approved tool', 'GET',
                  'http://localhost/new', TRUE, TRUE, FALSE)
+                """);
+        jdbcTemplate.update("""
+                INSERT INTO bandy_tool_example
+                (tool_name, example_text, position, enabled) VALUES
+                ('get_agent_profile', 'Montre-moi le dossier de cet agent', 0, TRUE),
+                ('get_agent_profile', 'Je voudrais consulter son profil', 1, TRUE),
+                ('get_agent_profile', 'Exemple désactivé', 2, FALSE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
