@@ -62,6 +62,17 @@ class ToolRegistryTest {
     }
 
     @Test
+    void persistsWhetherAToolIsExposedToGeminiIndependentlyOfExecutionEnabled() {
+        ToolDefinition tool = tool("assistantOnly", "GET");
+        tool.setAssistantEnabled(true);
+        tool.setEnabled(false);
+        registry.register(tool);
+
+        ToolDefinition loaded = registry.findByName("assistantOnly").orElseThrow();
+        assertTrue(loaded.isAssistantEnabled());
+        assertFalse(loaded.isEnabled());
+    }
+    @Test
     void updatingAToolReplacesItsStoredDefinition() {
         registry.register(tool("agentSearch", "GET"));
         registry.register(tool("agentSearch", "POST"));
