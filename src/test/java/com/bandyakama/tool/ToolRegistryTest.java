@@ -142,11 +142,17 @@ class ToolRegistryTest {
                                   "whenToUse": "Use this for API tool tests.",
                                   "method": "GET",
                                   "url": "https://example.test/api",
-                                  "parameters": []
+                                  "parameters": [],
+                                  "examples": [
+                                    "Recherche un agent par matricule",
+                                    "Trouve les agents du service financier"
+                                  ]
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("apiTool"));
+                .andExpect(jsonPath("$.name").value("apiTool"))
+                .andExpect(jsonPath("$.examples[0]").value("Recherche un agent par matricule"))
+                .andExpect(jsonPath("$.examples[1]").value("Trouve les agents du service financier"));
 
         mockMvc.perform(get("/api/assistant/profile")
                         .header("X-Bandy-Registration-Key", registrationKey))
