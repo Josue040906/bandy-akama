@@ -45,6 +45,30 @@ class ConversationDecisionFunctionTest {
         org.junit.jupiter.api.Assertions.assertFalse(organizationArguments.containsKey("operation"));
     }
     @Test
+    void declaresAllowedValuesForOperationsAndToolParameters() {
+        ToolDefinition tool = organizationTool();
+        tool.getParameters().get(0).setAllowedValues(List.of(
+                "LIST_DIRECTIONS", "COUNT_DIRECTIONS"
+        ));
+        tool.getParameters().get(3).setAllowedValues(List.of("LIST", "COUNT"));
+
+        var properties = ConversationDecisionFunction.declaration(List.of(tool))
+                .functionDeclarations().orElseThrow().get(0)
+                .parameters().orElseThrow().properties().orElseThrow();
+
+        assertEquals(
+                List.of("LIST_DIRECTIONS", "COUNT_DIRECTIONS"),
+                properties.get("operation").enum_().orElseThrow()
+        );
+        var arguments = properties.get("toolArguments").properties().orElseThrow()
+                .get("get_organization_info").properties().orElseThrow();
+        assertEquals(
+                List.of("LIST", "COUNT"),
+                arguments.get("query").enum_().orElseThrow()
+        );
+    }
+
+    @Test
     void forcesGeminiToReturnTheStructuredDecisionFunction() {
         var config = ConversationDecisionFunction.forcedFunctionConfig();
         var functionConfig = config.functionCallingConfig().orElseThrow();
