@@ -21,28 +21,30 @@ final class ConversationDecisionFunction {
     }
 
     static Tool declaration(List<ToolDefinition> enabledTools) {
-        Map<String, Schema> argumentProperties = new LinkedHashMap<>();
-        Map<String, String> argumentTypes = new LinkedHashMap<>();
+        Map<String, Schema> toolArgumentSchemas = new LinkedHashMap<>();
         for (ToolDefinition tool : enabledTools) {
+            Map<String, Schema> parameterProperties = new LinkedHashMap<>();
+            List<String> requiredParameters = new java.util.ArrayList<>();
             for (ToolParameter parameter : tool.getParameters()) {
-                String type = geminiType(parameter.getType());
-                String previousType = argumentTypes.putIfAbsent(
-                        parameter.getName(), type
-                );
-                if (previousType != null && !previousType.equals(type)) {
-                    throw new IllegalStateException(
-                            "Les outils déclarent des types incompatibles pour "
-                                    + "le paramètre partagé : " + parameter.getName()
-                    );
-                }
-                argumentProperties.putIfAbsent(
+                parameterProperties.put(
                         parameter.getName(),
                         Schema.builder()
-                                .type(type)
+                                .type(geminiType(parameter.getType()))
                                 .description(parameter.getDescription())
                                 .build()
                 );
+                if (parameter.isRequired()) {
+                    requiredParameters.add(parameter.getName());
+                }
             }
+            Schema.Builder toolArguments = Schema.builder()
+                    .type("OBJECT")
+                    .properties(parameterProperties)
+                    .description("Arguments complets pour l’outil " + tool.getName() + ".");
+            if (!requiredParameters.isEmpty()) {
+                toolArguments.required(requiredParameters);
+            }
+            toolArgumentSchemas.put(tool.getName(), toolArguments.build());
         }
 
         Schema entitySchema = Schema.builder()
@@ -75,9 +77,9 @@ final class ConversationDecisionFunction {
                                 .description("Outil métier autorisé, absent si clarification ou réponse directe.")
                                 .nullable(true).build(),
                         "operation", stringSchema("Opération métier demandée, si l’outil en utilise une."),
-                        "arguments", Schema.builder()
-                                .type("OBJECT").properties(argumentProperties)
-                                .description("Arguments complets de l’action actuelle, sans fusion implicite avec les anciens arguments.")
+                        "toolArguments", Schema.builder()
+                                .type("OBJECT").properties(toolArgumentSchemas)
+                                .description("Objet d’arguments indexé par le nom exact de l’outil sélectionné. Ne renseigner que l’objet correspondant à toolName.")
                                 .build(),
                         "referencedEntity", entitySchema,
                         "needsClarification", Schema.builder().type("BOOLEAN")
