@@ -62,6 +62,38 @@ class ConversationEntityReferenceExtractorTest {
     }
 
     @Test
+    void extractsKnownNestedStructureTypesWithoutClassifyingOtherCollections() {
+        Map<String, Object> result = Map.of(
+                "directions", List.of(Map.of(
+                        "id", 1,
+                        "nom", "Direction générale",
+                        "services", List.of(Map.of(
+                                "id", 4,
+                                "nom", "Service RH",
+                                "postes", List.of(Map.of(
+                                        "id", 9,
+                                        "intitule", "Gestionnaire"
+                                ))
+                        ))
+                )),
+                "responsables", List.of(Map.of(
+                        "id", 70,
+                        "name", "Agent responsable"
+                ))
+        );
+
+        var references = ConversationEntityReferenceExtractor.extract(
+                result, "DIRECTION", null
+        );
+
+        assertEquals(3, references.size());
+        assertEquals(List.of("DIRECTION", "SERVICE", "POSTE"),
+                references.stream().map(
+                        ConversationTurnDecision.ReferencedEntity::type
+                ).toList());
+    }
+
+    @Test
     void findsConfiguredCollectionInsideWrappedApiResponse() {
         Map<String, Object> result = Map.of(
                 "data", Map.of(
