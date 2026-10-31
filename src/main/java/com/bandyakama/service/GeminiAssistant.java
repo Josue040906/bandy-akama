@@ -340,52 +340,11 @@ public class GeminiAssistant {
                     "Gemini n’a pas retourné une décision conversationnelle structurée valide."
             );
         }
-        ConversationTurnDecision decision;
-        try {
-            Map<String, Object> rawDecision = new java.util.LinkedHashMap<>(
-                    decisionCalls.get(0).args().orElse(Map.of())
-            );
-            Object selectedToolName = rawDecision.get("toolName");
-            Object rawToolArguments = rawDecision.remove("toolArguments");
-            Map<String, Object> selectedArguments = new java.util.LinkedHashMap<>();
-            if (rawToolArguments instanceof Map<?, ?> argumentsByTool) {
-                for (Map.Entry<?, ?> entry : argumentsByTool.entrySet()) {
-                    if (entry.getValue() != null && !(entry.getValue() instanceof Map<?, ?>)) {
-                        throw new IllegalArgumentException("Les arguments d’un outil doivent être un objet.");
-                    }
-                    if (entry.getValue() instanceof Map<?, ?> values) {
-                        if (selectedToolName == null || !entry.getKey().equals(selectedToolName)) {
-                            if (!values.isEmpty()) {
-                                throw new IllegalArgumentException("Gemini a fourni des arguments pour un outil non sélectionné.");
-                            }
-                        } else {
-                            values.forEach((key, value) -> {
-                                if (!(key instanceof String argumentName)) {
-                                    throw new IllegalArgumentException("Nom d’argument invalide.");
-                                }
-                                selectedArguments.put(argumentName, value);
-                            });
-                        }
-                    }
-                }
-            }
-            if (selectedToolName instanceof String selectedName) {
-                ToolDefinition selectedDefinition = enabledTools.get(selectedName);
-                Object operation = rawDecision.get("operation");
-                if (selectedDefinition != null && operation != null
-                        && selectedDefinition.getParameters().stream()
-                        .anyMatch(parameter -> "operation".equals(parameter.getName()))) {
-                    selectedArguments.putIfAbsent("operation", operation);
-                }
-            }
-            rawDecision.put("arguments", selectedArguments);
-            decision = objectMapper.convertValue(rawDecision, ConversationTurnDecision.class);
-        } catch (IllegalArgumentException invalidPayload) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "La décision structurée de Gemini est illisible.", invalidPayload
-            );
-        }
+        ConversationTurnDecision decision = mapDecision(
+                decisionCalls.get(0).args().orElse(Map.of()),
+                enabledTools,
+                objectMapper
+        );
         boolean resetState = decision.intentType()
                 == ConversationTurnDecision.IntentType.NEW_INTENT;
         try {
@@ -463,6 +422,59 @@ public class GeminiAssistant {
         return new ChatResponse(finalMessage, executedResults, null, resetState,
                 toolStates, decision.referencedEntity(), entityReferences);
     }
+    static ConversationTurnDecision mapDecision(
+            Map<String, Object> functionArguments,
+            Map<String, ToolDefinition> enabledTools,
+            ObjectMapper objectMapper
+    ) {
+        try {
+            Map<String, Object> rawDecision = new java.util.LinkedHashMap<>(functionArguments);
+            Object selectedToolName = rawDecision.get("toolName");
+            Object rawToolArguments = rawDecision.remove("toolArguments");
+            Map<String, Object> selectedArguments = new java.util.LinkedHashMap<>();
+            if (rawToolArguments != null && !(rawToolArguments instanceof Map<?, ?>)) {
+                throw new IllegalArgumentException("Les arguments des outils doivent être un objet indexé par outil.");
+            }
+            if (rawToolArguments instanceof Map<?, ?> argumentsByTool) {
+                for (Map.Entry<?, ?> entry : argumentsByTool.entrySet()) {
+                    if (entry.getValue() != null && !(entry.getValue() instanceof Map<?, ?>)) {
+                        throw new IllegalArgumentException("Les arguments d’un outil doivent être un objet.");
+                    }
+                    if (entry.getValue() instanceof Map<?, ?> values) {
+                        if (selectedToolName == null || !entry.getKey().equals(selectedToolName)) {
+                            if (!values.isEmpty()) {
+                                throw new IllegalArgumentException("Gemini a fourni des arguments pour un outil non sélectionné.");
+                            }
+                        } else {
+                            values.forEach((key, value) -> {
+                                if (!(key instanceof String argumentName)) {
+                                    throw new IllegalArgumentException("Nom d’argument invalide.");
+                                }
+                                selectedArguments.put(argumentName, value);
+                            });
+                        }
+                    }
+                }
+            }
+            if (selectedToolName instanceof String selectedName) {
+                ToolDefinition selectedDefinition = enabledTools.get(selectedName);
+                Object operation = rawDecision.get("operation");
+                if (selectedDefinition != null && operation != null
+                        && selectedDefinition.getParameters().stream()
+                        .anyMatch(parameter -> "operation".equals(parameter.getName()))) {
+                    selectedArguments.putIfAbsent("operation", operation);
+                }
+            }
+            rawDecision.put("arguments", selectedArguments);
+            return objectMapper.convertValue(rawDecision, ConversationTurnDecision.class);
+        } catch (IllegalArgumentException invalidPayload) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "La décision structurée de Gemini est illisible.", invalidPayload
+            );
+        }
+    }
+
     static List<Content> toGeminiHistory(
             List<ConversationPromptContext.Message> history
     ) {
