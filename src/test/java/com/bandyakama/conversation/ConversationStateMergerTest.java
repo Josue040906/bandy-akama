@@ -17,15 +17,16 @@ class ConversationStateMergerTest {
     @Test
     void returnsOnlyTheCompleteArgumentsProducedForTheCurrentAction()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\"filters\":[{\"field\":\"direction\",\"operator\":\"EQ\",\"value\":\"Direction X\"}]}",
-                    "resultMode": "LIST"
-                  }
-                }
-                """);
+        JsonNode previous = objectMapper.valueToTree(Map.of(
+                "toolName", "search_agents",
+                "arguments", Map.of(
+                        "criteriaJson",
+                        "{\"filters\":[{\"field\":\"direction\","
+                                + "\"operator\":\"EQ\","
+                                + "\"value\":\"Direction X\"}]}",
+                        "resultMode", "LIST"
+                )
+        ));
         Map<String, Object> currentArguments = Map.of(
                 "criteriaJson",
                 "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\",\"value\":40}]}",
