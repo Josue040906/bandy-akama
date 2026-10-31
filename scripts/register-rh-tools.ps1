@@ -88,24 +88,45 @@ $tools = @(
     },
     @{
         name = 'get_organization_info'
-        description = 'Recherche les directions, services et postes avec leurs rattachements et descriptions réellement enregistrés.'
-        whenToUse = 'Pour expliquer la structure des directions, services et postes, leurs rattachements ou leurs descriptions disponibles. Ne pas inventer de responsabilités absentes des données.'
+        description = 'Consulte les données organisationnelles réelles du MEF : directions, services, postes, hiérarchie, responsables enregistrés et effectifs.'
+        whenToUse = 'Utiliser pour toute question sur le nombre ou la liste des directions, services et postes, leurs rattachements, leur hiérarchie documentée, les responsables affectés ou les effectifs par structure. Choisir operation parmi LIST_DIRECTIONS, GET_DIRECTION, LIST_SERVICES, GET_SERVICE, LIST_POSTES, GET_POSTE, GET_HIERARCHY, GET_RESPONSIBLE, LIST_RESPONSIBLES, COUNT_DIRECTIONS, COUNT_SERVICES, COUNT_POSTES et COUNT_EMPLOYEES_BY_STRUCTURE. Renseigner id pour GET_DIRECTION, GET_SERVICE ou GET_POSTE; directionId et serviceId pour limiter les consultations et comptages à une structure; query pour rechercher par nom ou description. Ne pas inventer de rattachement, de responsabilité ou de relation hiérarchique agent-supérieur absente des données.'
         method = 'GET'
-        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/assistant/organization"
+        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/organisation"
         enabled = $true
-        sensitive = $false
+        sensitive = $true
         parameters = @(
             @{
-                name = 'query'
+                name = 'operation'
                 type = 'string'
-                description = 'Nom ou terme à rechercher dans les directions, services, postes et descriptions.'
+                description = 'Opération obligatoire : LIST_DIRECTIONS, GET_DIRECTION, LIST_SERVICES, GET_SERVICE, LIST_POSTES, GET_POSTE, GET_HIERARCHY, GET_RESPONSIBLE, LIST_RESPONSIBLES, COUNT_DIRECTIONS, COUNT_SERVICES, COUNT_POSTES ou COUNT_EMPLOYEES_BY_STRUCTURE.'
                 required = $true
                 location = 'query'
             },
             @{
-                name = 'scope'
+                name = 'id'
+                type = 'integer'
+                description = 'Identifiant de la direction, du service ou du poste pour les opérations GET correspondantes.'
+                required = $false
+                location = 'query'
+            },
+            @{
+                name = 'directionId'
+                type = 'integer'
+                description = 'Identifiant de la direction pour filtrer les services, postes, responsables, hiérarchie ou comptages.'
+                required = $false
+                location = 'query'
+            },
+            @{
+                name = 'serviceId'
+                type = 'integer'
+                description = 'Identifiant du service pour filtrer les postes, responsables ou comptages.'
+                required = $false
+                location = 'query'
+            },
+            @{
+                name = 'query'
                 type = 'string'
-                description = 'ALL, DIRECTION, SERVICE ou POSTE.'
+                description = 'Terme de recherche facultatif dans les noms ou descriptions des directions, services ou postes.'
                 required = $false
                 location = 'query'
             }

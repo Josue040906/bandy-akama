@@ -25,6 +25,9 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("ordre prénom-nom"));
         assertTrue(instruction.contains("resultMode=COUNT"));
         assertTrue(instruction.contains("get_organization_info"));
+        assertTrue(instruction.contains("COUNT_DIRECTIONS"));
+        assertTrue(instruction.contains("GET_HIERARCHY"));
+        assertTrue(instruction.contains("relation hiérarchique agent-supérieur"));
         assertTrue(instruction.contains("N’invente ni agent"));
         assertTrue(instruction.contains(
                 "Ne demande jamais si l’utilisateur veut poursuivre"
