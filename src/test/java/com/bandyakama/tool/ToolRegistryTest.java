@@ -75,6 +75,15 @@ class ToolRegistryTest {
         assertFalse(loaded.isEnabled());
     }
     @Test
+    void rejectsAllowedValuesForNonStringParameters() {
+        ToolDefinition tool = tool("invalidEnumTool", "GET");
+        tool.getParameters().get(0).setType("integer");
+        tool.getParameters().get(0).setAllowedValues(List.of("1", "2"));
+
+        assertThrows(IllegalArgumentException.class, () -> registry.register(tool));
+    }
+
+    @Test
     void persistsAllowedParameterValues() {
         ToolDefinition tool = tool("constrainedTool", "GET");
         tool.getParameters().get(0).setAllowedValues(List.of("LIST", "COUNT"));
