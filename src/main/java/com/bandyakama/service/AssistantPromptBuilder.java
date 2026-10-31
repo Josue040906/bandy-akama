@@ -66,8 +66,15 @@ final class AssistantPromptBuilder {
         for (ToolDefinition tool : availableTools) {
             instruction.append("\n- ").append(tool.getName()).append("\n")
                     .append("  Fonction : ").append(tool.getDescription()).append("\n")
-                    .append("  Quand l’utiliser : ").append(tool.getWhenToUse()).append("\n")
-                    .append("  Paramètres :\n");
+                    .append("  Quand l’utiliser : ").append(tool.getWhenToUse()).append("\n");
+            if (tool.getResultEntityType() != null) {
+                instruction.append("  Références extraites du résultat : entités de type ")
+                        .append(tool.getResultEntityType())
+                        .append(" dans la collection ")
+                        .append(tool.getResultCollectionKey())
+                        .append(".\\n");
+            }
+            instruction.append("  Paramètres :\\n");
             List<ToolParameter> parameters = tool.getParameters() == null
                     ? List.of() : tool.getParameters();
             if (parameters.isEmpty()) {
@@ -81,6 +88,11 @@ final class AssistantPromptBuilder {
                     if (parameter.getAllowedValues() != null) {
                         instruction.append(" Valeurs autorisées : ")
                                 .append(String.join(", ", parameter.getAllowedValues()))
+                                .append(".");
+                    }
+                    if (parameter.getReferenceType() != null) {
+                        instruction.append(" Référence d’entité : ")
+                                .append(parameter.getReferenceType())
                                 .append(".");
                     }
                     instruction.append("\n");
