@@ -44,6 +44,24 @@ class ConversationEntityReferenceExtractorTest {
     }
 
     @Test
+    void extractsConfiguredEntityCollectionWithoutDependingOnToolName() {
+        Map<String, Object> result = Map.of(
+                "records", List.of(
+                        Map.of("id", 31, "name", "Division des systèmes"),
+                        Map.of("id", 32, "name", "Division des finances")
+                )
+        );
+
+        var references = ConversationEntityReferenceExtractor.extract(
+                result, "DIVISION", "records"
+        );
+
+        assertEquals(2, references.size());
+        assertEquals("DIVISION", references.get(0).type());
+        assertEquals(31L, references.get(0).id());
+    }
+
+    @Test
     void doesNotExtractObjectsWithoutKnownOrganizationalType() {
         var references = ConversationEntityReferenceExtractor.extract(
                 Map.of("metadata", Map.of("id", 77, "name", "Not an organization"))
