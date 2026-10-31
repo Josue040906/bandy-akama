@@ -303,7 +303,13 @@ public class GeminiAssistant {
                         + ConversationDecisionFunction.NAME
                         + " pour retourner la décision structurée. N’appelle jamais "
                         + "directement un outil métier. Les réponses directes et "
-                        + "les clarifications sont également des décisions structurées.",
+                        + "les clarifications sont également des décisions structurées. "
+                        + "Utilise CONTINUATION uniquement si la demande dépend du contexte actif. "
+                        + "Utilise NEW_INTENT pour tout sujet indépendant, y compris une réponse "
+                        + "directe sans outil ou une demande incomplète nécessitant une clarification. "
+                        + "Une nouvelle intention réinitialise l’état actif. "
+                        + "Utilise DIRECT_RESPONSE seulement pour une réponse directe qui reste "
+                        + "dans le sujet actif.",
                 decisionTool, serviceTier, thinkingLevel, maxOutputTokens
         ).toBuilder().toolConfig(ConversationDecisionFunction.forcedFunctionConfig()).build();
 
@@ -395,10 +401,10 @@ public class GeminiAssistant {
         if (decision.needsClarification()) {
             return new ChatResponse(
                     decision.clarificationQuestion(), List.of(), null,
-                    false, List.of(), decision.referencedEntity()
+                    resetState, List.of(), decision.referencedEntity()
             );
         }
-        if (decision.intentType() == ConversationTurnDecision.IntentType.DIRECT_RESPONSE) {
+        if (decision.directResponse() != null && !decision.directResponse().isBlank()) {
             return new ChatResponse(
                     decision.directResponse(), List.of(), null,
                     resetState, List.of(), decision.referencedEntity()
