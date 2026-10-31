@@ -3,6 +3,8 @@ package com.bandyakama.service;
 import com.bandyakama.conversation.ConversationTurnDecision;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
@@ -15,6 +17,10 @@ import java.util.stream.Collectors;
 /** Validates Gemini's interpretation against enabled tool contracts and trusted context. */
 @Component
 final class ConversationTurnDecisionValidator {
+    private static final String REFERENCES_HEADING =
+            "Références aux résultats métier précédents :";
+    private static final String SUMMARY_HEADING = "Résumé extractif des échanges plus anciens :";
+    private final ObjectMapper objectMapper = new ObjectMapper();
     void validate(
             ConversationTurnDecision decision,
             Map<String, ToolDefinition> enabledTools,
@@ -87,11 +93,58 @@ final class ConversationTurnDecisionValidator {
         if (context == null || context.isBlank()) {
             return false;
         }
-        String idToken = "\"id\":" + entity.id();
-        String nameToken = entity.name();
-        return context.contains(idToken) && context.contains(nameToken);
+        int headingIndex = context.indexOf(REFERENCES_HEADING);
+        if (headingIndex < 0) {
+            return false;
+        }
+        int jsonStart = headingIndex + REFERENCES_HEADING.length();
+        int summaryIndex = context.indexOf(SUMMARY_HEADING, jsonStart);
+        String referencesJson = context.substring(
+                jsonStart, summaryIndex < 0 ? context.length() : summaryIndex
+        ).trim();
+        try {
+            JsonNode references = objectMapper.readTree(referencesJson);
+            return containsEntity(references, entity.id(), entity.name());
+        } catch (Exception invalidReferences) {
+            return false;
+        }
     }
 
+    private boolean containsEntity(JsonNode node, Long id, String name) {
+        if (node == null || node.isNull()) {
+            return false;
+        }
+        if (node.isObject()) {
+            JsonNode idNode = node.get("id");
+            boolean sameId = idNode != null && idNode.isIntegralNumber()
+                    && idNode.longValue() == id;
+            boolean sameName = false;
+            for (String field : new String[]{"name", "nom", "intitule", "title", "label"}) {
+                JsonNode candidate = node.get(field);
+                if (candidate != null && candidate.isTextual()
+                        && name.equalsIgnoreCase(candidate.asText().trim())) {
+                    sameName = true;
+                    break;
+                }
+            }
+            if (sameId && sameName) {
+                return true;
+            }
+            var fields = node.elements();
+            while (fields.hasNext()) {
+                if (containsEntity(fields.next(), id, name)) {
+                    return true;
+                }
+            }
+        } else if (node.isArray()) {
+            for (JsonNode child : node) {
+                if (containsEntity(child, id, name)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
     private boolean matchesType(String type, Object value) {
         return switch (type.toLowerCase()) {
             case "string" -> value instanceof String;
