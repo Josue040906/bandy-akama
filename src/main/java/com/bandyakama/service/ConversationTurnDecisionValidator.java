@@ -109,6 +109,17 @@ final class ConversationTurnDecisionValidator {
                         ? activeEntity.path("id").longValue() : null)
                 && entity.type().equalsIgnoreCase(activeEntity.path("type").asText())) {
             return true;
+        }        JsonNode knownEntities = activeState == null
+                ? null : activeState.path("entityReferences");
+        if (knownEntities != null && knownEntities.isArray()) {
+            for (JsonNode known : knownEntities) {
+                if (entity.id().equals(known.path("id").isIntegralNumber()
+                        ? known.path("id").longValue() : null)
+                        && entity.type().equalsIgnoreCase(known.path("type").asText())
+                        && entity.name().equalsIgnoreCase(known.path("name").asText())) {
+                    return true;
+                }
+            }
         }
         if (context == null || context.isBlank()) {
             return false;
