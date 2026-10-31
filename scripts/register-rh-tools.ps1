@@ -46,10 +46,10 @@ $tools = @(
     @{
         name = 'search_agents'
         description = 'Recherche unifiée des agents par critères RH exacts et approximatifs. Utiliser pour toute identification initiale, y compris les noms mal orthographiés et les recherches multicritères. Deux filtres FUZZY séparés pour nom et prénom; resultMode=COUNT pour un total exact.'
-        whenToUse = 'Point d’entrée obligatoire pour toute recherche/identification initiale d’agent, même si l’utilisateur demande directement un profil. Extraire du même message le nom/prénom (FUZZY séparément si faute possible) et tous les autres critères explicitement mentionnés (âge, sexe, adresse, embauche, poste, service, direction, carrière, diplômes), puis les combiner dans un seul criteriaJson. Ne pas appeler get_agent_profile avant cette recherche. Si plusieurs candidats restent, les présenter et demander un critère distinctif; si un candidat est clairement identifié, appeler ensuite get_agent_profile avec son matricule. criteriaJson doit contenir 1 à 10 filtres valides. IMPORTANT pour l’âge: chaque filtre age doit avoir une valeur entière unique. Pour une tranche de 36 à 40 ans, utiliser deux filtres distincts {"field":"age","operator":"GTE","value":36} et {"field":"age","operator":"LTE","value":40}; ne jamais utiliser BETWEEN avec age ni envoyer [36,40]. Pour les autres nombres, respecter également une valeur numérique unique par filtre. COUNT donne le total exact côté backend; ne jamais compter une page. LIST affiche les correspondances.'
+        whenToUse = 'Point d''entrée obligatoire pour toute recherche/identification initiale d''agent, même si l''utilisateur demande directement un profil. Extraire du même message le nom/prénom (FUZZY séparément si faute possible) et tous les autres critères explicitement mentionnés (âge, sexe, adresse, embauche, poste, service, direction, carrière, diplômes), puis les combiner dans un seul criteriaJson. Ne pas appeler get_agent_profile avant cette recherche. Si plusieurs candidats restent, les présenter et demander un critère distinctif; si un candidat est clairement identifié, appeler ensuite get_agent_profile avec son matricule. criteriaJson doit contenir 1 à 10 filtres valides. IMPORTANT pour l''âge: chaque filtre age doit avoir une valeur entière unique. Pour une tranche de 36 à 40 ans, utiliser deux filtres distincts {"field":"age","operator":"GTE","value":36} et {"field":"age","operator":"LTE","value":40}; ne jamais utiliser BETWEEN avec age ni envoyer [36,40]. Pour les autres nombres, respecter également une valeur numérique unique par filtre. COUNT donne le total exact côté backend; ne jamais compter une page. LIST affiche les correspondances.'
         examples = @(
             @{
-                text = 'Quels agents travaillent au service de l’administration générale ?'
+                text = 'Quels agents travaillent au service de l''administration générale ?'
                 pattern = 'Quels agents travaillent au service de {service} ?'
                 expectedArguments = @{
                     criteriaJson = '{"filters":[{"field":"service","operator":"CONTAINS","value":"administration générale"}],"limit":20,"offset":0}'
@@ -101,8 +101,8 @@ $tools = @(
     },
     @{
         name = 'get_agent_profile'
-        description = 'Récupère le profil détaillé d’un agent déjà identifié par la recherche unifiée search_agents, de préférence à partir de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle, affectation, parcours de carrière, diplômes et analyse d’évolution calculée par le backend.'
-        whenToUse = 'Appeler uniquement après search_agents, lorsque la liste des candidats a permis d’identifier clairement un agent. Utiliser de préférence le matricule exact retourné par la recherche dans query. Pour une faute de frappe, un nom incertain ou plusieurs candidats, revenir à search_agents et combiner les critères disponibles au lieu d’appeler directement ce profil. Si plusieurs candidats restent, demander un critère distinctif; ne jamais choisir au hasard. S’appuyer sur les valeurs retournées par l’API; ne jamais déduire une information absente ni présenter une éligibilité indicative comme une décision administrative. Ne rappeler l’outil que si une donnée manque ou doit être actualisée.'
+        description = 'Récupère le profil détaillé d''un agent déjà identifié par la recherche unifiée search_agents, de préférence à partir de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle, affectation, parcours de carrière, diplômes et analyse d''évolution calculée par le backend.'
+        whenToUse = 'Appeler uniquement après search_agents, lorsque la liste des candidats a permis d''identifier clairement un agent. Utiliser de préférence le matricule exact retourné par la recherche dans query. Pour une faute de frappe, un nom incertain ou plusieurs candidats, revenir à search_agents et combiner les critères disponibles au lieu d''appeler directement ce profil. Si plusieurs candidats restent, demander un critère distinctif; ne jamais choisir au hasard. S''appuyer sur les valeurs retournées par l''API; ne jamais déduire une information absente ni présenter une éligibilité indicative comme une décision administrative. Ne rappeler l''outil que si une donnée manque ou doit être actualisée.'
         examples = @(
             @{
                 text = 'Maintenant, affiche son profil détaillé.'
@@ -129,7 +129,7 @@ $tools = @(
             @{
                 name = 'query'
                 type = 'string'
-                description = 'Nom complet ou matricule de l’agent à identifier. Transmettre la valeur telle qu’elle apparaît dans la demande; demander une précision si l’identité est ambiguë.'
+                description = 'Nom complet ou matricule de l''agent à identifier. Transmettre la valeur telle qu''elle apparaît dans la demande; demander une précision si l''identité est ambiguë.'
                 required = $true
                 location = 'query'
             }
@@ -149,7 +149,7 @@ $tools = @(
                 }
             },
             @{
-                text = 'Donne-moi les informations sur le service de l’administration générale.'
+                text = 'Donne-moi les informations sur le service de l''administration générale.'
                 pattern = 'Donne-moi les informations sur le service {service}.'
                 expectedArguments = @{
                     query = 'administration générale'
