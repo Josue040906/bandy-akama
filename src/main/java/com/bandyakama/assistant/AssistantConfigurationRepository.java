@@ -24,12 +24,15 @@ public class AssistantConfigurationRepository {
                    t.enabled AS tool_enabled,
                    t.assistant_enabled AS tool_assistant_enabled,
                    t.sensitive AS tool_sensitive,
+                   t.result_entity_type AS tool_result_entity_type,
+                   t.result_collection_key AS tool_result_collection_key,
                    parameter.name AS parameter_name,
                    parameter.type AS parameter_type,
                    parameter.description AS parameter_description,
                    parameter.location AS parameter_location,
                    parameter.required AS parameter_required,
-                   parameter.allowed_values AS parameter_allowed_values
+                   parameter.allowed_values AS parameter_allowed_values,
+                   parameter.reference_type AS parameter_reference_type
             FROM bandy_assistant_profile p
             LEFT JOIN bandy_tool t
                    ON t.enabled = TRUE AND t.assistant_enabled = TRUE
@@ -83,6 +86,12 @@ public class AssistantConfigurationRepository {
                         definition.setSensitive(
                                 resultSet.getBoolean("tool_sensitive")
                         );
+                        definition.setResultEntityType(
+                                resultSet.getString("tool_result_entity_type")
+                        );
+                        definition.setResultCollectionKey(
+                                resultSet.getString("tool_result_collection_key")
+                        );
                     } catch (java.sql.SQLException exception) {
                         throw new IllegalStateException(
                                 "Impossible de lire la configuration d’un outil.",
@@ -102,6 +111,9 @@ public class AssistantConfigurationRepository {
                     );
                     parameter.setLocation(
                             resultSet.getString("parameter_location")
+                    );
+                    parameter.setReferenceType(
+                            resultSet.getString("parameter_reference_type")
                     );
                     String allowedValues = resultSet.getString("parameter_allowed_values");
                     if (allowedValues != null && !allowedValues.isBlank()) {
