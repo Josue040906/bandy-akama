@@ -14,7 +14,6 @@ import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
-import com.bandyakama.tool.ToolParameter;
 import com.google.genai.Chat;
 import com.google.genai.Client;
 import com.google.genai.ResponseStream;
@@ -22,14 +21,11 @@ import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.google.genai.types.Content;
 import com.google.genai.types.FunctionCall;
-import com.google.genai.types.FunctionDeclaration;
-import com.google.genai.types.FunctionResponse;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.GenerateContentResponse;
 import com.google.genai.types.HttpOptions;
 import com.google.genai.types.HttpRetryOptions;
 import com.google.genai.types.Part;
-import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
 import com.google.genai.types.ThinkingConfig;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,7 +40,6 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -875,56 +870,6 @@ public class GeminiAssistant {
             ));
         }
         return Optional.empty();
-    }
-
-    private Tool toGeminiTool(List<ToolDefinition> definitions) {
-        List<FunctionDeclaration> declarations = new ArrayList<>(definitions.stream()
-                .map(definition -> FunctionDeclaration.builder()
-                        .name(definition.getName())
-                        .description(definition.getDescription()
-                                + "\nQuand l’utiliser : "
-                                + definition.getWhenToUse())
-                        .parameters(toGeminiSchema(definition.getParameters()))
-                        .build())
-                .toList());
-        return Tool.builder().functionDeclarations(declarations).build();
-    }
-
-    private Schema toGeminiSchema(List<ToolParameter> parameters) {
-        Map<String, Schema> properties = new HashMap<>();
-        List<String> required = new ArrayList<>();
-        for (ToolParameter parameter : parameters) {
-            properties.put(
-                    parameter.getName(),
-                    Schema.builder()
-                            .type(toGeminiType(parameter.getType()))
-                            .description(parameter.getDescription())
-                            .build()
-            );
-            if (parameter.isRequired()) {
-                required.add(parameter.getName());
-            }
-        }
-
-        Schema.Builder schema = Schema.builder()
-                .type("OBJECT")
-                .properties(properties);
-        if (!required.isEmpty()) {
-            schema.required(required);
-        }
-        return schema.build();
-    }
-
-    private String toGeminiType(String type) {
-        return switch (type.toLowerCase()) {
-            case "string" -> "STRING";
-            case "integer" -> "INTEGER";
-            case "number" -> "NUMBER";
-            case "boolean" -> "BOOLEAN";
-            default -> throw new IllegalArgumentException(
-                    "Type d’argument non pris en charge : " + type
-            );
-        };
     }
 
     private record ToolExecutionResult(Object result, boolean sensitive) {
