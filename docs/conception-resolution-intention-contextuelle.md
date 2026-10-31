@@ -29,6 +29,17 @@ Gemini doit produire une décision structurée via une fonction interne `resolve
 
 La fonction interne n'est pas un outil métier enregistré dans la base. Elle est une frontière technique entre l'interprétation du langage et l'exécution contrôlée.
 
+## Exposition des outils métier
+
+L'exposition à Gemini est contrôlée par deux indicateurs distincts dans `bandy_tool` :
+
+- `enabled` autorise ou désactive l'exécution de l'outil dans l'application.
+- `assistant_enabled` décide si l'outil est exposé au modèle pour la sélection d'une action.
+- `sensitive` décide si le résultat métier peut être conservé dans les références persistantes.
+
+Le catalogue, les descriptions, les paramètres, les opérations et les règles d'exposition proviennent de la base. Java ne maintient pas de liste métier fixe des noms d'outils autorisés. Les outils historiques non exposés restent enregistrés mais ne sont pas présentés à Gemini.
+
+Après application de la migration V5, le script `scripts/register-rh-tools.ps1` doit être relancé pour enregistrer et vérifier `assistantEnabled=true` sur les outils RH gérés.
 ## Flux cible
 
 1. ConversationService charge l'historique, le résumé, l'état structuré et les références précédentes, sans classer le message.
