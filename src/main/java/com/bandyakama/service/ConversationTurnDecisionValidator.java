@@ -92,21 +92,20 @@ final class ConversationTurnDecisionValidator {
             if (!isReferencedEntityGrounded(decision, conversationContext, activeState)) {
                 throw clarification("Je ne parviens pas à confirmer à quelle structure tu fais référence. Peux-tu préciser son nom ?");
             }
-            tool.getParameters().stream()
+            List<ToolParameter> matchingReferenceParameters = tool.getParameters().stream()
                     .filter(parameter -> parameter.getReferenceType() != null)
                     .filter(parameter -> isCompatibleReferenceType(
                             parameter.getReferenceType(), decision.referencedEntity().type()))
                     .filter(parameter -> decision.arguments().containsKey(parameter.getName()))
-                    .findFirst()
-                    .ifPresent(parameter -> {
-                        Object argumentId = decision.arguments().get(parameter.getName());
-                        if (!String.valueOf(decision.referencedEntity().id())
-                                .equals(String.valueOf(argumentId))) {
-                            throw invalidDecision(
-                                    "L’identifiant de l’entité et le paramètre de ciblage ne correspondent pas."
-                            );
-                        }
-                    });
+                    .toList();
+            if (!matchingReferenceParameters.isEmpty()
+                    && matchingReferenceParameters.stream().noneMatch(parameter ->
+                            String.valueOf(decision.referencedEntity().id()).equals(
+                                    String.valueOf(decision.arguments().get(parameter.getName()))))) {
+                throw invalidDecision(
+                        "L’identifiant de l’entité et les paramètres de ciblage ne correspondent pas."
+                );
+            }
         }
     }
 
