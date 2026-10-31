@@ -65,7 +65,7 @@ public class ConversationIntentResolver {
                     + "division|cellule)\\b"
     );
     private static final Pattern ORGANIZATION_DATA_QUESTION = Pattern.compile(
-            "^(?:(?:combien\\b.*\\b(?:directions?|services?|postes?|agents?|effectifs?)\\b)|"
+            "^(?:(?:combien\\b.*\\b(?:directions?|services?|postes?)\\b)|"
                     + "(?:quel(?:s|les)?\\b.*\\b(?:directions?|services?|postes?|responsables?|hierarchie|organigramme)\\b)|"
                     + "(?:liste|affiche|presente|decris|explique|donne[- ]moi)\\b.*"
                     + "\\b(?:directions?|services?|postes?|responsables?|hierarchie|organigramme)\\b|"
