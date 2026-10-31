@@ -43,7 +43,7 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("DIRECT_RESPONSE"));
         assertTrue(instruction.contains("arguments complets"));
         assertTrue(instruction.contains("Valeurs autorisées : LIST_DIRECTIONS, COUNT_DIRECTIONS."));
-        assertTrue(instruction.contains("Références extraites du résultat : entités de type DIRECTION dans la collection directions."));
+        assertTrue(instruction.contains("Références extraites du résultat : entités de type DIRECTION dans la réponse complète, en tenant compte des collections imbriquées."));
         assertTrue(instruction.contains("Référence d’entité : DIRECTION."));
         assertTrue(instruction.contains(
                 "GESTION DU CONTEXTE CONVERSATIONNEL ET DES FILTRES :\n"
@@ -65,7 +65,6 @@ class AssistantPromptBuilderTest {
         if ("get_organization_info".equals(name)) {
             tool.setParameters(new ArrayList<>(tool.getParameters()));
             tool.setResultEntityType("DIRECTION");
-            tool.setResultCollectionKey("directions");
             ToolParameter directionId = new ToolParameter(
                     "directionId", "integer", "Identifiant de direction.", false
             );
