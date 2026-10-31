@@ -34,6 +34,12 @@ public class ToolDefinition {
 
     private boolean sensitive;
 
+    @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]{0,39}")
+    private String resultEntityType;
+
+    @Pattern(regexp = "[A-Za-z][A-Za-z0-9_]{0,63}")
+    private String resultCollectionKey;
+
     @NotBlank
     @Size(max = 2000)
     private String whenToUse;
@@ -81,6 +87,12 @@ public class ToolDefinition {
 
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
+
+    public String getResultEntityType() { return resultEntityType; }
+    public void setResultEntityType(String resultEntityType) { this.resultEntityType = resultEntityType; }
+
+    public String getResultCollectionKey() { return resultCollectionKey; }
+    public void setResultCollectionKey(String resultCollectionKey) { this.resultCollectionKey = resultCollectionKey; }
 
     public void validate() {
         if (name == null || !name.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
