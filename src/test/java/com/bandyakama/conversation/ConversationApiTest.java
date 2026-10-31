@@ -799,12 +799,12 @@ class ConversationApiTest {
                                 "searchEmployees",
                                 List.of(),
                                 Map.of("criteriaJson",
-                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"Service du Personnel\\"},"
-                                                + "{\\"field\\":\\"sexe\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"F\\"}]}")
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Service du Personnel\"},"
+                                                + "{\"field\":\"sexe\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"F\"}]}")
                         ))
                 ),
                 new ChatResponse(
@@ -813,9 +813,9 @@ class ConversationApiTest {
                                 "searchEmployees",
                                 List.of(),
                                 Map.of("criteriaJson",
-                                        "{\\"filters\\":[{\\"field\\":\\"service\\","
-                                                + "\\"operator\\":\\"EQ\\","
-                                                + "\\"value\\":\\"Service du Personnel\\"}]}")
+                                        "{\"filters\":[{\"field\":\"service\","
+                                                + "\"operator\":\"EQ\","
+                                                + "\"value\":\"Service du Personnel\"}]}")
                         ))
                 ),
                 new ChatResponse("Le filtre sexe a été retiré.", List.of())
@@ -847,7 +847,7 @@ class ConversationApiTest {
 
         JsonNode persistedState = readMemoryJson(conversationId, "active_state");
         assertEquals(1, persistedState.path("criteria").path("filters").size());
-        assertFalse(persistedState.toString().contains("\\"sexe\\""));
+        assertFalse(persistedState.toString().contains("\"sexe\""));
     }
 
     @Test
