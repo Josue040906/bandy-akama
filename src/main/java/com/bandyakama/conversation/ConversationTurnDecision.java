@@ -33,7 +33,8 @@ public record ConversationTurnDecision(
                         "Une question de clarification est obligatoire quand la demande est ambiguë."
                 );
             }
-            if (toolName != null || !arguments.isEmpty()) {
+            if (toolName != null || !arguments.isEmpty() || referencedEntity != null
+                    || (directResponse != null && !directResponse.isBlank())) {
                 throw new IllegalArgumentException(
                         "Aucun outil ne peut être exécuté avant la clarification."
                 );
