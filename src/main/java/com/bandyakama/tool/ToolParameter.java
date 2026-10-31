@@ -120,6 +120,16 @@ public class ToolParameter {
                     "Emplacement de paramètre non pris en charge : " + location
             );
         }
+        if (referenceType != null
+                && !referenceType.matches("[A-Za-z][A-Za-z0-9_]{0,39}")) {
+            throw new IllegalArgumentException("Type de référence d’entité invalide : " + referenceType);
+        }
+        if (referenceType != null && !("integer".equalsIgnoreCase(type)
+                || "number".equalsIgnoreCase(type))) {
+            throw new IllegalArgumentException(
+                    "Un identifiant d’entité doit être un paramètre numérique : " + name
+            );
+        }
         if (allowedValues != null) {
             if (!"string".equalsIgnoreCase(type)
                     || allowedValues.isEmpty()
