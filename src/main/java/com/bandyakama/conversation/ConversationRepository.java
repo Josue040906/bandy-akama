@@ -706,7 +706,12 @@ public class ConversationRepository {
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
-            );
+            );            if (previousState.path("activeEntity").isObject()) {
+                nextState.set("activeEntity", previousState.path("activeEntity").deepCopy());
+            }
+            if (previousState.path("entityReferences").isArray()) {
+                nextState.set("entityReferences", previousState.path("entityReferences").deepCopy());
+            }
             if ("get_agent_profile".equals(toolState.name())
                     && toolState.result() != null) {
                 JsonNode profile = objectMapper.valueToTree(toolState.result());
