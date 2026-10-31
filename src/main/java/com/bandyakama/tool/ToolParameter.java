@@ -4,6 +4,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public class ToolParameter {
@@ -88,7 +89,7 @@ public class ToolParameter {
     }
 
     public void setAllowedValues(List<String> allowedValues) {
-        this.allowedValues = allowedValues == null ? null : List.copyOf(allowedValues);
+        this.allowedValues = allowedValues == null ? null : new ArrayList<>(allowedValues);
     }
 
     public void validate() {
