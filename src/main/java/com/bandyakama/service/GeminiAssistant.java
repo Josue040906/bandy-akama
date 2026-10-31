@@ -419,7 +419,7 @@ public class GeminiAssistant {
                 ? List.of() : List.of(observedResult);
         List<ChatResponse.ToolState> toolStates = List.of(
                 new ChatResponse.ToolState(decision.toolName(), decision.arguments(),
-                        "get_agent_profile".equals(decision.toolName()) ? result : null)
+                        null)
         );
 
         GenerateContentConfig finalConfig = finalResponseConfig(systemInstruction);
