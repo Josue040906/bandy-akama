@@ -46,6 +46,16 @@ class AssistantConfigurationRepositoryTest {
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
             assertEquals(
+                    List.of("LIST_DIRECTIONS", "COUNT_EMPLOYEES_BY_STRUCTURE"),
+                    snapshot.enabledTools().stream()
+                            .filter(tool -> "get_organization_info".equals(tool.getName()))
+                            .findFirst().orElseThrow()
+                            .getParameters().stream()
+                            .filter(parameter -> "operation".equals(parameter.getName()))
+                            .findFirst().orElseThrow()
+                            .getAllowedValues()
+            );
+            assertEquals(
                     List.of("LIST", "COUNT"),
                     snapshot.enabledTools().stream()
                             .filter(tool -> "search_agents".equals(tool.getName()))
@@ -160,10 +170,12 @@ class AssistantConfigurationRepositoryTest {
                  'body', TRUE, 1, NULL),
                 ('search_agents', 'resultMode', 'string', 'Result mode',
                  'body', FALSE, 2, '["LIST","COUNT"]'),
+                ('get_organization_info', 'operation', 'string', 'Organization operation',
+                 'query', TRUE, 1, '["LIST_DIRECTIONS","COUNT_EMPLOYEES_BY_STRUCTURE"]'),
                 ('get_organization_info', 'query', 'string', 'Organization query',
-                 'query', TRUE, 1, NULL),
-                ('get_organization_info', 'scope', 'string', 'Scope',
                  'query', FALSE, 2, NULL),
+                ('get_organization_info', 'scope', 'string', 'Scope',
+                 'query', FALSE, 3, NULL),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
                  'query', TRUE, 1, NULL)
                 """);
