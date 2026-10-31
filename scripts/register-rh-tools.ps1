@@ -66,6 +66,7 @@ $tools = @(
                 description = 'LIST (défaut) ou COUNT pour obtenir le nombre exact côté API.'
                 required = $false
                 location = 'body'
+                allowedValues = @('LIST', 'COUNT')
             }
         )
     },
@@ -104,6 +105,21 @@ $tools = @(
                 description = 'Opération obligatoire : LIST_DIRECTIONS, GET_DIRECTION, LIST_SERVICES, GET_SERVICE, LIST_POSTES, GET_POSTE, GET_HIERARCHY, GET_RESPONSIBLE, LIST_RESPONSIBLES, COUNT_DIRECTIONS, COUNT_SERVICES, COUNT_POSTES ou COUNT_EMPLOYEES_BY_STRUCTURE.'
                 required = $true
                 location = 'query'
+                allowedValues = @(
+                    'LIST_DIRECTIONS',
+                    'GET_DIRECTION',
+                    'LIST_SERVICES',
+                    'GET_SERVICE',
+                    'LIST_POSTES',
+                    'GET_POSTE',
+                    'GET_HIERARCHY',
+                    'GET_RESPONSIBLE',
+                    'LIST_RESPONSIBLES',
+                    'COUNT_DIRECTIONS',
+                    'COUNT_SERVICES',
+                    'COUNT_POSTES',
+                    'COUNT_EMPLOYEES_BY_STRUCTURE'
+                )
             },
             @{
                 name = 'id'
@@ -218,6 +234,11 @@ foreach ($tool in $tools) {
             [bool]$parameter.required -ne [bool]$expectedParameter.required -or
             $parameter.location -ne $expectedParameter.location) {
             throw "Bandy retained an unexpected schema for parameter $($expectedParameter.name) of $($tool.name)."
+        }
+        $expectedAllowedValues = @($expectedParameter.allowedValues)
+        $registeredAllowedValues = @($parameter.allowedValues)
+        if (($expectedAllowedValues -join '|') -ne ($registeredAllowedValues -join '|')) {
+            throw "Bandy retained unexpected allowed values for parameter $($expectedParameter.name) of $($tool.name)."
         }
     }
     Write-Output "Registered tool: $($tool.name) ($method); verified parameters: $($registeredParameters -join ', ')"
