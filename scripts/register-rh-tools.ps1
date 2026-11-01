@@ -55,7 +55,7 @@ $tools = @(
             @{
                 name = 'criteriaJson'
                 type = 'string'
-                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte; FUZZY interdit pour matricule et sexe); EQ, NE, GT, GTE, LT, LTE, BETWEEN (numérique); EQ, NE, BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
+                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. limit: 1 à 50; offset: 0 à 10000; sortBy: matricule, nom, prenom, age, date_embauche, poste, service, direction, classe, echelon; sortDirection: ASC ou DESC. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte; FUZZY interdit pour matricule et sexe); EQ, NE, GT, GTE, LT, LTE, BETWEEN (numérique); EQ, NE, BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
                 required = $true
                 location = 'body'
             },
