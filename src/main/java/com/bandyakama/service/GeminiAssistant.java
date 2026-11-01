@@ -559,7 +559,7 @@ public class GeminiAssistant {
         );
     }
 
-    private static ChatResponse responseWithClarificationState(
+    static ChatResponse responseWithClarificationState(
             String message,
             List<ChatResponse.ToolResult> toolResults,
             List<ChatResponse.ToolState> toolStates,
