@@ -17,6 +17,7 @@ public class ConversationIntentResolver {
                     + "premier\\b|premiere\\b|deuxieme\\b|dernier\\b|"
                     + "matricules?\\b|lesquels?\\b|lesquelles\\b|"
                     + "affiche\\s+les\\s+agents\\s+trouves\\b|"
+                    + "(?:affiche|montre|liste)(?:[- ]moi)?\\s+\\d+\\s+agents?\\b|"
                     + "donne-moi\\s+leurs?\\b|"
                     + "meme\\b|maintenant\\s+(?:ceux|celles|les|la|le|"
                     + "hommes|femmes)\\b|"
@@ -48,7 +49,19 @@ public class ConversationIntentResolver {
                     + "rien\\s+a\\s+voir)\\b"
     );
     private static final Pattern NEW_SEARCH = Pattern.compile(
-            "^maintenant\\s+(?:cherche|recherche|trouve|liste|compte)\\b"
+            "^(?:(?:maintenant\\s+)?(?:je\\s+)?"
+                    + "(?:cherche|recherche|trouve|liste|compte)\\b|"
+                    + "(?:je\\s+)?(?:veux|voudrais|souhaite)\\s+"
+                    + "(?:chercher|rechercher|trouver|lister)\\b)"
+    );
+    private static final Pattern PAGINATED_LIST_REQUEST = Pattern.compile(
+            "^(?:affiche|montre|liste)(?:[- ]moi)?\\s+\\d+\\s+agents?\\b"
+    );
+    private static final Pattern UNSCOPED_AGENT_LIST_REQUEST = Pattern.compile(
+            "^(?:(?:affiche|montre|liste)(?:[- ]moi)?\\s+"
+                    + "(?:\\d+\\s+)?(?:les\\s+|des\\s+)?agents?|"
+                    + "(?:je\\s+)?(?:cherche|recherche)\\s+(?:un|des)?\\s*agents?)"
+                    + "\\s*[?!.]*$"
     );
     private static final Pattern NEW_QUESTION_REPLY = Pattern.compile(
             "^(?:(?:je\\s+)?(?:veux|souhaite|voudrais)\\s+)?"
@@ -89,10 +102,19 @@ public class ConversationIntentResolver {
         if (NEW_QUESTION_REPLY.matcher(normalized).find()) {
             return Decision.NEW_INTENT;
         }
+        if ("clarification_pending".equals(
+                activeState.path("toolName").asText()
+        )) {
+            return EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
+                    || INDEPENDENT_INTENT.matcher(normalized).find()
+                    ? Decision.NEW_INTENT
+                    : Decision.CONTINUATION;
+        }
         if ("get_agent_profile".equals(
                 activeState.path("toolName").asText()
         )) {
             return NEW_SEARCH.matcher(normalized).find()
+                    || PAGINATED_LIST_REQUEST.matcher(normalized).find()
                     || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
                     ? Decision.NEW_INTENT
                     : Decision.CONTINUATION;
@@ -100,7 +122,8 @@ public class ConversationIntentResolver {
         if ("search_agents".equals(activeState.path("toolName").asText())) {
             if (EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
                     || INDEPENDENT_INTENT.matcher(normalized).find()
-                    || NEW_SEARCH.matcher(normalized).find()) {
+                    || (NEW_SEARCH.matcher(normalized).find()
+                    && !PAGINATED_LIST_REQUEST.matcher(normalized).find())) {
                 return Decision.NEW_INTENT;
             }
             if (COUNT_FOLLOW_UP.matcher(normalized).find()
@@ -144,6 +167,28 @@ public class ConversationIntentResolver {
             return Decision.NEW_INTENT;
         }
         return Decision.CONTINUATION;
+    }
+
+    public Optional<String> unscopedAgentListClarification(
+            String message,
+            JsonNode activeState
+    ) {
+        if (message == null
+                || !UNSCOPED_AGENT_LIST_REQUEST.matcher(normalize(message)).matches()) {
+            return Optional.empty();
+        }
+        boolean activeSearch = activeState != null
+                && "search_agents".equals(activeState.path("toolName").asText());
+        if (activeSearch) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                "Je peux rechercher ou afficher des agents, mais il me manque "
+                        + "un critère pour les sélectionner. Précisez au moins "
+                        + "un nom ou prénom, un matricule, un service, une "
+                        + "direction ou un poste. Par exemple : "
+                        + "« Affiche 5 agents du Service du Personnel »."
+        );
     }
 
     public static Optional<String> greetingResponse(String message) {

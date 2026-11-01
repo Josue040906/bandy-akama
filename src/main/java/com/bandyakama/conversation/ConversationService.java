@@ -267,6 +267,31 @@ public class ConversationService {
                 return response;
             }
 
+            var agentListClarification =
+                    intentResolver.unscopedAgentListClarification(
+                            message,
+                            decision == ConversationIntentResolver.Decision.CONTINUATION
+                                    ? request.activeState()
+                                    : null
+                    );
+            if (agentListClarification.isPresent()) {
+                ChatResponse response = ChatResponse.clarification(
+                        agentListClarification.get()
+                ).withConversationId(conversationId)
+                        .withConversationStateReset(true);
+                measured(
+                        requestId,
+                        "response_persistence",
+                        () -> repository.completeRequest(
+                                conversationId,
+                                requestId,
+                                request.claimId(),
+                                response
+                        )
+                );
+                return response;
+            }
+
             boolean resetState = decision
                     == ConversationIntentResolver.Decision.NEW_INTENT;
             JsonNode stateForRequest = decision

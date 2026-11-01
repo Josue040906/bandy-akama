@@ -553,7 +553,9 @@ public class ConversationRepository {
                 response.message(),
                 persistentToolResults,
                 response.conversationId(),
-                response.resetConversationState()
+                response.resetConversationState(),
+                List.of(),
+                response.needClarification()
         );
         jdbcTemplate.update("""
                 UPDATE bandy_conversation_request

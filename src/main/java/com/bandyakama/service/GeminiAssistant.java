@@ -374,9 +374,7 @@ public class GeminiAssistant {
                 );
             }
 
-            metrics.toolRounds++;
-            metrics.toolCalls += calls.size();
-            List<Part> resultParts = new ArrayList<>();
+            List<PreparedToolCall> preparedCalls = new ArrayList<>();
             for (FunctionCall call : calls) {
                 String name = call.name().orElse("");
                 Map<String, Object> arguments = call.args().orElse(Map.of());
@@ -386,6 +384,29 @@ public class GeminiAssistant {
                                 name,
                                 arguments
                         );
+                if ("search_agents".equals(name)
+                        && !SearchCriteriaValidator.hasPositiveCriteria(
+                                effectiveArguments.get("criteriaJson"),
+                                objectMapper
+                        )) {
+                    return ChatResponse.clarification(
+                            "Je peux rechercher ou afficher des agents, mais il "
+                                    + "me manque un critère pour les sélectionner. "
+                                    + "Précisez au moins un nom ou prénom, un "
+                                    + "matricule, un service, une direction ou un "
+                                    + "poste. Par exemple : « Affiche 5 agents du "
+                                    + "Service du Personnel »."
+                    );
+                }
+                preparedCalls.add(new PreparedToolCall(name, effectiveArguments));
+            }
+
+            metrics.toolRounds++;
+            metrics.toolCalls += preparedCalls.size();
+            List<Part> resultParts = new ArrayList<>();
+            for (PreparedToolCall preparedCall : preparedCalls) {
+                String name = preparedCall.name();
+                Map<String, Object> effectiveArguments = preparedCall.arguments();
                 ToolExecutionResult execution = executeRegisteredTool(
                         name,
                         effectiveArguments,
@@ -1065,6 +1086,8 @@ public class GeminiAssistant {
             );
         };
     }
+
+    private record PreparedToolCall(String name, Map<String, Object> arguments) { }
 
     private record ToolExecutionResult(Object result, boolean sensitive) {
     }

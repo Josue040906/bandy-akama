@@ -301,6 +301,37 @@ class ConversationStateMergerTest {
         assertEquals(0, criteria.path("offset").asInt());
     }
 
+    @Test
+    void preservesActiveFiltersWhenListFollowUpOnlyChangesLimit() throws Exception {
+        JsonNode previous = state(
+                "search_agents",
+                """
+                {"must":[{"field":"service","operator":"CONTAINS","value":"Personnel"}],
+                 "should":[],"must_not":[{"field":"poste","operator":"CONTAINS","value":"Gestionnaire de dossiers"}],
+                 "minimum_should_match":0,"limit":20,"offset":0}
+                """,
+                "LIST"
+        );
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        """
+                        {"must":[],"should":[],"must_not":[],"minimum_should_match":0,
+                         "limit":5,"offset":0}
+                        """,
+                        "resultMode",
+                        "LIST"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree((String) merged.get("criteriaJson"));
+        assertEquals(1, criteria.path("must").size());
+        assertEquals("Personnel", criteria.path("must").get(0).path("value").asText());
+        assertEquals(1, criteria.path("must_not").size());
+        assertEquals(5, criteria.path("limit").asInt());
+    }
+
     private JsonNode state(
             String toolName,
             String criteriaJson,

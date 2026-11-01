@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConversationIntentResolverTest {
     private final ConversationIntentResolver resolver =
@@ -161,6 +163,65 @@ class ConversationIntentResolverTest {
                         "Sait-tu à quelle catégorie il appartient ?",
                         activeState
                 )
+        );
+    }
+
+    @Test
+    void recognizesFirstPersonSearchesAsNewIntentsButKeepsListFollowUps() {
+        JsonNode activeSearch = objectMapper.createObjectNode()
+                .put("toolName", "search_agents");
+        for (String message : new String[]{
+                "Je recherche un agent.",
+                "Je cherche un agent, son nom est RASOLOARISOA.",
+                "Je voudrais rechercher un agent."
+        }) {
+            assertEquals(ConversationIntentResolver.Decision.NEW_INTENT,
+                    resolver.resolve(message, activeSearch), message);
+        }
+        for (String limitedList : new String[]{
+                "Affiche-moi 5 agents.",
+                "Affiche 5 agents.",
+                "Montre-moi 5 agents.",
+                "Liste-moi 5 agents.",
+                "Liste 5 agents."
+        }) {
+            assertEquals(ConversationIntentResolver.Decision.CONTINUATION,
+                    resolver.resolve(limitedList, activeSearch), limitedList);
+        }
+    }
+
+    @Test
+    void clarifiesUnscopedAgentListsButPreservesAnActiveSearch() {
+        assertTrue(resolver.unscopedAgentListClarification(
+                "Affiche-moi 5 agents.", null
+        ).isPresent());
+        assertTrue(resolver.unscopedAgentListClarification(
+                "Je recherche un agent.", null
+        ).isPresent());
+        assertTrue(resolver.unscopedAgentListClarification(
+                "Affiche-moi des agents", objectMapper.createObjectNode()
+                        .put("toolName", "get_agent_profile")
+        ).isPresent());
+        assertFalse(resolver.unscopedAgentListClarification(
+                "Affiche-moi 5 agents.", objectMapper.createObjectNode()
+                        .put("toolName", "search_agents")
+        ).isPresent());
+        assertFalse(resolver.unscopedAgentListClarification(
+                "Je recherche RASOLOARISOA.", null
+        ).isPresent());
+    }
+
+    @Test
+    void treatsTheReplyToPendingClarificationAsAContinuation() {
+        JsonNode pending = objectMapper.createObjectNode()
+                .put("toolName", "clarification_pending");
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Du Service du Personnel.", pending)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve("Changeons de sujet : explique la paie.", pending)
         );
     }
 

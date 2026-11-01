@@ -1,5 +1,6 @@
 package com.bandyakama.service;
 
+import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
@@ -233,6 +234,18 @@ class GeminiAssistantOrchestrationTest {
         assertFalse(agent.containsKey("telephone"));
         assertFalse(agent.containsKey("adresse"));
         assertFalse(agent.containsKey("matricule"));
+    }
+
+    @Test
+    void clarificationResponseIsStructuredAndContainsNoToolResults() {
+        ChatResponse response = ChatResponse.clarification("Précisez un service.");
+        assertTrue(response.needClarification());
+        assertTrue(response.toolResults().isEmpty());
+        assertEquals(1, response.toolStates().size());
+        assertEquals("clarification_pending", response.toolStates().get(0).name());
+        assertEquals("Précisez un service.", response.message());
+        assertTrue(response.withConversationId(java.util.UUID.randomUUID())
+                .needClarification());
     }
 
     private ToolDefinition namedTool(String name) {

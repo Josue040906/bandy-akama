@@ -49,13 +49,13 @@ public class ConversationStateMerger {
         if (incomingCriteria instanceof String incomingJson
                 && previousCriteria instanceof String previousJson
                 && continuingSameTool) {
-            boolean countOnly = "COUNT".equalsIgnoreCase(
-                    String.valueOf(merged.getOrDefault("resultMode", ""))
-            );
             merged.put(
                     "criteriaJson",
-                    countOnly && isEmptyCriteria(incomingJson)
-                            ? previousJson
+                    isEmptyCriteria(incomingJson)
+                            ? preservePreviousCriteriaAndApplyPagination(
+                                    previousJson,
+                                    incomingJson
+                            )
                             : mergeCriteria(previousJson, incomingJson)
             );
         }
@@ -83,6 +83,34 @@ public class ConversationStateMerger {
             }
         }
         return state;
+    }
+
+    private String preservePreviousCriteriaAndApplyPagination(
+            String previousJson,
+            String incomingJson
+    ) {
+        try {
+            JsonNode previous = objectMapper.readTree(previousJson);
+            JsonNode incoming = objectMapper.readTree(incomingJson);
+            if (!previous.isObject() || !incoming.isObject()) {
+                return previousJson;
+            }
+            ObjectNode merged = ((ObjectNode) previous).deepCopy();
+            for (String field : new String[]{
+                    "limit", "offset", "sortBy", "sortDirection"
+            }) {
+                if (incoming.has(field)) {
+                    merged.set(field, incoming.get(field).deepCopy());
+                }
+            }
+            return objectMapper.writeValueAsString(merged);
+        } catch (JsonProcessingException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Les critères produits par le modèle ne sont pas valides.",
+                    exception
+            );
+        }
     }
 
     private String mergeCriteria(String previousJson, String incomingJson) {
@@ -157,8 +185,9 @@ public class ConversationStateMerger {
             if (!criteria.isObject()) {
                 return false;
             }
-            if (criteria.path("filters").isArray()) {
-                return criteria.path("filters").isEmpty();
+            if (criteria.path("filters").isArray()
+                    && !criteria.path("filters").isEmpty()) {
+                return false;
             }
             for (String group : new String[]{"must", "should", "must_not"}) {
                 JsonNode node = criteria.path(group);
@@ -166,7 +195,7 @@ public class ConversationStateMerger {
                     return false;
                 }
             }
-            return isAdvancedAst(criteria);
+            return true;
         } catch (JsonProcessingException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
