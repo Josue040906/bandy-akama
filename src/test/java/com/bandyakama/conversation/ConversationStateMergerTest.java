@@ -204,6 +204,77 @@ class ConversationStateMergerTest {
         );
     }
 
+    @Test
+    void preservesBooleanExclusionWhenCountFollowUpContainsEmptyAst()
+            throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"}],\\"should\\":[],\\"must_not\\":[{\\"field\\":\\"poste\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Gestionnaire de dossiers\\"}],\\"minimum_should_match\\":0}",
+                    "resultMode": "LIST"
+                  }
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\\"must\\":[],\\"should\\":[],\\"must_not\\":[],\\"minimum_should_match\\":0}",
+                        "resultMode",
+                        "COUNT"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree(
+                (String) merged.get("criteriaJson")
+        );
+
+        assertEquals(1, criteria.path("must").size());
+        assertEquals(1, criteria.path("must_not").size());
+        assertEquals("Personnel", criteria.path("must").get(0)
+                .path("value").asText());
+        assertEquals("Gestionnaire de dossiers", criteria.path("must_not").get(0)
+                .path("value").asText());
+        assertEquals("COUNT", merged.get("resultMode"));
+    }
+
+    @Test
+    void mergesPartialBooleanAstWithoutDroppingUnmentionedGroups()
+            throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"}],\\"should\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Administration\\"}],\\"must_not\\":[{\\"field\\":\\"poste\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Gestionnaire\\"}],\\"minimum_should_match\\":1,\\"limit\\":20,\\"offset\\":0}",
+                    "resultMode": "LIST"
+                  }
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"},{\\"field\\":\\"age\\",\\"operator\\":\\"GT\\",\\"value\\":40}]}",
+                        "resultMode",
+                        "LIST"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree(
+                (String) merged.get("criteriaJson")
+        );
+
+        assertEquals(2, criteria.path("must").size());
+        assertEquals(1, criteria.path("should").size());
+        assertEquals(1, criteria.path("must_not").size());
+        assertEquals(1, criteria.path("minimum_should_match").asInt());
+        assertEquals(20, criteria.path("limit").asInt());
+        assertEquals(0, criteria.path("offset").asInt());
+    }
+
     private JsonNode filter(JsonNode criteria, String field) {
         for (JsonNode filter : criteria.path("filters")) {
             if (field.equals(filter.path("field").asText())) {
