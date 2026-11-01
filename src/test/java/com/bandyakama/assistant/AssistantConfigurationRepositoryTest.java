@@ -38,7 +38,7 @@ class AssistantConfigurationRepositoryTest {
             );
             assertEquals(1, snapshot.enabledTools().get(0).getParameters().size());
             assertEquals(
-                    "nom_agent",
+                    "query",
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
@@ -142,7 +142,7 @@ class AssistantConfigurationRepositoryTest {
                 INSERT INTO bandy_tool_parameter
                 (tool_name, name, type, description, location, required, position)
                 VALUES
-                ('get_agent_profile', 'nom_agent', 'string', 'Agent name',
+                ('get_agent_profile', 'query', 'string', 'Agent name',
                  'query', TRUE, 1),
                 ('search_agents', 'criteriaJson', 'string', 'Search criteria',
                  'body', TRUE, 1),
