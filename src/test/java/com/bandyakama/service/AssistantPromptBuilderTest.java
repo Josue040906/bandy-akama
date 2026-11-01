@@ -21,8 +21,10 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Consignes configurées."));
         assertTrue(instruction.contains("get_agent_profile"));
         assertTrue(instruction.contains("search_agents"));
-        assertTrue(instruction.contains("deux filtres FUZZY distincts"));
-        assertTrue(instruction.contains("ordre prénom-nom"));
+        assertTrue(instruction.contains("must_not"));
+        assertTrue(instruction.contains("FUZZY_PERSON"));
+        assertTrue(instruction.contains("AST COMPLET"));
+        assertTrue(instruction.contains("ordre inversé"));
         assertTrue(instruction.contains("resultMode=COUNT"));
         assertTrue(instruction.contains("get_organization_info"));
         assertTrue(instruction.contains("N’invente ni agent"));

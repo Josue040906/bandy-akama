@@ -45,17 +45,17 @@ if ([string]::IsNullOrWhiteSpace($registrationKey)) {
 $tools = @(
     @{
         name = 'search_agents'
-        description = 'Recherche les agents par critères RH structurés. Utiliser deux filtres FUZZY séparés pour un nom complet, et resultMode=COUNT pour un total exact.'
-        whenToUse = 'Utiliser pour toute recherche d’agents par critères, y compris les suivis qui ajoutent ou modifient des filtres. criteriaJson doit contenir un objet JSON avec 1 à 10 filtres utilisant uniquement les champs et opérateurs supportés par l’API. resultMode=COUNT demande un comptage exact backend; ne jamais compter une page de résultats. Utiliser LIST pour afficher les correspondances.'
+        description = 'Recherche unifiée d’agents RH : identité approximative et critères combinés en ET/OU/NON, avec classement des candidats.'
+        whenToUse = 'Utiliser pour toute recherche d’agents par critères, y compris les suivis qui ajoutent ou modifient des filtres. criteriaJson doit être un AST JSON avec must (ET), should (OU/préférences), must_not (NON) et minimum_should_match. Chaque feuille contient field, operator, value et upperValue facultatif; les groupes imbriqués utilisent bool. Pour une identité complète ou approximative, utiliser une seule feuille avec field=personne, operator=FUZZY_PERSON et value=nom complet; FUZZY reste disponible pour les autres champs textuels. Utiliser uniquement les champs/opérateurs autorisés et des dates ISO AAAA-MM-JJ. Interpréter récemment embauché comme WITHIN_LAST_MONTHS=12 et l’indiquer à l’utilisateur; demander une précision pour jeune/vieux ou toute ambiguïté déterminante. Envoyer l’AST complet lors d’un suivi en conservant les critères non modifiés. COUNT demande un total exact backend; LIST affiche les candidats.'
         method = 'POST'
-        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
+        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/avancee"
         enabled = $true
         sensitive = $true
         parameters = @(
             @{
                 name = 'criteriaJson'
                 type = 'string'
-                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. limit: 1 à 50; offset: 0 à 10000; sortBy: matricule, nom, prenom, age, date_embauche, poste, service, direction, classe, echelon; sortDirection: ASC ou DESC. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte; FUZZY interdit pour matricule et sexe); EQ, NE, GT, GTE, LT, LTE, BETWEEN (numérique); EQ, NE, BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
+                description = 'AST JSON encodé en chaîne, ex. {"must":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"should":[],"must_not":[],"minimum_should_match":0,"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. limit: 1 à 50; offset: 0 à 10000; sortBy: matricule, nom, prenom, age, date_embauche, poste, service, direction, classe, echelon; sortDirection: ASC ou DESC. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte; FUZZY interdit pour matricule/sexe); FUZZY_PERSON (personne/nom_complet); EQ, NE, GT, GTE, LT, LTE, BETWEEN (numérique); EQ, BEFORE, AFTER, BETWEEN, WITHIN_LAST_MONTHS, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
                 required = $true
                 location = 'body'
             },
