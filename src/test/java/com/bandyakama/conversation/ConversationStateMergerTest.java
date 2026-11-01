@@ -29,8 +29,8 @@ class ConversationStateMergerTest {
                 previous,
                 "searchEmployees",
                 Map.of("criteriaJson",
-                        "{\"filters\":[{\"field\":\"age\","
-                                + "\"operator\":\"LT\",\"value\":30}]}")
+                        "{\\"filters\\":[{\\"field\\":\\"age\\","
+                                + "\\"operator\\":\\"LT\\",\\"value\\":30}]}")
         );
         JsonNode criteria = objectMapper.readTree(
                 (String) merged.get("criteriaJson")
@@ -58,9 +58,9 @@ class ConversationStateMergerTest {
                 previous,
                 "searchEmployees",
                 Map.of("criteriaJson",
-                        "{\"filters\":[{\"field\":\"sexe\","
-                                + "\"operator\":\"EQ\",\"value\":\"M\"},"
-                                + "{\"field\":\"service\",\"remove\":true}]}")
+                        "{\\"filters\\":[{\\"field\\":\\"sexe\\","
+                                + "\\"operator\\":\\"EQ\\",\\"value\\":\\"M\\"},"
+                                + "{\\"field\\":\\"service\\",\\"remove\\":true}]}")
         );
         JsonNode criteria = objectMapper.readTree(
                 (String) merged.get("criteriaJson")
@@ -111,15 +111,6 @@ class ConversationStateMergerTest {
         assertEquals("Finances", merged.get("service"));
     }
 
-                previous,
-                "searchEmployeesApproximately",
-                Map.of("query", "RAKOTO", "service", "Finances")
-        );
-
-        assertEquals("RAKOTO", merged.get("query"));
-        assertEquals("Finances", merged.get("service"));
-    }
-
     @Test
     void retainsLegacyFilterMergeForBackwardCompatibility()
             throws Exception {
@@ -138,8 +129,8 @@ class ConversationStateMergerTest {
                 "searchEmployees",
                 Map.of(
                         "criteriaJson",
-                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\","
-                                + "\"value\":40}]}",
+                        "{\\"filters\\":[{\\"field\\":\\"age\\",\\"operator\\":\\"GT\\","
+                                + "\\"value\\":40}]}",
                         "resultMode",
                         "COUNT"
                 )
@@ -151,7 +142,13 @@ class ConversationStateMergerTest {
         assertEquals(2, criteria.path("filters").size());
         assertEquals(
                 "Direction X",
-                filter(criteria, "direction").path("value").asText()    @Test
+                filter(criteria, "direction").path("value").asText()
+        );
+        assertEquals(40, filter(criteria, "age").path("value").asInt());
+        assertEquals("COUNT", merged.get("resultMode"));
+    }
+
+    @Test
     void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
         ConversationIntentResolver resolver =
                 new ConversationIntentResolver();
