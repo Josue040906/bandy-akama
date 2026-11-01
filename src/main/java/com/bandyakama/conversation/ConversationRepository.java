@@ -1184,7 +1184,10 @@ public class ConversationRepository {
     ) {
         String matricule = profile.path("agent").path("matricule").asText("");
         String identity = matricule.isBlank()
-                ? String.valueOf(arguments.getOrDefault("nom_agent", ""))
+                ? String.valueOf(arguments.getOrDefault(
+                        "query",
+                        arguments.getOrDefault("nom_agent", "")
+                ))
                 : matricule;
         return identity.trim().toLowerCase(java.util.Locale.ROOT);
     }
