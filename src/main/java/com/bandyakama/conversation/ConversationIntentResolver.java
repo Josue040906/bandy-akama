@@ -49,7 +49,7 @@ public class ConversationIntentResolver {
     );
     private static final Pattern NEW_SEARCH = Pattern.compile(
             "^(?:(?:maintenant\\s+)?(?:je\\s+)?"
-                    + "(?:cherche|recherche|trouve|liste|compte)\\b|"
+                    + "(?:cherche|recherche|trouve|compte)\\b|"
                     + "(?:je\\s+)?(?:veux|voudrais|souhaite)\\s+"
                     + "(?:chercher|rechercher|trouver|lister)\\b)"
     );
