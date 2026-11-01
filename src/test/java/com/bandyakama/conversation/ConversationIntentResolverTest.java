@@ -180,35 +180,23 @@ class ConversationIntentResolverTest {
         }
         for (String limitedList : new String[]{
                 "Affiche-moi 5 agents.",
-                "Affiche 5 agents.",
+                "Affiche plusieurs agents.",
                 "Montre-moi 5 agents.",
                 "Liste-moi 5 agents.",
-                "Liste 5 agents."
+                "Donne-moi quelques agents."
         }) {
             assertEquals(ConversationIntentResolver.Decision.CONTINUATION,
                     resolver.resolve(limitedList, activeSearch), limitedList);
         }
-    }
-
-    @Test
-    void clarifiesUnscopedAgentListsButPreservesAnActiveSearch() {
-        assertTrue(resolver.unscopedAgentListClarification(
-                "Affiche-moi 5 agents.", null
-        ).isPresent());
-        assertTrue(resolver.unscopedAgentListClarification(
-                "Je recherche un agent.", null
-        ).isPresent());
-        assertTrue(resolver.unscopedAgentListClarification(
-                "Affiche-moi des agents", objectMapper.createObjectNode()
-                        .put("toolName", "get_agent_profile")
-        ).isPresent());
-        assertFalse(resolver.unscopedAgentListClarification(
-                "Affiche-moi 5 agents.", objectMapper.createObjectNode()
-                        .put("toolName", "search_agents")
-        ).isPresent());
-        assertFalse(resolver.unscopedAgentListClarification(
-                "Je recherche RASOLOARISOA.", null
-        ).isPresent());
+        for (String freshSearch : new String[]{
+                "Affiche-moi 5 agents.",
+                "Affiche plusieurs agents.",
+                "Montre-moi 5 agents.",
+                "Liste-moi 5 agents."
+        }) {
+            assertEquals(ConversationIntentResolver.Decision.NEW_INTENT,
+                    resolver.resolve(freshSearch, null), freshSearch);
+        }
     }
 
     @Test
