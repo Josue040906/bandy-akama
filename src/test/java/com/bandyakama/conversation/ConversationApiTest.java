@@ -337,7 +337,7 @@ class ConversationApiTest {
                             .header("Authorization", bearerToken("42"))
                             .header("Idempotency-Key", requestId.toString())
                             .contentType(MediaType.APPLICATION_JSON)
-                            .content("{\"message\":\"Cherche des agents\"}"))
+                            .content("{\"message\":\"Cherche les agents du Service du Personnel\"}"))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.message").value("Quatre agents correspondent."))
                     .andExpect(jsonPath("$.conversationId").value(conversationId.toString()));
