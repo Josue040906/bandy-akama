@@ -137,14 +137,21 @@ Supported argument types are `string`, `integer`, `number` and `boolean`; locati
 
 The assistant uses three read-only RH capabilities:
 
-- `search_agents` sends a structured `criteriaJson` string and a `resultMode`
-  (`LIST` or `COUNT`) in the JSON body to
-  `POST /api/recherche/agents/criteres`. The API validates up to 10 filters,
-  limits list pages to 50 agents, and executes exact counts in the backend.
-  Supported criteria match the current API contract: matricule, name, first
-  name, sex, address, current post/service/direction, category, corps,
-  employment type, class, age, seniority dates and career grade. Diploma
-  criteria are not exposed by the current API search endpoint.
+- `search_agents` sends a validated boolean query AST in the `criteriaJson`
+  string and a `resultMode` (`LIST` or `COUNT`) to
+  `POST /api/recherche/agents/avancee`. The API supports `must` (AND),
+  `should` (OR/preference), `must_not` (NOT), and nested `bool` groups.
+  Leaf criteria use an allowlisted field/operator/value contract; SQL identifiers
+  are never supplied by Gemini. `FUZZY_PERSON` compares full names, reversed
+  order, word similarity, trigrams, edit distance and a phonetic recall signal.
+  Phonetics never identifies a person by itself. Text, age, career grade and
+  absolute/relative date criteria can be combined in one query. The engine
+  returns a privacy-minimized candidate projection (internal id, name, current
+  post/service/direction and match score), not matricule or contact details.
+  Pages are capped at 50 and exact counts are computed by the API. The assistant
+  must send the complete AST again on follow-ups, preserving criteria that the
+  user did not change. “Recently hired” defaults to the last 12 months and must
+  be disclosed; vague “young/old” descriptions require clarification.
 - `get_agent_profile` retrieves the concise professional profile by exact full
   name or matricule:
 
