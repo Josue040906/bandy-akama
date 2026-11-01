@@ -383,7 +383,7 @@ class ConversationApiTest {
                         List.of(new ChatResponse.ToolResult(
                                 "get_agent_profile",
                                 Map.of("found", false),
-                                Map.of("nom_agent", "Josué TSIVOERY")
+                                Map.of("query", "Josué TSIVOERY")
                         ))
                 ),
                 new ChatResponse(
@@ -403,7 +403,7 @@ class ConversationApiTest {
                                         )
                                 ),
                                 Map.of(
-                                        "nom_agent",
+                                        "query",
                                         "TSIVOERY Josué Césaire"
                                 )
                         ))
