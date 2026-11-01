@@ -390,12 +390,9 @@ public class GeminiAssistant {
                                 objectMapper
                         )) {
                     return ChatResponse.clarification(
-                            "Je peux rechercher ou afficher des agents, mais il "
-                                    + "me manque un critère pour les sélectionner. "
-                                    + "Précisez au moins un nom ou prénom, un "
-                                    + "matricule, un service, une direction ou un "
-                                    + "poste. Par exemple : « Affiche 5 agents du "
-                                    + "Service du Personnel »."
+                            "Pour rechercher des agents, indiquez au moins un "
+                                    + "critère de sélection : nom ou prénom, "
+                                    + "matricule, service, direction ou poste."
                     );
                 }
                 preparedCalls.add(new PreparedToolCall(name, effectiveArguments, call.id().orElse(null)));
