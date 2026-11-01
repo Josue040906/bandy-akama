@@ -112,11 +112,11 @@ class ConversationStateMergerTest {
     }
 
     @Test
-    void mergesSearchAgentCriteriaAndAllowsTheFollowUpToSwitchToCount()
+    void retainsLegacyFilterMergeForBackwardCompatibility()
             throws Exception {
         JsonNode previous = objectMapper.readTree("""
                 {
-                  "toolName": "search_agents",
+                  "toolName": "searchEmployees",
                   "arguments": {
                     "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Direction X\\"}]}",
                     "resultMode": "LIST"
