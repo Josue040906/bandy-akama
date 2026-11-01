@@ -55,7 +55,7 @@ $tools = @(
             @{
                 name = 'criteriaJson'
                 type = 'string'
-                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche, niveau_diplome, domaine_etude, etablissement. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte); GT, GTE, LT, LTE, BETWEEN (numérique); BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
+                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte sauf matricule et sexe); GT, GTE, LT, LTE, BETWEEN (numérique); BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
                 required = $true
                 location = 'body'
             },
@@ -80,7 +80,7 @@ $tools = @(
             @{
                 name = 'query'
                 type = 'string'
-                description = 'Nom complet ou matricule de l’agent à identifier. Transmettre la valeur telle qu’elle apparaît dans la demande; demander une précision si l’identité est ambiguë.'
+                description = 'Nom complet ou matricule de l’agent à identifier, transmis au paramètre query de l’API. Transmettre la valeur telle qu’elle apparaît dans la demande; demander une précision si l’identité est ambiguë.'
                 required = $true
                 location = 'query'
             }
