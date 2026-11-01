@@ -1362,6 +1362,73 @@ class ConversationApiTest {
     }
 
     @Test
+    void returnsSafeSearchCardsOnceWithoutPersistingSensitiveCandidates()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        UUID requestId = UUID.randomUUID();
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Un agent correspond.",
+                List.of(new ChatResponse.ToolResult(
+                        "search_agents",
+                        Map.of(
+                                "total", 1,
+                                "agents", List.of(Map.of(
+                                        "id", 42,
+                                        "nom", "RAKOTO",
+                                        "prenom", "Miora",
+                                        "poste", "Gestionnaire",
+                                        "service", "Finances",
+                                        "score_correspondance", 0.87
+                                ))
+                        ),
+                        Map.of()
+                ))
+        ));
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", requestId.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Cherche Miora Rakoto\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toolResults[0].name").value("search_agents"))
+                .andExpect(jsonPath("$.toolResults[0].result.agents[0].id").value(42))
+                .andExpect(jsonPath("$.toolResults[0].result.agents[0].score_correspondance").value(0.87));
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .header("Idempotency-Key", requestId.toString())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"Cherche Miora Rakoto\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.toolResults.length()").value(0));
+
+        assertEquals(2, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ?
+                """,
+                Integer.class,
+                conversationId
+        ));
+        assertEquals(0, readMemoryJson(conversationId, "result_references").size());
+        String savedResponse = jdbcTemplate.queryForObject("""
+                SELECT response_json FROM bandy_conversation_request
+                WHERE conversation_id = ? AND idempotency_key = ?
+                """,
+                String.class,
+                conversationId,
+                requestId
+        );
+        assertFalse(savedResponse.contains("RAKOTO"));
+    }
+
+    @Test
     void renamesArchivesAndRejectsFurtherMessages() throws Exception {
         UUID conversationId = createConversation("42");
         mockMvc.perform(patch("/api/conversations/{id}", conversationId)
