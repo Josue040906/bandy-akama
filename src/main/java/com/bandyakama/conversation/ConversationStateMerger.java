@@ -49,9 +49,14 @@ public class ConversationStateMerger {
         if (incomingCriteria instanceof String incomingJson
                 && previousCriteria instanceof String previousJson
                 && continuingSameTool) {
+            boolean countOnly = "COUNT".equalsIgnoreCase(
+                    String.valueOf(merged.getOrDefault("resultMode", ""))
+            );
             merged.put(
                     "criteriaJson",
-                    mergeCriteria(previousJson, incomingJson)
+                    countOnly && isEmptyCriteria(incomingJson)
+                            ? previousJson
+                            : mergeCriteria(previousJson, incomingJson)
             );
         }
         return merged;
@@ -137,6 +142,31 @@ public class ConversationStateMerger {
                 }
             });
             return objectMapper.writeValueAsString(merged);
+        } catch (JsonProcessingException exception) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Les critères produits par le modèle ne sont pas valides.",
+                    exception
+            );
+        }
+    }
+
+    private boolean isEmptyCriteria(String criteriaJson) {
+        try {
+            JsonNode criteria = objectMapper.readTree(criteriaJson);
+            if (!criteria.isObject()) {
+                return false;
+            }
+            if (criteria.path("filters").isArray()) {
+                return criteria.path("filters").isEmpty();
+            }
+            for (String group : new String[]{"must", "should", "must_not"}) {
+                JsonNode node = criteria.path(group);
+                if (node.isArray() && !node.isEmpty()) {
+                    return false;
+                }
+            }
+            return isAdvancedAst(criteria);
         } catch (JsonProcessingException exception) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
