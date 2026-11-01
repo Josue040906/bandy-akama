@@ -21,6 +21,8 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Consignes configurées."));
         assertTrue(instruction.contains("get_agent_profile"));
         assertTrue(instruction.contains("search_agents"));
+        assertTrue(instruction.contains("SEARCH_CRITERIA_REQUIRED"));
+        assertTrue(instruction.contains("ne rappelle pas search_agents"));
         assertTrue(instruction.contains("must_not"));
         assertTrue(instruction.contains("FUZZY_PERSON"));
         assertTrue(instruction.contains("AST COMPLET"));
