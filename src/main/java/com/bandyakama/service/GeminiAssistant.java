@@ -416,6 +416,16 @@ public class GeminiAssistant {
                             result,
                             effectiveArguments
                     ));
+                } else if ("search_agents".equals(name)) {
+                    // Retourne à l'interface uniquement les champs nécessaires
+                    // à l'affichage et à l'ouverture d'une fiche agent.
+                    // ConversationRepository continue d'exclure cet outil sensible
+                    // de l'historique et de la réponse idempotente persistée.
+                    executedResults.add(new ChatResponse.ToolResult(
+                            name,
+                            clientSafeSearchResult(result),
+                            Map.of()
+                    ));
                 }
 
                 FunctionResponse.Builder resultBuilder =
@@ -924,6 +934,57 @@ public class GeminiAssistant {
                     exception
             );
         }
+    }
+
+    static Map<String, Object> clientSafeSearchResult(Object rawResult) {
+        if (!(rawResult instanceof Map<?, ?> result)
+                || !(result.get("agents") instanceof List<?> rawAgents)) {
+            throw new IllegalStateException(
+                    "Le résultat de recherche des agents ne respecte pas le contrat attendu."
+            );
+        }
+
+        Map<String, Object> safeResult = new java.util.LinkedHashMap<>();
+        for (String key : List.of("total", "limit", "offset", "hasMore")) {
+            Object value = result.get(key);
+            if (value instanceof Number || value instanceof Boolean) {
+                safeResult.put(key, value);
+            }
+        }
+
+        List<Map<String, Object>> safeAgents = new ArrayList<>();
+        for (Object rawAgent : rawAgents) {
+            if (!(rawAgent instanceof Map<?, ?> agent)) {
+                continue;
+            }
+            Object rawId = agent.get("id");
+            if (!(rawId instanceof Number id)
+                    || id.longValue() < 1
+                    || id.doubleValue() != id.longValue()) {
+                continue;
+            }
+
+            Map<String, Object> safeAgent = new java.util.LinkedHashMap<>();
+            safeAgent.put("id", id.longValue());
+            for (String key : List.of(
+                    "nom", "prenom", "poste", "service", "direction"
+            )) {
+                Object value = agent.get(key);
+                if (value instanceof String text && !text.isBlank()) {
+                    safeAgent.put(key, text);
+                }
+            }
+            Object rawScore = agent.get("score_correspondance");
+            if (rawScore instanceof Number score
+                    && score.doubleValue() >= 0.0
+                    && score.doubleValue() <= 1.0) {
+                safeAgent.put("score_correspondance", score.doubleValue());
+            }
+            safeAgents.add(safeAgent);
+        }
+        safeResult.put("agents", List.copyOf(safeAgents));
+        safeResult.putIfAbsent("total", safeAgents.size());
+        return safeResult;
     }
 
     private boolean isSensitiveReadTool(String name) {
