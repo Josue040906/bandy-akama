@@ -49,6 +49,19 @@ class SearchCriteriaValidatorTest {
     }
 
     @Test
+    void rejectsNestedNegativeOnlyAndIncompleteConditions() {
+        assertFalse(SearchCriteriaValidator.hasPositiveCriteria("""
+                {"must":[{"bool":{"must_not":[{"field":"poste","operator":"EQ","value":"RH"}]}}]}
+                """, mapper));
+        assertFalse(SearchCriteriaValidator.hasPositiveCriteria("""
+                {"must":[{"field":"service","operator":"EQ","value":"  "}]}
+                """, mapper));
+        assertFalse(SearchCriteriaValidator.hasPositiveCriteria("""
+                {"must":[{"field":"","operator":"EQ","value":"Personnel"}]}
+                """, mapper));
+    }
+
+    @Test
     void rejectsMissingMalformedAndNonObjectCriteria() {
         assertFalse(SearchCriteriaValidator.hasPositiveCriteria(null, mapper));
         assertFalse(SearchCriteriaValidator.hasPositiveCriteria("", mapper));
