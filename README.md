@@ -141,9 +141,10 @@ The assistant uses three read-only RH capabilities:
   (`LIST` or `COUNT`) in the JSON body to
   `POST /api/recherche/agents/criteres`. The API validates up to 10 filters,
   limits list pages to 50 agents, and executes exact counts in the backend.
-  Supported criteria include employee attributes, current work assignment and
-  diploma level/domain/institution. A `niveau_diplome` and `domaine_etude`
-  combination is matched against the same diploma record.
+  Supported criteria match the current API contract: matricule, name, first
+  name, sex, address, current post/service/direction, category, corps,
+  employment type, class, age, seniority dates and career grade. Diploma
+  criteria are not exposed by the current API search endpoint.
 - `get_agent_profile` retrieves the concise professional profile by exact full
   name or matricule:
 
@@ -153,14 +154,14 @@ The assistant uses three read-only RH capabilities:
   "description": "Récupère le profil professionnel concis d’un agent identifié par son nom ou matricule.",
   "whenToUse": "Pour une question sur l’âge, les diplômes, le parcours, le poste actuel ou les informations professionnelles d’un agent. Réutiliser le profil déjà chargé dans la conversation. En cas de correspondance ambiguë, demander le matricule.",
   "method": "GET",
-  "url": "http://localhost:8080/api/profil/agent/assistant",
+  "url": "http://localhost:8080/api/profil/agent",
   "enabled": true,
   "sensitive": true,
   "parameters": [
     {
-      "name": "nom_agent",
+      "name": "query",
       "type": "string",
-      "description": "Nom complet ou matricule exact de l’agent.",
+      "description": "Nom complet ou matricule de l’agent.",
       "required": true,
       "location": "query"
     }
