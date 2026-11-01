@@ -193,8 +193,13 @@ The RH backend owns only RH data and endpoints. It does not call Bandy, store a 
 Gemini receives only the three explicitly allowlisted schemas. It uses the
 profile tool for identified-agent details, the search tool for structured
 queries and exact counts, and the organization tool for documented hierarchy.
-Raw agent search/profile results are treated as sensitive: Bandy retains the
-criteria needed for continuity, not complete CVs in conversation references.
+Raw agent search/profile results are treated as sensitive. For the immediate
+search response, Bandy sends the frontend a strict card projection only
+(internal navigation id, name, first name, post, service, direction and
+similarity score); it never returns matricule, contact details or full profiles
+in those cards. The raw tool payload and the projected candidates are excluded
+from conversation history, memory and idempotent response replay; only search
+criteria are retained for continuity.
 This is targeted retrieval of structured RH data, not vector-database or
 document-search RAG. Run `.\scripts\register-rh-tools.ps1` after deploying
 both APIs to register the tool definitions, then run
