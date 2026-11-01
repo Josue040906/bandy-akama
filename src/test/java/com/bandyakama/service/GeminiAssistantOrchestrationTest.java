@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.net.SocketTimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -191,6 +192,48 @@ class GeminiAssistantOrchestrationTest {
         ).isEmpty());
     }
 
+
+    @Test
+    void returnsOnlyNavigableAndDisplaySafeFieldsForSensitiveAgentSearch() {
+        Map<String, Object> projected = GeminiAssistant.clientSafeSearchResult(
+                Map.of(
+                        "total", 1,
+                        "limit", 20,
+                        "offset", 0,
+                        "hasMore", false,
+                        "agents", List.of(
+                                Map.of(
+                                        "id", 42,
+                                        "matricule", "RH-0042",
+                                        "nom", "RAKOTO",
+                                        "prenom", "Miora",
+                                        "poste", "Gestionnaire",
+                                        "service", "Finances",
+                                        "direction", "Administration",
+                                        "score_correspondance", 0.87,
+                                        "telephone", "0600000000",
+                                        "adresse", "Adresse privée"
+                                ),
+                                Map.of(
+                                        "nom", "Sans identifiant",
+                                        "prenom", "Agent"
+                                )
+                        )
+                )
+        );
+
+        assertEquals(1, projected.get("total"));
+        List<?> agents = (List<?>) projected.get("agents");
+        assertEquals(1, agents.size());
+        Map<?, ?> agent = (Map<?, ?>) agents.get(0);
+        assertEquals(42L, agent.get("id"));
+        assertEquals("RAKOTO", agent.get("nom"));
+        assertEquals("Miora", agent.get("prenom"));
+        assertEquals(0.87, agent.get("score_correspondance"));
+        assertFalse(agent.containsKey("telephone"));
+        assertFalse(agent.containsKey("adresse"));
+        assertFalse(agent.containsKey("matricule"));
+    }
 
     private ToolDefinition namedTool(String name) {
         ToolDefinition tool = new ToolDefinition(
