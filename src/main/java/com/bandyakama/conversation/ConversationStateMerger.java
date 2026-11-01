@@ -84,8 +84,22 @@ public class ConversationStateMerger {
         try {
             JsonNode previous = objectMapper.readTree(previousJson);
             JsonNode incoming = objectMapper.readTree(incomingJson);
-            if (!previous.isObject() || !incoming.isObject()
-                    || !previous.path("filters").isArray()
+            if (!previous.isObject() || !incoming.isObject()) {
+                return incomingJson;
+            }
+
+            if (isAdvancedAst(previous) || isAdvancedAst(incoming)) {
+                if (!isAdvancedAst(previous)) {
+                    return incomingJson;
+                }
+                ObjectNode merged = ((ObjectNode) previous).deepCopy();
+                incoming.fields().forEachRemaining(entry ->
+                        merged.set(entry.getKey(), entry.getValue().deepCopy())
+                );
+                return objectMapper.writeValueAsString(merged);
+            }
+
+            if (!previous.path("filters").isArray()
                     || !incoming.path("filters").isArray()) {
                 return incomingJson;
             }
@@ -119,7 +133,7 @@ public class ConversationStateMerger {
             merged.set("filters", mergedFilters);
             incoming.fields().forEachRemaining(entry -> {
                 if (!"filters".equals(entry.getKey())) {
-                    merged.set(entry.getKey(), entry.getValue());
+                    merged.set(entry.getKey(), entry.getValue().deepCopy());
                 }
             });
             return objectMapper.writeValueAsString(merged);
@@ -130,5 +144,12 @@ public class ConversationStateMerger {
                     exception
             );
         }
+    }
+
+    private boolean isAdvancedAst(JsonNode criteria) {
+        return criteria.isObject()
+                && (criteria.has("must")
+                || criteria.has("should")
+                || criteria.has("must_not"));
     }
 }
