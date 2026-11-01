@@ -2,6 +2,7 @@ package com.bandyakama.conversation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -16,21 +17,24 @@ class ConversationStateMergerTest {
     @Test
     void replacesOnlyMentionedFieldsAndRetainsOtherActiveFilters()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployees",
-                  "arguments": {
-                    "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"DGA\\"},{\\"field\\":\\"sexe\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"F\\"},{\\"field\\":\\"age\\",\\"operator\\":\\"LT\\",\\"value\\":20}]}"
-                  }
-                }
-                """);
+        JsonNode previous = state(
+                "searchEmployees",
+                """
+                {"filters":[
+                  {"field":"direction","operator":"EQ","value":"DGA"},
+                  {"field":"sexe","operator":"EQ","value":"F"},
+                  {"field":"age","operator":"LT","value":20}
+                ]}
+                """,
+                null
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "searchEmployees",
-                Map.of("criteriaJson",
-                        "{\\"filters\\":[{\\"field\\":\\"age\\","
-                                + "\\"operator\\":\\"LT\\",\\"value\\":30}]}")
+                Map.of("criteriaJson", """
+                        {"filters":[{"field":"age","operator":"LT","value":30}]}
+                        """)
         );
         JsonNode criteria = objectMapper.readTree(
                 (String) merged.get("criteriaJson")
@@ -45,22 +49,26 @@ class ConversationStateMergerTest {
     @Test
     void explicitlyRemovesFiltersAndReplacesSexWithoutDroppingService()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployees",
-                  "arguments": {
-                    "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Personnel\\"},{\\"field\\":\\"sexe\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"F\\"}]}"
-                  }
-                }
-                """);
+        JsonNode previous = state(
+                "searchEmployees",
+                """
+                {"filters":[
+                  {"field":"service","operator":"EQ","value":"Personnel"},
+                  {"field":"sexe","operator":"EQ","value":"F"}
+                ]}
+                """,
+                null
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "searchEmployees",
-                Map.of("criteriaJson",
-                        "{\\"filters\\":[{\\"field\\":\\"sexe\\","
-                                + "\\"operator\\":\\"EQ\\",\\"value\\":\\"M\\"},"
-                                + "{\\"field\\":\\"service\\",\\"remove\\":true}]}")
+                Map.of("criteriaJson", """
+                        {"filters":[
+                          {"field":"sexe","operator":"EQ","value":"M"},
+                          {"field":"service","remove":true}
+                        ]}
+                        """)
         );
         JsonNode criteria = objectMapper.readTree(
                 (String) merged.get("criteriaJson")
@@ -75,12 +83,7 @@ class ConversationStateMergerTest {
 
     @Test
     void neverCarriesArgumentsAcrossDifferentToolIntents() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployees",
-                  "arguments": {"criteriaJson": "{\\"filters\\":[]}"}
-                }
-                """);
+        JsonNode previous = state("searchEmployees", "{}", null);
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
@@ -114,23 +117,24 @@ class ConversationStateMergerTest {
     @Test
     void retainsLegacyFilterMergeForBackwardCompatibility()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployees",
-                  "arguments": {
-                    "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Direction X\\"}]}",
-                    "resultMode": "LIST"
-                  }
-                }
-                """);
+        JsonNode previous = state(
+                "searchEmployees",
+                """
+                {"filters":[
+                  {"field":"direction","operator":"EQ","value":"Direction X"}
+                ]}
+                """,
+                "LIST"
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "searchEmployees",
                 Map.of(
                         "criteriaJson",
-                        "{\\"filters\\":[{\\"field\\":\\"age\\",\\"operator\\":\\"GT\\","
-                                + "\\"value\\":40}]}",
+                        """
+                        {"filters":[{"field":"age","operator":"GT","value":40}]}
+                        """,
                         "resultMode",
                         "COUNT"
                 )
@@ -152,9 +156,7 @@ class ConversationStateMergerTest {
     void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
         ConversationIntentResolver resolver =
                 new ConversationIntentResolver();
-        JsonNode activeState = objectMapper.readTree("""
-                {"toolName":"search_agents","arguments":{"criteriaJson":"{}"}}
-                """);
+        JsonNode activeState = state("search_agents", "{}", null);
 
         assertEquals(
                 ConversationIntentResolver.Decision.CONTINUATION,
@@ -204,22 +206,31 @@ class ConversationStateMergerTest {
     @Test
     void preservesBooleanExclusionWhenCountFollowUpContainsEmptyAst()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
+        JsonNode previous = state(
+                "search_agents",
+                """
                 {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"}],\\"should\\":[],\\"must_not\\":[{\\"field\\":\\"poste\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Gestionnaire de dossiers\\"}],\\"minimum_should_match\\":0}",
-                    "resultMode": "LIST"
-                  }
+                  "must":[
+                    {"field":"service","operator":"CONTAINS","value":"Personnel"}
+                  ],
+                  "should":[],
+                  "must_not":[
+                    {"field":"poste","operator":"CONTAINS","value":"Gestionnaire de dossiers"}
+                  ],
+                  "minimum_should_match":0
                 }
-                """);
+                """,
+                "LIST"
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "search_agents",
                 Map.of(
                         "criteriaJson",
-                        "{\\"must\\":[],\\"should\\":[],\\"must_not\\":[],\\"minimum_should_match\\":0}",
+                        """
+                        {"must":[],"should":[],"must_not":[],"minimum_should_match":0}
+                        """,
                         "resultMode",
                         "COUNT"
                 )
@@ -240,22 +251,40 @@ class ConversationStateMergerTest {
     @Test
     void mergesPartialBooleanAstWithoutDroppingUnmentionedGroups()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
+        JsonNode previous = state(
+                "search_agents",
+                """
                 {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"}],\\"should\\":[{\\"field\\":\\"direction\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Administration\\"}],\\"must_not\\":[{\\"field\\":\\"poste\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Gestionnaire\\"}],\\"minimum_should_match\\":1,\\"limit\\":20,\\"offset\\":0}",
-                    "resultMode": "LIST"
-                  }
+                  "must":[
+                    {"field":"service","operator":"CONTAINS","value":"Personnel"}
+                  ],
+                  "should":[
+                    {"field":"direction","operator":"CONTAINS","value":"Administration"}
+                  ],
+                  "must_not":[
+                    {"field":"poste","operator":"CONTAINS","value":"Gestionnaire"}
+                  ],
+                  "minimum_should_match":1,
+                  "limit":20,
+                  "offset":0
                 }
-                """);
+                """,
+                "LIST"
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "search_agents",
                 Map.of(
                         "criteriaJson",
-                        "{\\"must\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Personnel\\"},{\\"field\\":\\"age\\",\\"operator\\":\\"GT\\",\\"value\\":40}]}",
+                        """
+                        {
+                          "must":[
+                            {"field":"service","operator":"CONTAINS","value":"Personnel"},
+                            {"field":"age","operator":"GT","value":40}
+                          ]
+                        }
+                        """,
                         "resultMode",
                         "LIST"
                 )
@@ -270,6 +299,23 @@ class ConversationStateMergerTest {
         assertEquals(1, criteria.path("minimum_should_match").asInt());
         assertEquals(20, criteria.path("limit").asInt());
         assertEquals(0, criteria.path("offset").asInt());
+    }
+
+    private JsonNode state(
+            String toolName,
+            String criteriaJson,
+            String resultMode
+    ) throws Exception {
+        ObjectNode state = objectMapper.createObjectNode();
+        state.put("toolName", toolName);
+        ObjectNode arguments = state.putObject("arguments");
+        if (criteriaJson != null) {
+            arguments.put("criteriaJson", criteriaJson);
+        }
+        if (resultMode != null) {
+            arguments.put("resultMode", resultMode);
+        }
+        return state;
     }
 
     private JsonNode filter(JsonNode criteria, String field) {
