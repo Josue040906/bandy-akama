@@ -17,7 +17,6 @@ public class ConversationIntentResolver {
                     + "premier\\b|premiere\\b|deuxieme\\b|dernier\\b|"
                     + "matricules?\\b|lesquels?\\b|lesquelles\\b|"
                     + "affiche\\s+les\\s+agents\\s+trouves\\b|"
-                    + "(?:affiche|montre|liste)(?:[- ]moi)?\\s+\\d+\\s+agents?\\b|"
                     + "donne-moi\\s+leurs?\\b|"
                     + "meme\\b|maintenant\\s+(?:ceux|celles|les|la|le|"
                     + "hommes|femmes)\\b|"
