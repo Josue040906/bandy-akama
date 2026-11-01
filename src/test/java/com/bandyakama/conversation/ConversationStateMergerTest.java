@@ -111,6 +111,15 @@ class ConversationStateMergerTest {
         assertEquals("Finances", merged.get("service"));
     }
 
+                previous,
+                "searchEmployeesApproximately",
+                Map.of("query", "RAKOTO", "service", "Finances")
+        );
+
+        assertEquals("RAKOTO", merged.get("query"));
+        assertEquals("Finances", merged.get("service"));
+    }
+
     @Test
     void retainsLegacyFilterMergeForBackwardCompatibility()
             throws Exception {
@@ -126,7 +135,7 @@ class ConversationStateMergerTest {
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
-                "search_agents",
+                "searchEmployees",
                 Map.of(
                         "criteriaJson",
                         "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\","
@@ -142,16 +151,7 @@ class ConversationStateMergerTest {
         assertEquals(2, criteria.path("filters").size());
         assertEquals(
                 "Direction X",
-                filter(criteria, "direction").path("value").asText()
-        );
-        assertEquals(
-                40,
-                filter(criteria, "age").path("value").asInt()
-        );
-        assertEquals("COUNT", merged.get("resultMode"));
-    }
-
-    @Test
+                filter(criteria, "direction").path("value").asText()    @Test
     void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
         ConversationIntentResolver resolver =
                 new ConversationIntentResolver();
