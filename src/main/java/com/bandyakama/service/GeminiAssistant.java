@@ -398,7 +398,7 @@ public class GeminiAssistant {
                                     + "Service du Personnel »."
                     );
                 }
-                preparedCalls.add(new PreparedToolCall(name, effectiveArguments));
+                preparedCalls.add(new PreparedToolCall(name, effectiveArguments, call.id().orElse(null)));
             }
 
             metrics.toolRounds++;
@@ -453,7 +453,9 @@ public class GeminiAssistant {
                         FunctionResponse.builder()
                                 .name(name)
                                 .response(Collections.singletonMap("output", result));
-                call.id().ifPresent(resultBuilder::id);
+                if (preparedCall.callId() != null) {
+                    resultBuilder.id(preparedCall.callId());
+                }
                 resultParts.add(Part.builder()
                         .functionResponse(resultBuilder.build())
                         .build());
@@ -1087,7 +1089,7 @@ public class GeminiAssistant {
         };
     }
 
-    private record PreparedToolCall(String name, Map<String, Object> arguments) { }
+    private record PreparedToolCall(String name, Map<String, Object> arguments, String callId) { }
 
     private record ToolExecutionResult(Object result, boolean sensitive) {
     }
