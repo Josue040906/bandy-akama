@@ -358,6 +358,7 @@ public class GeminiAssistant {
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
         JsonNode activeState = initialState;
+        boolean clarificationPending = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
             List<FunctionCall> calls = response.parts().stream()
@@ -365,12 +366,9 @@ public class GeminiAssistant {
                     .flatMap(Optional::stream)
                     .toList();
             if (calls.isEmpty()) {
-                return new ChatResponse(
-                        response.text(),
-                        List.copyOf(executedResults),
-                        null,
-                        false,
-                        List.copyOf(toolStates)
+                return responseWithClarificationState(
+                        response.text(), executedResults, toolStates,
+                        clarificationPending
                 );
             }
 
@@ -384,18 +382,15 @@ public class GeminiAssistant {
                                 name,
                                 arguments
                         );
-                if ("search_agents".equals(name)
+                boolean rejected = "search_agents".equals(name)
                         && !SearchCriteriaValidator.hasPositiveCriteria(
                                 effectiveArguments.get("criteriaJson"),
                                 objectMapper
-                        )) {
-                    return ChatResponse.clarification(
-                            "Pour rechercher des agents, indiquez au moins un "
-                                    + "critère de sélection : nom ou prénom, "
-                                    + "matricule, service, direction ou poste."
-                    );
-                }
-                preparedCalls.add(new PreparedToolCall(name, effectiveArguments, call.id().orElse(null)));
+                        );
+                clarificationPending |= rejected;
+                preparedCalls.add(new PreparedToolCall(
+                        name, effectiveArguments, call.id().orElse(null), rejected
+                ));
             }
 
             metrics.toolRounds++;
@@ -404,6 +399,27 @@ public class GeminiAssistant {
             for (PreparedToolCall preparedCall : preparedCalls) {
                 String name = preparedCall.name();
                 Map<String, Object> effectiveArguments = preparedCall.arguments();
+                if (preparedCall.rejected()) {
+                    Map<String, Object> validationFeedback = Map.of(
+                            "ok", false,
+                            "code", "SEARCH_CRITERIA_REQUIRED",
+                            "message", "La recherche exige au moins un critère positif "
+                                    + "parmi le nom, le prénom, le matricule, le service, "
+                                    + "la direction ou le poste. Aucun appel au service "
+                                    + "RH n’a été effectué. Demande une précision à "
+                                    + "l’utilisateur sans rappeler search_agents."
+                    );
+                    FunctionResponse.Builder rejectedBuilder = FunctionResponse.builder()
+                            .name(name)
+                            .response(Collections.singletonMap("output", validationFeedback));
+                    if (preparedCall.callId() != null) {
+                        rejectedBuilder.id(preparedCall.callId());
+                    }
+                    resultParts.add(Part.builder()
+                            .functionResponse(rejectedBuilder.build())
+                            .build());
+                    continue;
+                }
                 ToolExecutionResult execution = executeRegisteredTool(
                         name,
                         effectiveArguments,
@@ -488,12 +504,9 @@ public class GeminiAssistant {
                 .findAny()
                 .isPresent();
         if (!hasMoreCalls) {
-            return new ChatResponse(
-                    response.text(),
-                    List.copyOf(executedResults),
-                    null,
-                    false,
-                    List.copyOf(toolStates)
+            return responseWithClarificationState(
+                    response.text(), executedResults, toolStates,
+                    clarificationPending
             );
         }
 
@@ -541,12 +554,31 @@ public class GeminiAssistant {
             finalMessage = "Je n’ai pas pu établir une réponse fiable à partir "
                     + "des résultats obtenus. Pouvez-vous préciser votre demande ?";
         }
+        return responseWithClarificationState(
+                finalMessage, executedResults, toolStates, clarificationPending
+        );
+    }
+
+    private static ChatResponse responseWithClarificationState(
+            String message,
+            List<ChatResponse.ToolResult> toolResults,
+            List<ChatResponse.ToolState> toolStates,
+            boolean clarificationPending
+    ) {
+        if (!clarificationPending) {
+            return new ChatResponse(
+                    message, List.copyOf(toolResults), null, false,
+                    List.copyOf(toolStates)
+            );
+        }
+        List<ChatResponse.ToolState> states = new ArrayList<>(toolStates);
+        states.add(new ChatResponse.ToolState(
+                "clarification_pending",
+                Map.of("targetTool", "search_agents")
+        ));
         return new ChatResponse(
-                finalMessage,
-                List.copyOf(executedResults),
-                null,
-                false,
-                List.copyOf(toolStates)
+                message, List.copyOf(toolResults), null, false,
+                List.copyOf(states), true
         );
     }
 
@@ -1086,7 +1118,12 @@ public class GeminiAssistant {
         };
     }
 
-    private record PreparedToolCall(String name, Map<String, Object> arguments, String callId) { }
+    private record PreparedToolCall(
+            String name,
+            Map<String, Object> arguments,
+            String callId,
+            boolean rejected
+    ) { }
 
     private record ToolExecutionResult(Object result, boolean sensitive) {
     }
