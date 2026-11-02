@@ -352,7 +352,13 @@ public class ConversationService {
                     + contextResolution.decision().rationale()
                     + ". Utilise l'historique et les objectifs fournis comme contexte, "
                     + "mais ne réutilise aucun résultat opérationnel si l'état transmis "
-                    + "est absent.";
+                    + "est absent."
+                    + (relation == DialogueRelation.TOPIC_RESUMPTION
+                    ? " Les critères restaurés proviennent d'une sauvegarde d'objectif. "
+                            + "Les anciens résultats ne sont volontairement pas transmis "
+                            + "car leur fraîcheur n'est pas vérifiée. Relance les outils "
+                            + "nécessaires avant d'affirmer un résultat."
+                    : "");
 
             JsonNode operationalState = stateForRequest;
             boolean includeResultReferences = operationalState != null
