@@ -46,6 +46,26 @@ public record ContextResolution(
                         "A new-topic request must suspend active work and clear pending clarification."
                 );
             }
+        } else if (decision.relation() == DialogueRelation.TASK_COMPLETION) {
+            if (proposedState.pendingClarification() != null
+                    || proposedState.activeObjectiveId() != null) {
+                throw new IllegalArgumentException(
+                        "A completed task must leave no active objective or pending clarification."
+                );
+            }
+            DialogueObjective completedTarget = proposedState.objectives().stream()
+                    .filter(objective -> objective.id().equals(
+                            decision.targetObjectiveId()
+                    ))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "The completed objective must exist in the proposed state."
+                    ));
+            if (completedTarget.status() != DialogueObjectiveStatus.COMPLETED) {
+                throw new IllegalArgumentException(
+                        "TASK_COMPLETION must mark its target as COMPLETED."
+                );
+            }
         } else {
             if (proposedState.pendingClarification() != null) {
                 throw new IllegalArgumentException(
