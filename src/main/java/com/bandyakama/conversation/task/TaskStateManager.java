@@ -54,6 +54,16 @@ public class TaskStateManager {
         };
     }
 
+    /**
+     * Whether a dialogue relation starts a distinct operational task and
+     * therefore requires the completion path to clear prior task memory.
+     */
+    public boolean resetsOperationalState(DialogueRelation relation) {
+        Objects.requireNonNull(relation, "relation must not be null.");
+        return relation == DialogueRelation.NEW_TASK
+                || relation == DialogueRelation.TOPIC_RESUMPTION;
+    }
+
     /** Compatibility policy for the legacy intent resolver. */
     public JsonNode forLegacyContinuation(
             boolean continuation,
@@ -64,7 +74,8 @@ public class TaskStateManager {
 
     /**
      * Applies tool state updates without mutating the previously persisted
-     * snapshot. A reset always wins over updates from the current response.
+     * snapshot. A reset discards the prior task, then applies updates produced
+     * by the current turn so a newly-started task can persist its own results.
      */
     public ObjectNode applyToolUpdates(
             JsonNode previousState,
