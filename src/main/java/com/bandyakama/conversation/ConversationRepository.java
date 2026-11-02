@@ -760,29 +760,6 @@ public class ConversationRepository {
                 );
     }
 
-    private void appendContextBlock(
-            StringBuilder context,
-            String title,
-            String content,
-            int preferredContentLength,
-            int contextCharacterLimit
-    ) {
-        String heading = title + "\n";
-        int available = contextCharacterLimit
-                - context.length()
-                - heading.length();
-        if (available <= 0 || content == null || content.isBlank()) {
-            return;
-        }
-        int limit = Math.min(available, Math.max(0, preferredContentLength));
-        if (limit == 0) {
-            return;
-        }
-        context.append(heading)
-                .append(truncate(content, limit))
-                .append('\n');
-    }
-
     private long summaryCutoff(UUID conversationId) {
         int retainedMessages = Math.max(1, recentMessages);
         List<Long> recentSequences = jdbcTemplate.query("""
