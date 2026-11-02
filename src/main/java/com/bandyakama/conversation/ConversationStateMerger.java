@@ -80,6 +80,13 @@ public class ConversationStateMerger {
         return state;
     }
 
+    private FilterKey filterKey(JsonNode filter) {
+        return new FilterKey(
+                filter.path("field").asText(""),
+                filter.path("operator").asText("")
+        );
+    }
+
     private String mergeCriteria(String previousJson, String incomingJson) {
         try {
             JsonNode previous = objectMapper.readTree(previousJson);
@@ -92,11 +99,12 @@ public class ConversationStateMerger {
 
             ObjectNode merged = ((ObjectNode) previous).deepCopy();
             ArrayNode filters = merged.withArray("filters");
-            Map<String, JsonNode> filtersByField = new java.util.LinkedHashMap<>();
+            Map<FilterKey, JsonNode> filtersByKey =
+                    new java.util.LinkedHashMap<>();
             for (JsonNode filter : filters) {
                 String field = filter.path("field").asText("");
                 if (!field.isBlank()) {
-                    filtersByField.put(field, filter.deepCopy());
+                    filtersByKey.put(filterKey(filter), filter.deepCopy());
                 }
             }
 
@@ -105,17 +113,24 @@ public class ConversationStateMerger {
                 if (field.isBlank()) {
                     continue;
                 }
+                String operator = filter.path("operator").asText("");
                 if (filter.path("remove").asBoolean(false)) {
-                    filtersByField.remove(field);
+                    if (operator.isBlank()) {
+                        filtersByKey.keySet().removeIf(
+                                key -> key.field().equals(field)
+                        );
+                    } else {
+                        filtersByKey.remove(new FilterKey(field, operator));
+                    }
                 } else {
                     ObjectNode normalized = filter.deepCopy();
                     normalized.remove("remove");
-                    filtersByField.put(field, normalized);
+                    filtersByKey.put(filterKey(normalized), normalized);
                 }
             }
 
             ArrayNode mergedFilters = objectMapper.createArrayNode();
-            filtersByField.values().forEach(mergedFilters::add);
+            filtersByKey.values().forEach(mergedFilters::add);
             merged.set("filters", mergedFilters);
             incoming.fields().forEachRemaining(entry -> {
                 if (!"filters".equals(entry.getKey())) {
@@ -130,5 +145,7 @@ public class ConversationStateMerger {
                     exception
             );
         }
+    }
+    private record FilterKey(String field, String operator) {
     }
 }
