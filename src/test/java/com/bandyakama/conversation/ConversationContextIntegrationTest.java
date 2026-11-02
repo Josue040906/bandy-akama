@@ -62,22 +62,22 @@ class ConversationContextIntegrationTest {
     @MockBean
     private GeminiAssistant assistant;
 
-    private Boolean previousOrganizationToolSensitivity;
+    private Boolean previousSnapshotTestToolSensitivity;
     private boolean organizationToolCreatedForSnapshotTest;
 
     @AfterEach
     void restoreOrganizationToolSensitivity() {
         if (organizationToolCreatedForSnapshotTest) {
             jdbcTemplate.update(
-                    "DELETE FROM bandy_tool WHERE name = 'get_organization_info'"
+                    "DELETE FROM bandy_tool WHERE name = 'snapshot_test_safe_tool'"
             );
             organizationToolCreatedForSnapshotTest = false;
-        } else if (previousOrganizationToolSensitivity != null) {
+        } else if (previousSnapshotTestToolSensitivity != null) {
             jdbcTemplate.update(
-                    "UPDATE bandy_tool SET sensitive = ? WHERE name = 'get_organization_info'",
-                    previousOrganizationToolSensitivity
+                    "UPDATE bandy_tool SET sensitive = ? WHERE name = 'snapshot_test_safe_tool'",
+                    previousSnapshotTestToolSensitivity
             );
-            previousOrganizationToolSensitivity = null;
+            previousSnapshotTestToolSensitivity = null;
         }
     }
 
@@ -174,7 +174,7 @@ class ConversationContextIntegrationTest {
                 identity.ownerId()
         );
         List<Boolean> existingSensitivity = jdbcTemplate.query(
-                "SELECT sensitive FROM bandy_tool WHERE name = 'get_organization_info'",
+                "SELECT sensitive FROM bandy_tool WHERE name = 'snapshot_test_safe_tool'",
                 (rs, row) -> rs.getBoolean(1)
         );
         if (existingSensitivity.isEmpty()) {
@@ -183,16 +183,16 @@ class ConversationContextIntegrationTest {
                         name, description, when_to_use, http_method,
                         endpoint_url, enabled, sensitive
                     ) VALUES (
-                        'get_organization_info', 'Organization lookup',
+                        'snapshot_test_safe_tool', 'Organization lookup',
                         'Used by snapshot integration test', 'GET',
                         'http://localhost/organization', TRUE, FALSE
                     )
                     """);
             organizationToolCreatedForSnapshotTest = true;
         } else {
-            previousOrganizationToolSensitivity = existingSensitivity.get(0);
+            previousSnapshotTestToolSensitivity = existingSensitivity.get(0);
             jdbcTemplate.update(
-                    "UPDATE bandy_tool SET sensitive = FALSE WHERE name = 'get_organization_info'"
+                    "UPDATE bandy_tool SET sensitive = FALSE WHERE name = 'snapshot_test_safe_tool'"
             );
         }
         String criteriaJson = """
@@ -223,7 +223,7 @@ class ConversationContextIntegrationTest {
         )).thenReturn(new ChatResponse(
                 "Recherche préparée.",
                 List.of(new ChatResponse.ToolResult(
-                        "get_organization_info",
+                        "snapshot_test_safe_tool",
                         java.util.Map.of("description", "Service Informatique"),
                         java.util.Map.of(
                                 "query", "Rakoto RH12345678",
@@ -250,6 +250,7 @@ class ConversationContextIntegrationTest {
         );
         assertEquals(1, actualResponse.toolResults().size(),
                 "The mocked assistant response must reach ConversationService unchanged.");
+        assertEquals("snapshot_test_safe_tool", actualResponse.toolResults().get(0).name());
         verify(assistant).respond(
                 anyString(),
                 nullable(String.class),
@@ -275,7 +276,7 @@ class ConversationContextIntegrationTest {
                 conversation.id()
         );
         Boolean organizationToolSensitive = jdbcTemplate.queryForObject(
-                "SELECT sensitive FROM bandy_tool WHERE name = 'get_organization_info'",
+                "SELECT sensitive FROM bandy_tool WHERE name = 'snapshot_test_safe_tool'",
                 Boolean.class
         );
         String memoryReferencesJson = jdbcTemplate.queryForObject("""
@@ -299,10 +300,11 @@ class ConversationContextIntegrationTest {
         assertFalse(stateJson.contains("Bearer private-token"));
         assertFalse(stateJson.contains("\\\"sexe\\\""));
         assertEquals(1, references.size());
-        assertTrue(referencesJson.contains("SERVICE"));
+        assertTrue(referencesJson.contains("snapshot_test_safe_tool"));
         assertFalse(referencesJson.contains("Rakoto"));
         assertFalse(referencesJson.contains("RH12345678"));
         assertFalse(referencesJson.contains("description"));
+        assertFalse(referencesJson.contains("scope"));
         assertFalse(references.get(0).has("result"));
     }
 
