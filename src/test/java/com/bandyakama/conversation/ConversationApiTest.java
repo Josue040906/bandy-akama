@@ -747,7 +747,7 @@ class ConversationApiTest {
 
         send(conversationId, "42", "Cherche les femmes du Service du Personnel.");
         send(conversationId, "42", "Et les hommes ?");
-        send(conversationId, "42", "Affiche les agents trouvés.");
+        send(conversationId, "42", "Affiche les résultats trouvés.");
 
         var context = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(assistant, times(3)).respond(
@@ -764,7 +764,8 @@ class ConversationApiTest {
                 finalContext.indexOf("\nReferences to previous results")
         );
         var structuredState = objectMapper.readTree(stateBlock);
-        var filters = structuredState.path("criteria").path("filters");
+        var filters = structuredState.path("structuredArguments")
+                .path("criteriaJson").path("filters");
         assertEquals(2, filters.size());
         assertEquals("Service du Personnel", filters.get(0).path("value").asText());
         assertEquals("M", filters.get(1).path("value").asText());
