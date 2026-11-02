@@ -28,6 +28,16 @@ public class ContextDecisionValidator {
             );
         }
 
+        PendingClarification pending = input.dialogueState().pendingClarification();
+        if (pending != null
+                && proposal.relation() != DialogueRelation.USER_CLARIFICATION
+                && proposal.relation() != DialogueRelation.NEW_TASK
+                && proposal.relation() != DialogueRelation.NEEDS_CLARIFICATION) {
+            throw invalid(
+                    "Une clarification est en attente : elle doit être résolue ou explicitement remplacée."
+            );
+        }
+
         if (proposal.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             return new ContextDecision(
                     proposal.relation(),
