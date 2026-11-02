@@ -55,6 +55,36 @@ class ContextDecisionValidatorTest {
     }
 
     @Test
+    void rejectsClarificationThatTargetsUnknownObjective() {
+        DialogueState state = DialogueState.empty();
+        ContextEngineInput input = input(state);
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.NEEDS_CLARIFICATION, "missing-id",
+                "Référence non résolue.", "De quel objectif parlez-vous ?",
+                InterpretationConfidence.LOW, null, null, List.of()
+        );
+        assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(input, proposal));
+    }
+
+    @Test
+    void rejectsClarificationThatTargetsCompletedObjective() {
+        DialogueObjective completed = objective(
+                "completed", DialogueObjectiveStatus.COMPLETED
+        );
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(completed), null
+        );
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.NEEDS_CLARIFICATION, "completed",
+                "Référence non résolue.", "De quel élément parlez-vous ?",
+                InterpretationConfidence.LOW, null, null, List.of()
+        );
+        assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(input(state), proposal));
+    }
+
+    @Test
     void doesNotAllowAContinuationToBypassPendingClarification() {
         DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
         DialogueState state = new DialogueState(
