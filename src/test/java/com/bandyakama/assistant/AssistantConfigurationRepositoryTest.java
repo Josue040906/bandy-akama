@@ -61,7 +61,11 @@ class AssistantConfigurationRepositoryTest {
             AssistantConfigurationSnapshot updated = repository.get();
             assertEquals(1, jdbcTemplate.queryCount() - statementsBeforeSnapshot);
             assertEquals("Updated", updated.profile().instructions());
-            assertTrue(updated.enabledTools().isEmpty());
+            assertEquals(1, updated.enabledTools().size());
+            assertEquals(
+                    "new_registered_tool",
+                    updated.enabledTools().get(0).getName()
+            );
         } finally {
             database.shutdown();
         }
