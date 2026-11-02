@@ -118,7 +118,9 @@ public class TaskStateManager {
                 .map(result -> new ChatResponse.ToolState(
                         result.name(),
                         result.arguments(),
-                        result.result()
+                        "get_agent_profile".equals(result.name())
+                                ? result.result()
+                                : null
                 ))
                 .toList();
     }
