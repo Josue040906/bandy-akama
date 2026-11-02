@@ -59,7 +59,7 @@ class ConversationContextIntegrationTest {
         );
         when(assistant.respond(
                 anyString(),
-                anyString(),
+                nullable(String.class),
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
@@ -127,7 +127,7 @@ class ConversationContextIntegrationTest {
         verify(dialogueInterpreter, times(2)).interpret(any(ContextEngineInput.class));
         verify(assistant, times(2)).respond(
                 anyString(),
-                anyString(),
+                nullable(String.class),
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
