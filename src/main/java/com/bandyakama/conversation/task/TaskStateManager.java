@@ -72,11 +72,9 @@ public class TaskStateManager {
             boolean reset
     ) {
         Objects.requireNonNull(toolStates, "toolStates must not be null.");
-        if (reset) {
-            return objectMapper.createObjectNode();
-        }
-
-        JsonNode currentState = previousState == null
+        // A reset discards the previous task, but tool results produced
+        // by the current turn still belong to the newly-created task.
+        JsonNode currentState = reset || previousState == null
                 ? objectMapper.createObjectNode()
                 : previousState.deepCopy();
 
