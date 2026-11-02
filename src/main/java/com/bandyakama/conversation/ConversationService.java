@@ -327,13 +327,14 @@ public class ConversationService {
                     );
                     return clarification;
                 }
-                resetState = relation == DialogueRelation.NEW_TASK;
+                resetState = relation == DialogueRelation.NEW_TASK
+                        || relation == DialogueRelation.TOPIC_RESUMPTION;
                 stateForRequest = switch (relation) {
                     case CONTINUATION, CORRECTION, USER_CLARIFICATION ->
                             request.activeState();
                     case NEW_TASK, TOPIC_RESUMPTION, NEEDS_CLARIFICATION -> null;
                 };
-                decisionInstruction = "\\n\\nDécision de dialogue de Bandy : "
+                decisionInstruction = " — Décision de dialogue de Bandy : "
                         + relation.name()
                         + ". Raison : "
                         + contextResolution.decision().rationale()
@@ -352,7 +353,7 @@ public class ConversationService {
                         == ConversationIntentResolver.Decision.CONTINUATION
                         ? request.activeState()
                         : null;
-                decisionInstruction = "\\n\\nDécision de continuité prise par Bandy : "
+                decisionInstruction = " — Décision de continuité prise par Bandy : "
                         + (legacyDecision
                         == ConversationIntentResolver.Decision.CONTINUATION
                         ? "CONTINUATION. Utilise le fil complet pour déterminer si la "
