@@ -47,8 +47,8 @@ class TaskStateSnapshotRepositoryTest {
     }
 
     @Test
-    void invalidSchemaVersionIsTreatedAsMissingSnapshot() throws Exception {
-        stubSnapshotRow(99,
+    void legacySchemaVersionIsTreatedAsMissingSnapshot() throws Exception {
+        stubSnapshotRow(1,
                 "{\"toolName\":\"search_agents\"}",
                 "[]",
                 "[]");
