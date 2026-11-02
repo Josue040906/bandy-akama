@@ -90,16 +90,13 @@ public class TaskStateManager {
 
         for (ChatResponse.ToolState toolState : toolStates) {
             Objects.requireNonNull(toolState, "toolState must not be null.");
-            JsonNode legacyProfiles = currentState.path("profiles");
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
             );
-
-            // Preserve legacy RH profile snapshots during migration, but new
-            // retention behavior is driven only by the tool configuration.
-            if (legacyProfiles.isObject() && !legacyProfiles.isEmpty()) {
-                nextState.set("profiles", legacyProfiles.deepCopy());
+            ObjectNode extensions = extensionsFrom(currentState);
+            if (!extensions.isEmpty()) {
+                nextState.set("extensions", extensions);
             }
 
             if (toolState.result() != null) {
@@ -181,15 +178,9 @@ public class TaskStateManager {
                     );
                     if (parsed != null && parsed.isContainerNode()) {
                         structuredArguments.set(field.getKey(), parsed);
-                        // Compatibility alias consumed only by the legacy RH intent resolver.
-                        if ("criteriaJson".equals(field.getKey())) {
-                            state.set("criteria", parsed.deepCopy());
-                        }
                     }
                 } catch (JsonProcessingException invalidStructuredArgument) {
-                    if ("criteriaJson".equals(field.getKey())) {
-                        state.put("criteriaText", field.getValue().textValue());
-                    }
+                    // Keep the original argument unchanged; parsing is optional context enrichment.
                 }
             }
         }
@@ -197,6 +188,41 @@ public class TaskStateManager {
             state.set("structuredArguments", structuredArguments);
         }
         return state;
+    }
+
+    /**
+     * Carries forward opaque extension fields without naming or interpreting
+     * fields owned by older domain-specific state formats.
+     */
+    private ObjectNode extensionsFrom(JsonNode previousState) {
+        ObjectNode extensions = objectMapper.createObjectNode();
+        if (previousState == null || !previousState.isObject()) {
+            return extensions;
+        }
+        JsonNode storedExtensions = previousState.path("extensions");
+        if (storedExtensions.isObject()) {
+            extensions.setAll((ObjectNode) storedExtensions.deepCopy());
+        }
+        java.util.Iterator<Map.Entry<String, JsonNode>> fields =
+                previousState.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> field = fields.next();
+            String name = field.getKey();
+            if (isCoreStateField(name) || extensions.has(name)) {
+                continue;
+            }
+            extensions.set(name, field.getValue().deepCopy());
+        }
+        return extensions;
+    }
+
+    private boolean isCoreStateField(String name) {
+        return "intent".equals(name)
+                || "toolName".equals(name)
+                || "arguments".equals(name)
+                || "structuredArguments".equals(name)
+                || "retainedResult".equals(name)
+                || "extensions".equals(name);
     }
 
     private String writeJson(Object value) {
