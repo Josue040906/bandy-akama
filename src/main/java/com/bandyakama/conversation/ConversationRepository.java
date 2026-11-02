@@ -575,12 +575,8 @@ public class ConversationRepository {
                 (resultSet, rowNumber) -> resultSet.getString("name"),
                 toolNames.toArray()
         ));
-        toolNames.stream()
-                .filter(name -> Set.of(
-                        "get_agent_profile",
-                        "search_agents"
-                ).contains(name))
-                .forEach(sensitive::add);
+        // Sensitivity is an explicit tool policy stored in the registry.
+        // Unknown or newly registered tools are not silently classified by name.
         return sensitive;
     }
 
