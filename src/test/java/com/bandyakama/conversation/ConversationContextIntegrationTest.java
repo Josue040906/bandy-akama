@@ -359,7 +359,7 @@ class ConversationContextIntegrationTest {
         );
         DialogueState afterCompletion = dialogueStateRepository.load(conversation.id());
 
-        assertTrue(completionResponse.content().toLowerCase().contains("terminé"));
+        assertTrue(completionResponse.message().toLowerCase().contains("terminé"));
         assertEquals(null, afterCompletion.activeObjectiveId());
         assertEquals(
                 DialogueObjectiveStatus.COMPLETED,
