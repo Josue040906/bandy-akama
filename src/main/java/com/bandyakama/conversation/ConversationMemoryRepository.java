@@ -53,9 +53,14 @@ public class ConversationMemoryRepository {
                 taskStateManager,
                 "taskStateManager must not be null."
         );
-        if (recentMessages < 1 || maxSummaryLength < 1) {
+        if (recentMessages < 8 || recentMessages > 10) {
             throw new IllegalArgumentException(
-                    "Les limites de mémoire doivent être positives."
+                    "La fenêtre d’historique doit contenir de 8 à 10 messages."
+            );
+        }
+        if (maxSummaryLength < 1) {
+            throw new IllegalArgumentException(
+                    "La limite du résumé doit être positive."
             );
         }
         this.recentMessages = recentMessages;
