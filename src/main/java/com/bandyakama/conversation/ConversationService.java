@@ -364,8 +364,7 @@ public class ConversationService {
                     );
                     return clarification;
                 }
-                resetState = relation == DialogueRelation.NEW_TASK
-                        || relation == DialogueRelation.TOPIC_RESUMPTION;
+                resetState = taskStateManager.resetsOperationalState(relation);
                 stateForRequest = taskStateManager.forDialogueRelation(
                         relation,
                         request.activeState()
