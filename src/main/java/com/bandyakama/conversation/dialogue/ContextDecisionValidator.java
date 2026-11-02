@@ -33,6 +33,7 @@ public class ContextDecisionValidator {
         PendingClarification pending = input.dialogueState().pendingClarification();
         if (pending != null
                 && proposal.relation() != DialogueRelation.USER_CLARIFICATION
+                && proposal.relation() != DialogueRelation.TASK_COMPLETION
                 && proposal.relation() != DialogueRelation.NEW_TASK
                 && proposal.relation() != DialogueRelation.NEW_TOPIC_REQUEST
                 && proposal.relation() != DialogueRelation.SOCIAL_TURN
@@ -101,6 +102,14 @@ public class ContextDecisionValidator {
                 requireTarget(target, proposal);
                 if (target.status() != DialogueObjectiveStatus.SUSPENDED) {
                     throw invalid("TOPIC_RESUMPTION doit cibler un objectif suspendu.");
+                }
+            }
+            case TASK_COMPLETION -> {
+                requireTarget(target, proposal);
+                if (target.status() != DialogueObjectiveStatus.ACTIVE
+                        || !Objects.equals(
+                                input.dialogueState().activeObjectiveId(), target.id())) {
+                    throw invalid("TASK_COMPLETION doit cibler l'objectif actif.");
                 }
             }
             case CORRECTION -> {
