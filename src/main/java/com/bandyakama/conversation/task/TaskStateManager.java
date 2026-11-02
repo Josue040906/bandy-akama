@@ -53,9 +53,9 @@ public class TaskStateManager {
     ) {
         Objects.requireNonNull(relation, "relation must not be null.");
         return switch (relation) {
-            case CONTINUATION, CORRECTION, USER_CLARIFICATION, SOCIAL_TURN ->
-                    copyOrNull(persistedState);
-            case NEW_TASK, TOPIC_RESUMPTION, NEW_TOPIC_REQUEST, NEEDS_CLARIFICATION -> null;
+            case CONTINUATION, CORRECTION, USER_CLARIFICATION, SOCIAL_TURN,
+                    TOPIC_RESUMPTION -> copyOrNull(persistedState);
+            case NEW_TASK, NEW_TOPIC_REQUEST, NEEDS_CLARIFICATION -> null;
         };
     }
 
