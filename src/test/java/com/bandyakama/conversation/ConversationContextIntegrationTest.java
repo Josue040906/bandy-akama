@@ -459,6 +459,115 @@ class ConversationContextIntegrationTest {
     }
 
     @Test
+    void clarificationAnswerResolvesPendingReferenceAndContinuesTheSameObjective() {
+        UserIdentity identity = new UserIdentity("clarification-resolution-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(),
+                identity.ownerId()
+        );
+        when(assistant.respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        )).thenReturn(
+                new ChatResponse("Le rapport est prêt.", List.of()),
+                new ChatResponse("Voici le complément du rapport.", List.of())
+        );
+
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    DialogueState state = input.dialogueState();
+                    if (state.objectives().isEmpty()) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "Création du rapport.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Préparer un rapport de ventes",
+                                "Rapport de ventes en préparation.",
+                                List.of()
+                        );
+                    }
+                    if (input.currentMessage().equals("Ajoute celui-là aussi.")) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEEDS_CLARIFICATION,
+                                state.activeObjectiveId(),
+                                "La référence « celui-là » ne désigne pas un élément identifiable.",
+                                "Quel élément souhaitez-vous ajouter au rapport ?",
+                                InterpretationConfidence.HIGH,
+                                null,
+                                null,
+                                List.of()
+                        );
+                    }
+                    assertNotNull(state.pendingClarification());
+                    assertEquals(
+                            state.activeObjectiveId(),
+                            state.pendingClarification().targetObjectiveId()
+                    );
+                    assertTrue(input.currentMessage().contains("les ventes régionales"));
+                    return new ContextInterpretationProposal(
+                            DialogueRelation.USER_CLARIFICATION,
+                            state.pendingClarification().targetObjectiveId(),
+                            "La réponse précise la référence demandée.",
+                            null,
+                            InterpretationConfidence.HIGH,
+                            null,
+                            "Le rapport inclut maintenant les ventes régionales.",
+                            List.of()
+                    );
+                });
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Prépare un rapport de ventes.", null, UUID.randomUUID()
+        );
+        DialogueState afterCreation = dialogueStateRepository.load(conversation.id());
+        String objectiveId = afterCreation.activeObjectiveId();
+        assertNotNull(objectiveId);
+
+        ChatResponse clarification = conversationService.sendMessage(
+                conversation.id(), identity,
+                "Ajoute celui-là aussi.", null, UUID.randomUUID()
+        );
+        DialogueState whilePending = dialogueStateRepository.load(conversation.id());
+
+        assertEquals(
+                "Quel élément souhaitez-vous ajouter au rapport ?",
+                clarification.message()
+        );
+        assertNotNull(whilePending.pendingClarification());
+        assertEquals(objectiveId, whilePending.activeObjectiveId());
+        assertEquals(1, whilePending.objectives().size());
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Je parle des ventes régionales.", null, UUID.randomUUID()
+        );
+        DialogueState afterAnswer = dialogueStateRepository.load(conversation.id());
+
+        assertEquals(objectiveId, afterAnswer.activeObjectiveId());
+        assertEquals(null, afterAnswer.pendingClarification());
+        assertEquals(1, afterAnswer.objectives().size());
+        assertEquals(
+                "Le rapport inclut maintenant les ventes régionales.",
+                afterAnswer.objectives().get(0).summary()
+        );
+        verify(dialogueInterpreter, times(3)).interpret(any(ContextEngineInput.class));
+        verify(assistant, times(2)).respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        );
+    }
+
+    @Test
     void persistsClarificationAndReturnsItsQuestionWithoutCallingAssistant() {
         UserIdentity identity = new UserIdentity("clarification-owner", "client-a");
         Conversation conversation = conversationRepository.create(
