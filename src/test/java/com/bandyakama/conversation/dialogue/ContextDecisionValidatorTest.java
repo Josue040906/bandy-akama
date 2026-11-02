@@ -55,6 +55,58 @@ class ContextDecisionValidatorTest {
     }
 
     @Test
+    void acceptsCompletionOnlyForTheCurrentlyActiveObjective() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueObjective suspended = objective("suspended", DialogueObjectiveStatus.SUSPENDED);
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "active",
+                List.of(active, suspended),
+                null
+        );
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.TASK_COMPLETION,
+                "active",
+                "Clôture explicite.",
+                null,
+                InterpretationConfidence.HIGH,
+                null,
+                null,
+                List.of()
+        );
+
+        ContextDecision decision = validator.validate(input(state), proposal);
+
+        assertEquals(DialogueRelation.TASK_COMPLETION, decision.relation());
+        assertEquals("active", decision.targetObjectiveId());
+    }
+
+    @Test
+    void rejectsCompletionOfSuspendedObjective() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueObjective suspended = objective("suspended", DialogueObjectiveStatus.SUSPENDED);
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "active",
+                List.of(active, suspended),
+                null
+        );
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.TASK_COMPLETION,
+                "suspended",
+                "Clôture explicite.",
+                null,
+                InterpretationConfidence.HIGH,
+                null,
+                null,
+                List.of()
+        );
+
+        assertThrows(IllegalArgumentException.class,
+                () -> validator.validate(input(state), proposal));
+    }
+
+    @Test
     void rejectsClarificationThatTargetsUnknownObjective() {
         DialogueState state = DialogueState.empty();
         ContextEngineInput input = input(state);
