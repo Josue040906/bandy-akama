@@ -85,7 +85,11 @@ class DialogueStateManagerTest {
                 ArgumentCaptor.forClass(ContextEngineInput.class);
         verify(contextEngine).resolve(inputCaptor.capture());
         ContextEngineInput input = inputCaptor.getValue();
-        assertEquals(persistedState, input.dialogueState());
+        assertEquals("recovered-1", input.dialogueState().activeObjectiveId());
+        assertEquals(
+                "Je prépare un rapport.",
+                input.dialogueState().objectives().get(0).goal()
+        );
         assertEquals("Le rapport concerne les ventes.", input.currentMessage());
         assertEquals(3, input.currentMessageSequenceNumber());
         assertEquals(history, input.history());
