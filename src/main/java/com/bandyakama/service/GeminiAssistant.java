@@ -392,7 +392,7 @@ public class GeminiAssistant {
                 Map<String, Object> effectiveArguments =
                         stateMerger.mergeToolArguments(
                                 activeState,
-                                name,
+                                enabledTools.get(name),
                                 arguments
                         );
                 ToolExecutionResult execution = executeRegisteredTool(
