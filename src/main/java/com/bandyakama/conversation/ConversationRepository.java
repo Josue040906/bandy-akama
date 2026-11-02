@@ -535,10 +535,8 @@ public class ConversationRepository {
         );
         memoryRepository.updateMemory(
                 conversationId,
-                new com.bandyakama.conversation.task.TaskStateManager(objectMapper)
-                        .updatesFor(response),
-                persistentToolResults,
-                response.resetConversationState()
+                response,
+                persistentToolResults
         );
 
         ChatResponse persistedResponse = new ChatResponse(
