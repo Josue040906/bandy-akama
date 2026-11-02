@@ -310,12 +310,17 @@ public class ConversationService {
 
             resetState = taskStateManager.resetsOperationalState(relation);
             JsonNode resumedStateOverride = null;
+            TaskStateSnapshotRepository.Snapshot resumedSnapshot = null;
             if (relation == DialogueRelation.TOPIC_RESUMPTION
                     && taskStateSnapshotRepository != null) {
-                resumedStateOverride = taskStateSnapshotRepository.load(
-                        conversationId,
-                        contextResolution.decision().targetObjectiveId()
-                ).map(TaskStateSnapshotRepository.Snapshot::operationalState)
+                java.util.Optional<TaskStateSnapshotRepository.Snapshot> loadedSnapshot =
+                        taskStateSnapshotRepository.load(
+                                conversationId,
+                                contextResolution.decision().targetObjectiveId()
+                        );
+                resumedSnapshot = loadedSnapshot.orElse(null);
+                resumedStateOverride = loadedSnapshot
+                        .map(TaskStateSnapshotRepository.Snapshot::operationalState)
                         .orElse(null);
             }
             stateForRequest = relation == DialogueRelation.TOPIC_RESUMPTION
@@ -358,6 +363,7 @@ public class ConversationService {
                             + "Les anciens résultats ne sont volontairement pas transmis "
                             + "car leur fraîcheur n'est pas vérifiée. Relance les outils "
                             + "nécessaires avant d'affirmer un résultat."
+                            + staleResultRefreshHints(resumedSnapshot)
                     : "");
 
             JsonNode operationalState = stateForRequest;
@@ -447,6 +453,37 @@ public class ConversationService {
                     failure
             );
         }
+    }
+
+    private String staleResultRefreshHints(
+            TaskStateSnapshotRepository.Snapshot snapshot
+    ) {
+        if (snapshot == null) {
+            return " Aucune sauvegarde opérationnelle valide n'a été trouvée. "
+                    + "Relance les opérations nécessaires à partir de la demande et des critères disponibles.";
+        }
+        com.fasterxml.jackson.databind.node.ArrayNode references =
+                snapshot.resultReferences();
+        com.fasterxml.jackson.databind.node.ArrayNode freshness = snapshot.freshness();
+        if (references.isEmpty()) {
+            return " Aucun résultat antérieur n'est disponible dans la sauvegarde.";
+        }
+        StringBuilder hints = new StringBuilder(
+                " Métadonnées de résultats antérieurs (jamais des résultats fiables; "
+                        + "ne pas les présenter comme actuels) :"
+        );
+        for (int index = 0; index < references.size(); index++) {
+            com.fasterxml.jackson.databind.JsonNode reference = references.get(index);
+            com.fasterxml.jackson.databind.JsonNode metadata = freshness.get(index);
+            hints.append("\\n- outil=")
+                    .append(reference.path("toolName").asText("inconnu"))
+                    .append(", arguments=")
+                    .append(reference.path("arguments").toString())
+                    .append(", capturé=")
+                    .append(metadata.path("capturedAt").asText("UNKNOWN"))
+                    .append(", statut=STALE");
+        }
+        return hints.toString();
     }
 
     private String greetingText(String message) {
