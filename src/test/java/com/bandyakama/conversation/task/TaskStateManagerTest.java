@@ -39,7 +39,8 @@ class TaskStateManagerTest {
                 DialogueRelation.CONTINUATION,
                 DialogueRelation.CORRECTION,
                 DialogueRelation.USER_CLARIFICATION,
-                DialogueRelation.SOCIAL_TURN
+                DialogueRelation.SOCIAL_TURN,
+                DialogueRelation.TOPIC_RESUMPTION
         )) {
             JsonNode selected = manager.forDialogueRelation(relation, persisted);
             assertEquals(persisted, selected);
@@ -48,7 +49,6 @@ class TaskStateManagerTest {
 
         for (DialogueRelation relation : List.of(
                 DialogueRelation.NEW_TASK,
-                DialogueRelation.TOPIC_RESUMPTION,
                 DialogueRelation.NEW_TOPIC_REQUEST,
                 DialogueRelation.NEEDS_CLARIFICATION
         )) {
