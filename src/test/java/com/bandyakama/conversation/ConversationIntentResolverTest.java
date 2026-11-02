@@ -253,6 +253,36 @@ class ConversationIntentResolverTest {
     }
 
     @Test
+    void distinguishesIndependentRequestsFromQuestionsAboutTheLoadedProfile() {
+        JsonNode profileLookup = objectMapper.createObjectNode()
+                .put("toolName", "get_agent_profile");
+
+        for (String independentRequest : new String[]{
+                "Explique la comptabilité.",
+                "Présente le système de gestion des ressources humaines.",
+                "Décris le fonctionnement du recrutement."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.NEW_INTENT,
+                    resolver.resolve(independentRequest, profileLookup),
+                    independentRequest
+            );
+        }
+
+        for (String profileFollowUp : new String[]{
+                "Explique sa situation professionnelle.",
+                "Présente ses diplômes.",
+                "Décris son parcours académique."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.CONTINUATION,
+                    resolver.resolve(profileFollowUp, profileLookup),
+                    profileFollowUp
+            );
+        }
+    }
+
+    @Test
     void keepsActiveSearchStateWhenTheUserSendsOnlyAGreeting() {
         assertEquals(
                 ConversationIntentResolver.Decision.CONTINUATION,
