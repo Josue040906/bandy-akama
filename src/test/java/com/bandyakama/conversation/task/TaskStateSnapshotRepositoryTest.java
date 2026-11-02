@@ -106,16 +106,7 @@ class TaskStateSnapshotRepositoryTest {
             RowMapper<?> rowMapper = invocation.getArgument(1);
             ResultSet resultSet = mock(ResultSet.class);
             when(resultSet.getString("active_state"))
-                    .thenReturn("{\\"toolName\\":\\"search_agents\\","
-                            + "\\"arguments\\":{\\"criteriaJson\\":\\"{\\\\"
-                            + "\\\"filters\\\\":[{\\\\"
-                            + "\\\"field\\\\":\\\\"
-                            + "\\\"service\\\\",\\\\"
-                            + "\\\"operator\\\\":\\\\"
-                            + "\\\"EQ\\\\",\\\\"
-                            + "\\\"value\\\\":\\\\"
-                            + "\\\"Informatique\\\\"
-                            + "\\\\"}]}\\"}}");
+                    .thenReturn("{\\"toolName\\":\\"search_agents\\",\\"arguments\\":{}}");
             when(resultSet.getString("result_references")).thenReturn("[]");
             return rowMapper.mapRow(resultSet, 0);
         });
