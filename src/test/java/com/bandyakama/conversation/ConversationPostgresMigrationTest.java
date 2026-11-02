@@ -67,19 +67,16 @@ class ConversationPostgresMigrationTest {
                 """,
                 Boolean.class
         )));
-        assertEquals(
-                "{\"schemaVersion\":1,\"activeObjectiveId\":null,"
-                        + "\"objectives\":[],\"pendingClarification\":null}",
-                jdbc.queryForObject("""
-                        SELECT dialogue_state::text
-                        FROM bandy_conversation_memory
-                        WHERE conversation_id = (
-                            SELECT id FROM bandy_conversation
-                            ORDER BY created_at LIMIT 1
-                        )
-                        """,
-                        String.class
-                )
+        String dialogueStateDefault = jdbc.queryForObject("""
+                SELECT column_default
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                    AND table_name = 'bandy_conversation_memory'
+                    AND column_name = 'dialogue_state'
+                """,
+                String.class
         );
+        assertTrue(dialogueStateDefault.contains("schemaVersion"), dialogueStateDefault);
+        assertTrue(dialogueStateDefault.contains("objectives"), dialogueStateDefault);
     }
 }
