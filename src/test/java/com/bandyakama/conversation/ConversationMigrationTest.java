@@ -109,6 +109,13 @@ class ConversationMigrationTest {
         assertTrue(hasTable(jdbc, "bandy_conversation_message"));
         assertTrue(hasTable(jdbc, "bandy_conversation_memory"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "dialogue_state"));
+        jdbc.update("""
+                INSERT INTO bandy_conversation_memory (
+                    conversation_id, active_state, result_references
+                ) VALUES (?, CAST('{}' AS JSONB), CAST('[]' AS JSONB))
+                """,
+                conversationId
+        );
         String dialogueState = jdbc.queryForObject("""
                 SELECT CAST(dialogue_state AS VARCHAR)
                 FROM bandy_conversation_memory
