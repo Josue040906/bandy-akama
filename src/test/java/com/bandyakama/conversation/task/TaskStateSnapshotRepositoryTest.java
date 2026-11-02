@@ -15,6 +15,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -56,7 +57,7 @@ class TaskStateSnapshotRepositoryTest {
     @Test
     void restoresCriteriaButStripsSensitiveProfileCacheAndOldResultPayloads()
             throws Exception {
-        stubSnapshotRow(1,
+        stubSnapshotRow(2,
                 "{\"toolName\":\"search_agents\","
                         + "\"profiles\":{\"agent\":{\"secret\":true}}}",
                 "[{\"toolName\":\"search_agents\","
@@ -72,8 +73,8 @@ class TaskStateSnapshotRepositoryTest {
 
         assertEquals("search_agents", snapshot.operationalState().path("toolName").asText());
         assertFalse(snapshot.operationalState().has("profiles"));
-        assertEquals("A", snapshot.resultReferences().get(0)
-                .path("arguments").path("query").asText());
+        assertTrue(snapshot.resultReferences().get(0)
+                .path("arguments").isEmpty());
         assertFalse(snapshot.resultReferences().get(0).has("result"));
         assertEquals("STALE", snapshot.freshness().get(0).path("status").asText());
     }
