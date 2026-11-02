@@ -62,6 +62,45 @@ class DialogueStateTransitionerTest {
     }
 
     @Test
+    void explicitCompletionMarksOnlyActiveObjectiveCompletedAndClearsActivePointer() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueObjective suspended = objective("suspended", DialogueObjectiveStatus.SUSPENDED);
+        PendingClarification pending = new PendingClarification(
+                "active", "Quel élément ?", "Référence ambiguë.", NOW
+        );
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "active",
+                List.of(active, suspended),
+                pending
+        );
+        ContextEngineInput input = input(state);
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.TASK_COMPLETION,
+                "active",
+                "L'utilisateur termine explicitement cet objectif.",
+                null,
+                InterpretationConfidence.HIGH,
+                null,
+                null,
+                List.of()
+        );
+        ContextDecision decision = new ContextDecision(
+                DialogueRelation.TASK_COMPLETION,
+                "active",
+                "Clôture explicite.",
+                null
+        );
+
+        DialogueState next = transitioner.transition(input, proposal, decision);
+
+        assertEquals(null, next.activeObjectiveId());
+        assertEquals(DialogueObjectiveStatus.COMPLETED, find(next, "active").status());
+        assertEquals(DialogueObjectiveStatus.SUSPENDED, find(next, "suspended").status());
+        assertEquals(null, next.pendingClarification());
+    }
+
+    @Test
     void clarificationDoesNotMutateExistingObjectives() {
         DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
         DialogueState state = state("active", active);
