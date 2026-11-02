@@ -64,7 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "bandy.conversations.allowed-application-ids=client-a,client-b",
-        "bandy.conversations.context.recent-messages=10",
+        "bandy.conversations.context.recent-messages=10"
 })
 @AutoConfigureMockMvc
 class ConversationApiTest {
