@@ -1,6 +1,7 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.dialogue.DialogueState;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -413,10 +414,18 @@ public class ConversationRepository {
                 String.class,
                 conversationId
         ));
+        DialogueState dialogueState = readDialogueState(jdbcTemplate.queryForObject("""
+                SELECT dialogue_state::text FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversationId
+        ));
         return new RequestStart(
                 null,
                 claimId,
-                activeState
+                activeState,
+                dialogueState
         );
     }
 
@@ -500,6 +509,17 @@ public class ConversationRepository {
             UUID claimId,
             ChatResponse response
     ) {
+        completeRequest(conversationId, idempotencyKey, claimId, response, null);
+    }
+
+    @Transactional
+    public void completeRequest(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            ChatResponse response,
+            DialogueState dialogueState
+    ) {
         requireActiveClaim(conversationId, idempotencyKey, claimId);
         Set<String> sensitiveToolNames = sensitiveToolNames(response.toolResults());
         List<ChatResponse.ToolResult> persistentToolResults =
@@ -548,6 +568,9 @@ public class ConversationRepository {
                 persistentToolResults,
                 response.resetConversationState()
         );
+        if (dialogueState != null) {
+            persistDialogueState(conversationId, dialogueState);
+        }
 
         ChatResponse persistedResponse = new ChatResponse(
                 response.message(),
@@ -565,6 +588,34 @@ public class ConversationRepository {
                 idempotencyKey
         );
         releaseRequest(conversationId, idempotencyKey, claimId);
+    }
+
+    private DialogueState readDialogueState(String serialized) {
+        try {
+            return objectMapper.readValue(serialized, DialogueState.class);
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                    "L’état de dialogue persisté est illisible ou incompatible.",
+                    exception
+            );
+        }
+    }
+
+    private void persistDialogueState(UUID conversationId, DialogueState state) {
+        int updated = jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory
+                SET dialogue_state = CAST(? AS JSONB),
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ?
+                """,
+                toJson(state),
+                conversationId
+        );
+        if (updated != 1) {
+            throw new IllegalStateException(
+                    "Impossible de persister l’état de dialogue de la conversation."
+            );
+        }
     }
 
     private Set<String> sensitiveToolNames(
@@ -1350,8 +1401,21 @@ public class ConversationRepository {
     public record RequestStart(
             ChatResponse completedResponse,
             UUID claimId,
-            JsonNode activeState
+            JsonNode activeState,
+            DialogueState dialogueState
     ) {
+        public RequestStart(
+                ChatResponse completedResponse,
+                UUID claimId,
+                JsonNode activeState
+        ) {
+            this(
+                    completedResponse,
+                    claimId,
+                    activeState,
+                    completedResponse == null ? DialogueState.empty() : null
+            );
+        }
     }
 
     private record MemorySnapshot(
