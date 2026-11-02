@@ -895,7 +895,7 @@ class ConversationApiTest {
         );
         assertNull(states.getAllValues().get(0));
         assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        assertTrue(contexts.getAllValues().get(1).contains("NEW_TASK"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
