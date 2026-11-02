@@ -58,6 +58,9 @@ $tools = @(
                 description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche, niveau_diplome, domaine_etude, etablissement. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte); GT, GTE, LT, LTE, BETWEEN (numérique); BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
                 required = $true
                 location = 'body'
+                mergeStrategy = 'MERGE_JSON'
+                mergeKey = 'field'
+                removeMarker = 'remove'
             },
             @{
                 name = 'resultMode'
@@ -189,8 +192,11 @@ foreach ($tool in $tools) {
         $parameter = $registeredParameter[0]
         if ($parameter.type -ne $expectedParameter.type -or
             [bool]$parameter.required -ne [bool]$expectedParameter.required -or
-            $parameter.location -ne $expectedParameter.location) {
-            throw "Bandy retained an unexpected schema for parameter $($expectedParameter.name) of $($tool.name)."
+            $parameter.location -ne $expectedParameter.location -or
+            $parameter.mergeStrategy -ne $expectedParameter.mergeStrategy -or
+            $parameter.mergeKey -ne $expectedParameter.mergeKey -or
+            $parameter.removeMarker -ne $expectedParameter.removeMarker) {
+            throw "Bandy retained an unexpected schema or merge policy for parameter $($expectedParameter.name) of $($tool.name)."
         }
     }
     Write-Output "Registered tool: $($tool.name) ($method); verified parameters: $($registeredParameters -join ', ')"
