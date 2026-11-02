@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -27,6 +28,7 @@ public class TaskStateSnapshotRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private volatile Boolean postgresDatabase;
 
     public TaskStateSnapshotRepository(
             JdbcTemplate jdbcTemplate,
@@ -157,19 +159,30 @@ public class TaskStateSnapshotRepository {
             freshness.add(metadata);
         }
 
-        jdbcTemplate.update("""
-                INSERT INTO bandy_conversation_task_state (
-                    conversation_id, objective_id, schema_version,
-                    operational_state, result_references, freshness, updated_at
-                ) VALUES (?, ?, ?, CAST(? AS JSONB), CAST(? AS JSONB),
-                          CAST(? AS JSONB), CURRENT_TIMESTAMP)
-                ON CONFLICT (conversation_id, objective_id) DO UPDATE SET
-                    schema_version = EXCLUDED.schema_version,
-                    operational_state = EXCLUDED.operational_state,
-                    result_references = EXCLUDED.result_references,
-                    freshness = EXCLUDED.freshness,
-                    updated_at = CURRENT_TIMESTAMP
-                """,
+        String sql = isPostgres()
+                ? """
+                    INSERT INTO bandy_conversation_task_state (
+                        conversation_id, objective_id, schema_version,
+                        operational_state, result_references, freshness, updated_at
+                    ) VALUES (?, ?, ?, CAST(? AS JSONB), CAST(? AS JSONB),
+                              CAST(? AS JSONB), CURRENT_TIMESTAMP)
+                    ON CONFLICT (conversation_id, objective_id) DO UPDATE SET
+                        schema_version = EXCLUDED.schema_version,
+                        operational_state = EXCLUDED.operational_state,
+                        result_references = EXCLUDED.result_references,
+                        freshness = EXCLUDED.freshness,
+                        updated_at = CURRENT_TIMESTAMP
+                    """
+                : """
+                    MERGE INTO bandy_conversation_task_state (
+                        conversation_id, objective_id, schema_version,
+                        operational_state, result_references, freshness, updated_at
+                    ) KEY (conversation_id, objective_id)
+                    VALUES (?, ?, ?, CAST(? AS JSONB), CAST(? AS JSONB),
+                            CAST(? AS JSONB), CURRENT_TIMESTAMP)
+                    """;
+        jdbcTemplate.update(
+                sql,
                 conversationId,
                 objectiveId,
                 CURRENT_SCHEMA_VERSION,
@@ -177,6 +190,25 @@ public class TaskStateSnapshotRepository {
                 writeJson(references),
                 writeJson(freshness)
         );
+    }
+
+    /**
+     * PostgreSQL and H2 expose different upsert syntaxes. Keep the production
+     * PostgreSQL ON CONFLICT statement and use H2's MERGE ... KEY in tests.
+     */
+    private boolean isPostgres() {
+        Boolean cached = postgresDatabase;
+        if (cached != null) {
+            return cached;
+        }
+        String productName = jdbcTemplate.execute(
+                (ConnectionCallback<String>) connection ->
+                        connection.getMetaData().getDatabaseProductName()
+        );
+        boolean detected = productName != null
+                && productName.toLowerCase(java.util.Locale.ROOT).contains("postgresql");
+        postgresDatabase = detected;
+        return detected;
     }
 
     private JsonNode readJson(String value) {
