@@ -91,7 +91,7 @@ public class ToolRepository {
                             name, description, when_to_use, http_method, endpoint_url,
                             enabled, approved_for_gemini, retain_result_in_state,
                             sensitive, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """,
                         tool.getName(),
                         tool.getDescription(),
