@@ -17,16 +17,7 @@ class TaskStateSnapshotSanitizerTest {
     void keepsOnlyReviewedNonIdentityAgentSearchCriteria() throws Exception {
         JsonNode arguments = mapper.readTree("""
                 {
-                  "criteriaJson": "{\\"filters\\":[
-                    {\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Informatique\\"},
-                    {\\"field\\":\\"classe\\",\\"operator\\":\\"EQ\\",\\"value\\":10},
-                    {\\"field\\":\\"echelon\\",\\"operator\\":\\"GTE\\",\\"value\\":5},
-                    {\\"field\\":\\"sexe\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"M\\"},
-                    {\\"field\\":\\"matricule\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"RH12345678\\"},
-                    {\\"field\\":\\"nom\\",\\"operator\\":\\"FUZZY\\",\\"value\\":\\"Rakoto\\"},
-                    {\\"field\\":\\"date_naissance\\",\\"operator\\":\\"BEFORE\\",\\"value\\":\\"1990-01-01\\"},
-                    {\\"field\\":\\"domaine_etude\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Informatique\\"}
-                  ],\\"limit\\":20,\\"offset\\":0}",
+                  "criteriaJson": "{\\"filters\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Informatique\\"},{\\"field\\":\\"classe\\",\\"operator\\":\\"EQ\\",\\"value\\":10},{\\"field\\":\\"echelon\\",\\"operator\\":\\"GTE\\",\\"value\\":5},{\\"field\\":\\"sexe\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"M\\"},{\\"field\\":\\"matricule\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"RH12345678\\"},{\\"field\\":\\"nom\\",\\"operator\\":\\"FUZZY\\",\\"value\\":\\"Rakoto\\"},{\\"field\\":\\"date_naissance\\",\\"operator\\":\\"BEFORE\\",\\"value\\":\\"1990-01-01\\"},{\\"field\\":\\"domaine_etude\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Informatique\\"}],\\"limit\\":20,\\"offset\\":0}",
                   "resultMode":"LIST",
                   "authorization":"Bearer secret",
                   "employeeId":"RH12345678"
@@ -80,10 +71,7 @@ class TaskStateSnapshotSanitizerTest {
                   "profiles":{"agent":{"email":"private@example.org"}},
                   "debug":"sensitive",
                   "arguments":{
-                    "criteriaJson":"{\\"filters\\":[
-                      {\\"field\\":\\"service\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Informatique\\"},
-                      {\\"field\\":\\"adresse\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Rue privée\\"}
-                    ]}"
+                    "criteriaJson":"{\\"filters\\":[{\\"field\\":\\"service\\",\\"operator\\":\\"EQ\\",\\"value\\":\\"Informatique\\"},{\\"field\\":\\"adresse\\",\\"operator\\":\\"CONTAINS\\",\\"value\\":\\"Rue privée\\"}]}"
                   }
                 }
                 """);
