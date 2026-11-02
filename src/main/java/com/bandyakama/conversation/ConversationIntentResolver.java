@@ -24,7 +24,7 @@ public class ConversationIntentResolver {
     );
 
     private static final Pattern CORRECTION_OR_CONTINUATION = Pattern.compile(
-            "^(?:en\\s+fait\\b|je\\s+crois\\s+que\\b|je\\s+pense\\s+que\\b|"
+            "^(?:en\\s+fait\\b|je\\s+crois\\s+(?:que|qu['’](?:on|il|elle|ils|elles))\\b|je\\s+pense\\s+que\\b|"
                     + "je\\s+voulais\\s+dire\\b|je\\s+me\\s+suis\\s+trompe\\b|"
                     + "correction\\b|rectification\\b|plus\\s+precisement\\b|"
                     + "plutot\\b|et\\b|aussi\\b|egalement\\b|en\\s+plus\\b|"
