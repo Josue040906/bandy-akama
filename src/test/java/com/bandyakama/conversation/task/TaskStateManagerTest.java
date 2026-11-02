@@ -61,7 +61,7 @@ class TaskStateManagerTest {
     }
 
     @Test
-    void resetClearsStateEvenWhenTheResponseContainsToolUpdates() {
+    void resetDropsPreviousStateButRetainsUpdatesFromTheCurrentTurn() {
         ObjectNode previous = objectMapper.createObjectNode().put("old", true);
         List<ChatResponse.ToolState> updates = List.of(
                 new ChatResponse.ToolState("search_records", Map.of("query", "new"))
@@ -69,7 +69,9 @@ class TaskStateManagerTest {
 
         ObjectNode next = manager.applyToolUpdates(previous, updates, true);
 
-        assertTrue(next.isEmpty());
+        assertFalse(next.has("old"));
+        assertEquals("search_records", next.path("toolName").asText());
+        assertEquals("new", next.path("arguments").path("query").asText());
         assertEquals(true, previous.path("old").asBoolean());
     }
 
