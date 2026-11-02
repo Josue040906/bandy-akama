@@ -172,6 +172,8 @@ class ConversationApiTest {
                 expectedState
         );
 
+        ConversationRepository restartedRepository =
+                new ConversationRepository(jdbcTemplate, objectMapper, 8, 4000, 18000);
         ConversationRepository.RequestStart replay =
                 conversationRepository.beginRequest(
                         conversationId,
@@ -184,7 +186,7 @@ class ConversationApiTest {
 
         UUID failedRequestId = UUID.randomUUID();
         ConversationRepository.RequestStart failedRequest =
-                conversationRepository.beginRequest(
+                restartedRepository.beginRequest(
                         conversationId,
                         "assistant-rh",
                         "42",
