@@ -39,9 +39,17 @@ class ContextEngineContractsTest {
     @Test
     void rejectsBlankCurrentMessageAndNullDialogueState() {
         assertThrows(IllegalArgumentException.class, () ->
-                new ContextEngineInput(" ", DialogueState.empty(), List.of(), ""));
+                new ContextEngineInput(" ", 3, DialogueState.empty(), List.of(), ""));
         assertThrows(NullPointerException.class, () ->
-                new ContextEngineInput("Bonjour", null, List.of(), ""));
+                new ContextEngineInput("Bonjour", 3, null, List.of(), ""));
+    }
+
+    @Test
+    void rejectsHistoryThatContainsTheCurrentMessageOraLaterMessage() {
+        assertThrows(IllegalArgumentException.class, () -> new ContextEngineInput(
+                "Question actuelle", 2, DialogueState.empty(),
+                List.of(new DialogueMessage(2, DialogueMessage.Role.USER, "Question actuelle")), ""
+        ));
     }
 
     @Test
@@ -102,7 +110,7 @@ class ContextEngineContractsTest {
     }
 
     private ContextEngineInput input(List<DialogueMessage> history) {
-        return new ContextEngineInput("Et la suite ?", DialogueState.empty(), history, "");
+        return new ContextEngineInput("Et la suite ?", 3, DialogueState.empty(), history, "");
     }
 
     private DialogueObjective objective(String id, DialogueObjectiveStatus status) {
