@@ -38,10 +38,11 @@ public record ContextDecision(
         }
 
         if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
-            clarificationQuestion = requireText(
-                    clarificationQuestion,
-                    "clarificationQuestion"
-            );
+            if (clarificationQuestion == null || clarificationQuestion.isBlank()) {
+                throw new IllegalArgumentException(
+                        "clarificationQuestion must not be null or blank."
+                );
+            }
         } else if (clarificationQuestion != null) {
             throw new IllegalArgumentException(
                     "clarificationQuestion is only valid for NEEDS_CLARIFICATION."
