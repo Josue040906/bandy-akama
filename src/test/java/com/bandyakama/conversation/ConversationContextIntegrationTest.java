@@ -5,6 +5,7 @@ import com.bandyakama.conversation.dialogue.ContextEngineInput;
 import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueObjective;
+import com.bandyakama.conversation.dialogue.DialogueObjectiveStatus;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
@@ -141,6 +142,142 @@ class ConversationContextIntegrationTest {
         );
         verify(dialogueInterpreter, times(2)).interpret(any(ContextEngineInput.class));
         verify(assistant, times(2)).respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        );
+    }
+
+    @Test
+    void suspendsIndependentObjectiveAndResumesTheExactEarlierObjective() {
+        UserIdentity identity = new UserIdentity("objective-switch-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(),
+                identity.ownerId()
+        );
+
+        when(assistant.respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        )).thenReturn(
+                new ChatResponse("Le rapport est préparé.", List.of()),
+                new ChatResponse("Le plan est préparé.", List.of()),
+                new ChatResponse("Reprenons le rapport.", List.of())
+        );
+
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    DialogueState state = input.dialogueState();
+                    if (state.objectives().isEmpty()) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "Premier objectif indépendant.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Préparer un rapport de ventes",
+                                "Rapport de ventes en préparation.",
+                                List.of()
+                        );
+                    }
+
+                    DialogueObjective active = state.objectives().stream()
+                            .filter(objective ->
+                                    objective.status() == DialogueObjectiveStatus.ACTIVE)
+                            .findFirst()
+                            .orElseThrow();
+
+                    if ("Préparer un rapport de ventes".equals(active.goal())) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "La planification constitue un objectif indépendant.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Préparer un plan de voyage",
+                                "Plan de voyage en préparation.",
+                                List.of()
+                        );
+                    }
+
+                    DialogueObjective report = state.objectives().stream()
+                            .filter(objective -> "Préparer un rapport de ventes"
+                                    .equals(objective.goal()))
+                            .findFirst()
+                            .orElseThrow();
+                    return new ContextInterpretationProposal(
+                            DialogueRelation.TOPIC_RESUMPTION,
+                            report.id(),
+                            "L'utilisateur reprend explicitement le rapport suspendu.",
+                            null,
+                            InterpretationConfidence.HIGH,
+                            null,
+                            "Reprise du rapport de ventes.",
+                            List.of()
+                    );
+                });
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Prépare un rapport de ventes.", null, UUID.randomUUID()
+        );
+        DialogueState afterReport = dialogueStateRepository.load(conversation.id());
+        String reportId = afterReport.activeObjectiveId();
+        assertNotNull(reportId);
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Maintenant, prépare un plan de voyage.", null, UUID.randomUUID()
+        );
+        DialogueState afterPlan = dialogueStateRepository.load(conversation.id());
+        String planId = afterPlan.activeObjectiveId();
+        assertNotNull(planId);
+        assertFalse(reportId.equals(planId));
+        assertEquals(
+                DialogueObjectiveStatus.SUSPENDED,
+                afterPlan.objectives().stream()
+                        .filter(objective -> objective.id().equals(reportId))
+                        .findFirst().orElseThrow().status()
+        );
+        assertEquals(2, afterPlan.objectives().size());
+
+        assertEquals(1L, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_task_state
+                WHERE conversation_id = ? AND objective_id = ?
+                """, Long.class, conversation.id(), reportId));
+        assertEquals(1L, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_task_state
+                WHERE conversation_id = ? AND objective_id = ?
+                """, Long.class, conversation.id(), planId));
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Reprenons le rapport de ventes.", null, UUID.randomUUID()
+        );
+        DialogueState afterResumption = dialogueStateRepository.load(conversation.id());
+
+        assertEquals(reportId, afterResumption.activeObjectiveId());
+        assertEquals(
+                DialogueObjectiveStatus.ACTIVE,
+                afterResumption.objectives().stream()
+                        .filter(objective -> objective.id().equals(reportId))
+                        .findFirst().orElseThrow().status()
+        );
+        assertEquals(
+                DialogueObjectiveStatus.SUSPENDED,
+                afterResumption.objectives().stream()
+                        .filter(objective -> objective.id().equals(planId))
+                        .findFirst().orElseThrow().status()
+        );
+        assertEquals(2, afterResumption.objectives().size());
+        verify(dialogueInterpreter, times(3)).interpret(any(ContextEngineInput.class));
+        verify(assistant, times(3)).respond(
                 anyString(),
                 nullable(String.class),
                 anyString(),
