@@ -75,23 +75,27 @@ class ConversationStateMergerTest {
 
     @Test
     void retainsIndependentRangeFiltersForTheSameField() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\"filters\":["
-                            + "{\"field\":\"age\",\"operator\":\"GTE\",\"value\":20},"
-                            + "{\"field\":\"age\",\"operator\":\"LTE\",\"value\":40}]}"
-                  }
-                }
-                """);
+        JsonNode previous = stateWithCriteria(
+                "search_agents",
+                Map.of("filters", java.util.List.of(
+                        Map.of("field", "age", "operator", "GTE", "value", 20),
+                        Map.of("field", "age", "operator", "LTE", "value", 40)
+                ))
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 "search_agents",
                 Map.of(
                         "criteriaJson",
-                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GTE\",\"value\":25}]}"
+                        objectMapper.writeValueAsString(Map.of(
+                                "filters",
+                                java.util.List.of(Map.of(
+                                        "field", "age",
+                                        "operator", "GTE",
+                                        "value", 25
+                                ))
+                        ))
                 )
         );
         JsonNode criteria = objectMapper.readTree(
@@ -107,24 +111,28 @@ class ConversationStateMergerTest {
 
     @Test
     void removesOnlyTheRequestedOperatorOrAllFiltersForAField() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\"filters\":["
-                            + "{\"field\":\"age\",\"operator\":\"GTE\",\"value\":20},"
-                            + "{\"field\":\"age\",\"operator\":\"LTE\",\"value\":40},"
-                            + "{\"field\":\"sexe\",\"operator\":\"EQ\",\"value\":\"F\"}]}"
-                  }
-                }
-                """);
+        JsonNode previous = stateWithCriteria(
+                "search_agents",
+                Map.of("filters", java.util.List.of(
+                        Map.of("field", "age", "operator", "GTE", "value", 20),
+                        Map.of("field", "age", "operator", "LTE", "value", 40),
+                        Map.of("field", "sexe", "operator", "EQ", "value", "F")
+                ))
+        );
 
         Map<String, Object> removeOne = merger.mergeToolArguments(
                 previous,
                 "search_agents",
                 Map.of(
                         "criteriaJson",
-                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GTE\",\"remove\":true}]}"
+                        objectMapper.writeValueAsString(Map.of(
+                                "filters",
+                                java.util.List.of(Map.of(
+                                        "field", "age",
+                                        "operator", "GTE",
+                                        "remove", true
+                                ))
+                        ))
                 )
         );
         JsonNode oneRemaining = objectMapper.readTree(
@@ -139,7 +147,13 @@ class ConversationStateMergerTest {
                 "search_agents",
                 Map.of(
                         "criteriaJson",
-                        "{\"filters\":[{\"field\":\"age\",\"remove\":true}]}"
+                        objectMapper.writeValueAsString(Map.of(
+                                "filters",
+                                java.util.List.of(Map.of(
+                                        "field", "age",
+                                        "remove", true
+                                ))
+                        ))
                 )
         );
         JsonNode withoutAge = objectMapper.readTree(
@@ -279,6 +293,19 @@ class ConversationStateMergerTest {
                         activeState
                 )
         );
+    }
+
+    private JsonNode stateWithCriteria(
+            String toolName,
+            Map<String, Object> criteria
+    ) throws Exception {
+        var state = objectMapper.createObjectNode();
+        state.put("toolName", toolName);
+        state.putObject("arguments").put(
+                "criteriaJson",
+                objectMapper.writeValueAsString(criteria)
+        );
+        return state;
     }
 
     private JsonNode filterByOperator(
