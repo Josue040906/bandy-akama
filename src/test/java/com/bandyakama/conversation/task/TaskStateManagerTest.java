@@ -58,7 +58,7 @@ class TaskStateManagerTest {
     }
 
     @Test
-    void resetsOperationalStateOnlyForNewOrResumedTasks() {
+    void resetsOperationalStateForNewResumedOrCompletedTasks() {
         assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TASK));
         assertTrue(manager.resetsOperationalState(DialogueRelation.TOPIC_RESUMPTION));
         assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TOPIC_REQUEST));
