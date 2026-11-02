@@ -12,6 +12,7 @@ import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -60,6 +61,25 @@ class ConversationContextIntegrationTest {
 
     @MockBean
     private GeminiAssistant assistant;
+
+    private Boolean previousOrganizationToolSensitivity;
+    private boolean organizationToolCreatedForSnapshotTest;
+
+    @AfterEach
+    void restoreOrganizationToolSensitivity() {
+        if (organizationToolCreatedForSnapshotTest) {
+            jdbcTemplate.update(
+                    "DELETE FROM bandy_tool WHERE name = 'get_organization_info'"
+            );
+            organizationToolCreatedForSnapshotTest = false;
+        } else if (previousOrganizationToolSensitivity != null) {
+            jdbcTemplate.update(
+                    "UPDATE bandy_tool SET sensitive = ? WHERE name = 'get_organization_info'",
+                    previousOrganizationToolSensitivity
+            );
+            previousOrganizationToolSensitivity = null;
+        }
+    }
 
     @Test
     void resolvesAndPersistsNewTaskThenContinuesItOnTheNextTurn() {
@@ -153,6 +173,28 @@ class ConversationContextIntegrationTest {
                 identity.applicationId(),
                 identity.ownerId()
         );
+        List<Boolean> existingSensitivity = jdbcTemplate.query(
+                "SELECT sensitive FROM bandy_tool WHERE name = 'get_organization_info'",
+                (rs, row) -> rs.getBoolean(1)
+        );
+        if (existingSensitivity.isEmpty()) {
+            jdbcTemplate.update("""
+                    INSERT INTO bandy_tool (
+                        name, description, when_to_use, http_method,
+                        endpoint_url, enabled, sensitive
+                    ) VALUES (
+                        'get_organization_info', 'Organization lookup',
+                        'Used by snapshot integration test', 'GET',
+                        'http://localhost/organization', TRUE, FALSE
+                    )
+                    """);
+            organizationToolCreatedForSnapshotTest = true;
+        } else {
+            previousOrganizationToolSensitivity = existingSensitivity.get(0);
+            jdbcTemplate.update(
+                    "UPDATE bandy_tool SET sensitive = FALSE WHERE name = 'get_organization_info'"
+            );
+        }
         String criteriaJson = """
                 {"filters":[
                   {"field":"service","operator":"EQ","value":"Informatique"},
