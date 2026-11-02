@@ -131,10 +131,21 @@ public class TaskStateSnapshotRepository {
             if (reference == null || !reference.isObject()) {
                 continue;
             }
-            references.add(reference.deepCopy());
+            ObjectNode safeReference = objectMapper.createObjectNode();
+            safeReference.put("toolName", reference.path("toolName").asText(""));
+            safeReference.set(
+                    "arguments",
+                    reference.path("arguments").isMissingNode()
+                            ? objectMapper.createObjectNode()
+                            : reference.path("arguments").deepCopy()
+            );
+            String capturedAt = reference.path("capturedAt").asText("");
+            safeReference.put("capturedAt", capturedAt);
+            // Never duplicate old result payloads: only execution metadata is
+            // needed to decide which capability should be refreshed.
+            references.add(safeReference);
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("toolName", reference.path("toolName").asText(""));
-            String capturedAt = reference.path("capturedAt").asText("");
             metadata.put("capturedAt", capturedAt.isBlank() ? "UNKNOWN" : capturedAt);
             metadata.put("status", "STALE");
             metadata.put(
