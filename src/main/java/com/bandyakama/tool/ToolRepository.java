@@ -64,7 +64,7 @@ public class ToolRepository {
 
     public List<ToolDefinition> findEnabled() {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, approved_for_gemini, retain_result_in_state, sensitive "
                         + "FROM bandy_tool WHERE enabled = TRUE ORDER BY name",
                 TOOL_ROW_MAPPER
         );
@@ -73,7 +73,7 @@ public class ToolRepository {
 
     public Optional<ToolDefinition> findByName(String name) {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, approved_for_gemini, retain_result_in_state, sensitive "
                         + "FROM bandy_tool WHERE name = ? AND enabled = TRUE",
                 TOOL_ROW_MAPPER,
                 name
