@@ -50,7 +50,8 @@ class TaskStateManagerTest {
         for (DialogueRelation relation : List.of(
                 DialogueRelation.NEW_TASK,
                 DialogueRelation.NEW_TOPIC_REQUEST,
-                DialogueRelation.NEEDS_CLARIFICATION
+                DialogueRelation.NEEDS_CLARIFICATION,
+                DialogueRelation.TASK_COMPLETION
         )) {
             assertNull(manager.forDialogueRelation(relation, persisted));
         }
@@ -61,6 +62,7 @@ class TaskStateManagerTest {
         assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TASK));
         assertTrue(manager.resetsOperationalState(DialogueRelation.TOPIC_RESUMPTION));
         assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TOPIC_REQUEST));
+        assertTrue(manager.resetsOperationalState(DialogueRelation.TASK_COMPLETION));
         assertFalse(manager.resetsOperationalState(DialogueRelation.CONTINUATION));
         assertFalse(manager.resetsOperationalState(DialogueRelation.CORRECTION));
         assertFalse(manager.resetsOperationalState(DialogueRelation.USER_CLARIFICATION));
