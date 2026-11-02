@@ -21,14 +21,10 @@ class ConversationStateMergerTest {
     @Test
     void mergesJsonObjectsAndKeyedArraysUsingParameterConfiguration()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_records",
-                  "arguments": {
-                    "querySpec": "{\"filters\":[{\"field\":\"department\",\"value\":\"Finance\"},{\"field\":\"age\",\"value\":20}],\"page\":{\"size\":20,\"offset\":0}}"
-                  }
-                }
-                """);
+        JsonNode previous = previous("search_records", "querySpec",
+                "{\"filters\":[{\"field\":\"department\",\"value\":\"Finance\"},"
+                        + "{\"field\":\"age\",\"value\":20}],"
+                        + "\"page\":{\"size\":20,\"offset\":0}}");
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
@@ -50,14 +46,9 @@ class ConversationStateMergerTest {
 
     @Test
     void removesArrayItemsUsingTheConfiguredRemovalMarker() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "catalog_search",
-                  "arguments": {
-                    "spec": "{\"filters\":[{\"field\":\"status\",\"value\":\"ACTIVE\"},{\"field\":\"region\",\"value\":\"NORTH\"}]}"
-                  }
-                }
-                """);
+        JsonNode previous = previous("catalog_search", "spec",
+                "{\"filters\":[{\"field\":\"status\",\"value\":\"ACTIVE\"},"
+                        + "{\"field\":\"region\",\"value\":\"NORTH\"}]}");
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
@@ -75,12 +66,8 @@ class ConversationStateMergerTest {
     @Test
     void replacesJsonParameterByDefaultWhenNoMergePolicyIsConfigured()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "document_search",
-                  "arguments": {"query": "{\"scope\":\"all\",\"limit\":10}"}
-                }
-                """);
+        JsonNode previous = previous("document_search", "query",
+                "{\"scope\":\"all\",\"limit\":10}");
         ToolDefinition tool = plainTool("document_search", "query");
 
         Map<String, Object> merged = merger.mergeToolArguments(
@@ -94,35 +81,23 @@ class ConversationStateMergerTest {
 
     @Test
     void neverCarriesArgumentsAcrossDifferentTools() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_records",
-                  "arguments": {"querySpec": "{\"filters\":[]}"}
-                }
-                """);
-
+        JsonNode previous = previous("search_records", "querySpec",
+                "{\"filters\":[]}");
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
                 jsonMergeTool("explain_policy", "querySpec", "field"),
                 Map.of("topic", "leave policy")
         );
-
         assertEquals(Map.of("topic", "leave policy"), merged);
     }
 
     @Test
     void replacesArraysWhenNoMergeKeyIsConfigured() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_records",
-                  "arguments": {"spec": "{\"tags\":[\"a\",\"b\"]}"}
-                }
-                """);
-        ToolDefinition tool = jsonMergeTool("search_records", "spec", null);
-
+        JsonNode previous = previous("search_records", "spec",
+                "{\"tags\":[\"a\",\"b\"]}");
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
-                tool,
+                jsonMergeTool("search_records", "spec", null),
                 Map.of("spec", "{\"tags\":[\"c\"]}")
         );
 
@@ -132,14 +107,9 @@ class ConversationStateMergerTest {
     }
 
     @Test
-    void rejectsMalformedIncomingJsonInsteadOfSilentlyDroppingPreviousState() throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_records",
-                  "arguments": {"spec": "{\"filters\":[]}"}
-                }
-                """);
-
+    void rejectsMalformedIncomingJsonInsteadOfSilentlyDroppingPreviousState() {
+        JsonNode previous = previous("search_records", "spec",
+                "{\"filters\":[]}");
         assertThrows(ResponseStatusException.class, () ->
                 merger.mergeToolArguments(
                         previous,
@@ -147,6 +117,13 @@ class ConversationStateMergerTest {
                         Map.of("spec", "{invalid")
                 )
         );
+    }
+
+    private JsonNode previous(String toolName, String argumentName, String value) {
+        var state = objectMapper.createObjectNode();
+        state.put("toolName", toolName);
+        state.putObject("arguments").put(argumentName, value);
+        return state;
     }
 
     private ToolDefinition jsonMergeTool(
