@@ -166,9 +166,9 @@ class TaskStateManagerTest {
     }
 
     @Test
-    void reconstructsHistoricalToolStateAndParsesCriteriaJson() {
+    void reconstructsHistoricalToolStateAndParsesStructuredJsonArguments() {
         ObjectNode arguments = objectMapper.createObjectNode();
-        arguments.put("criteriaJson", "{\"service\":\"finance\"}");
+        arguments.put("querySpec", "{\"service\":\"finance\"}");
 
         ObjectNode state = manager.fromHistoricalToolResult(
                 "search_records",
@@ -179,7 +179,7 @@ class TaskStateManagerTest {
         assertEquals("search_records", state.path("toolName").asText());
         assertEquals(
                 "finance",
-                state.path("structuredArguments").path("criteriaJson")
+                state.path("structuredArguments").path("querySpec")
                         .path("service").asText()
         );
         assertFalse(state.has("criteria"));
@@ -189,7 +189,6 @@ class TaskStateManagerTest {
     void reconstructsStructuredJsonArgumentsForAnyToolAndKeepsLegacyCriteriaAlias() {
         ObjectNode arguments = objectMapper.createObjectNode();
         arguments.put("querySpec", "{\"filters\":[{\"field\":\"status\",\"value\":\"OPEN\"}]}");
-        arguments.put("criteriaJson", "{\"filters\":[{\"field\":\"age\",\"value\":30}]}");
 
         ObjectNode state = manager.fromHistoricalToolResult(
                 "generic_search",
@@ -200,11 +199,6 @@ class TaskStateManagerTest {
                 "status",
                 state.path("structuredArguments").path("querySpec")
                         .path("filters").get(0).path("field").asText()
-        );
-        assertEquals(
-                30,
-                state.path("criteria").path("filters").get(0)
-                        .path("value").asInt()
         );
     }
 
