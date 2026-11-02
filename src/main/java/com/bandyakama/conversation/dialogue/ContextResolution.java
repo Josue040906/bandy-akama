@@ -53,10 +53,9 @@ public record ContextResolution(
                         "A completed task must leave no active objective or pending clarification."
                 );
             }
+            String completedTargetId = decision.targetObjectiveId();
             DialogueObjective completedTarget = proposedState.objectives().stream()
-                    .filter(objective -> objective.id().equals(
-                            decision.targetObjectiveId()
-                    ))
+                    .filter(objective -> objective.id().equals(completedTargetId))
                     .findFirst()
                     .orElseThrow(() -> new IllegalArgumentException(
                             "The completed objective must exist in the proposed state."
