@@ -56,12 +56,23 @@ class ToolRegistryTest {
         tool.setSensitive(true);
         tool.setApprovedForGemini(true);
         tool.setRetainResultInState(true);
+        tool.getParameters().get(0).setMergeStrategy(
+                ToolParameter.MergeStrategy.MERGE_JSON
+        );
+        tool.getParameters().get(0).setMergeKey("id");
+        tool.getParameters().get(0).setRemoveMarker("delete");
         registry.register(tool);
 
         ToolDefinition loaded = registry.findByName("selfProfile").orElseThrow();
         assertTrue(loaded.isSensitive());
         assertTrue(loaded.isApprovedForGemini());
         assertTrue(loaded.isRetainResultInState());
+        assertEquals(
+                ToolParameter.MergeStrategy.MERGE_JSON,
+                loaded.getParameters().get(0).getMergeStrategy()
+        );
+        assertEquals("id", loaded.getParameters().get(0).getMergeKey());
+        assertEquals("delete", loaded.getParameters().get(0).getRemoveMarker());
     }
 
     @Test
