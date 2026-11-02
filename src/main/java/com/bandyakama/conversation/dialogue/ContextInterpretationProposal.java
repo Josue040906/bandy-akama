@@ -29,7 +29,8 @@ public record ContextInterpretationProposal(
         ));
 
         boolean requiresTarget = switch (relation) {
-            case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION -> true;
+            case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION,
+                    TASK_COMPLETION -> true;
             case NEW_TASK, NEW_TOPIC_REQUEST, SOCIAL_TURN, NEEDS_CLARIFICATION -> false;
         };
         if (requiresTarget && (targetObjectiveId == null || targetObjectiveId.isBlank())) {
@@ -39,7 +40,14 @@ public record ContextInterpretationProposal(
             throw new IllegalArgumentException("targetObjectiveId must be null or non-blank.");
         }
 
-        if (relation == DialogueRelation.SOCIAL_TURN
+        if (relation == DialogueRelation.TASK_COMPLETION) {
+            if (clarificationQuestion != null || objectiveGoal != null
+                    || objectiveSummary != null || !referenceMentions.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "TASK_COMPLETION must not propose objective updates or references."
+                );
+            }
+        } else if (relation == DialogueRelation.SOCIAL_TURN
                 || relation == DialogueRelation.NEW_TOPIC_REQUEST) {
             if (targetObjectiveId != null || clarificationQuestion != null
                     || objectiveGoal != null || objectiveSummary != null
