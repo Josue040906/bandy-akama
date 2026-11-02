@@ -6,9 +6,6 @@ import java.util.List;
 import java.util.Optional;
 
 public class ToolRegistry {
-    private static final String RESERVED_CONVERSATION_TOOL =
-            "clearConversationState";
-
     private final ToolRepository toolRepository;
 
     public ToolRegistry(ToolRepository toolRepository) {
@@ -17,7 +14,7 @@ public class ToolRegistry {
 
     public ToolDefinition register(ToolDefinition tool) {
         tool.validate();
-        if (RESERVED_CONVERSATION_TOOL.equals(tool.getName())) {
+        if (ToolPolicy.isReservedName(tool.getName())) {
             throw new IllegalArgumentException(
                     "Ce nom est réservé au moteur conversationnel."
             );
