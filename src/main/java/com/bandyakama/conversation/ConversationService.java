@@ -5,6 +5,9 @@ import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
+import com.bandyakama.conversation.dialogue.ContextResolution;
+import com.bandyakama.conversation.dialogue.DialogueRelation;
+import com.bandyakama.conversation.dialogue.DialogueStateManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +23,8 @@ public class ConversationService {
     private final ConversationRepository repository;
     private final GeminiAssistant assistant;
     private final ConversationIntentResolver intentResolver;
+    private final DialogueStateManager dialogueStateManager;
+    private final ConversationCompletionService completionService;
     private final PerformanceTelemetry performanceTelemetry;
     private final int turnBudgetMillis;
 
@@ -27,6 +32,8 @@ public class ConversationService {
             ConversationRepository repository,
             GeminiAssistant assistant,
             ConversationIntentResolver intentResolver,
+            DialogueStateManager dialogueStateManager,
+            ConversationCompletionService completionService,
             PerformanceTelemetry performanceTelemetry,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
@@ -34,6 +41,8 @@ public class ConversationService {
         this.repository = repository;
         this.assistant = assistant;
         this.intentResolver = intentResolver;
+        this.dialogueStateManager = dialogueStateManager;
+        this.completionService = completionService;
         this.performanceTelemetry = performanceTelemetry;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
@@ -213,11 +222,6 @@ public class ConversationService {
         }
 
         try {
-            ConversationIntentResolver.Decision decision = measured(
-                    requestId,
-                    "intent_resolution",
-                    () -> intentResolver.resolve(message, request.activeState())
-            );
             var greeting = ConversationIntentResolver.greetingResponse(message);
             if (greeting.isPresent()) {
                 long greetingStartedAt = System.nanoTime();
@@ -229,11 +233,12 @@ public class ConversationService {
                 measured(
                         requestId,
                         "response_persistence",
-                        () -> repository.completeRequest(
+                        () -> completionService.complete(
                                 conversationId,
                                 requestId,
                                 request.claimId(),
-                                response
+                                response,
+                                java.util.Optional.empty()
                         )
                 );
                 performanceTelemetry.stage(
@@ -267,12 +272,54 @@ public class ConversationService {
                 return response;
             }
 
-            boolean resetState = decision
-                    == ConversationIntentResolver.Decision.NEW_INTENT;
-            JsonNode stateForRequest = decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? request.activeState()
-                    : null;
+            ConversationRepository.DialogueTurnContext turnContext =
+                    measured(
+                            requestId,
+                            "dialogue_history_loading",
+                            () -> repository.dialogueTurnContextForRequest(
+                                    conversationId,
+                                    requestId
+                            )
+                    );
+            ContextResolution contextResolution = measured(
+                    requestId,
+                    "dialogue_interpretation",
+                    () -> dialogueStateManager.prepareTurn(
+                            conversationId,
+                            message,
+                            turnContext.currentMessageSequenceNumber(),
+                            turnContext.history(),
+                            turnContext.conversationSummary()
+                    )
+            );
+            DialogueRelation relation = contextResolution.decision().relation();
+            if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
+                ChatResponse clarification = new ChatResponse(
+                        contextResolution.decision().clarificationQuestion(),
+                        java.util.List.of(),
+                        conversationId
+                );
+                measured(
+                        requestId,
+                        "response_persistence",
+                        () -> completionService.complete(
+                                conversationId,
+                                requestId,
+                                request.claimId(),
+                                clarification,
+                                java.util.Optional.of(contextResolution.proposedState())
+                        )
+                );
+                return clarification;
+            }
+
+            boolean resetState = relation == DialogueRelation.NEW_TASK;
+            JsonNode stateForRequest = switch (relation) {
+                case CONTINUATION, CORRECTION, USER_CLARIFICATION ->
+                        request.activeState();
+                case NEW_TASK, TOPIC_RESUMPTION -> null;
+                case NEEDS_CLARIFICATION -> null;
+            };
             String classifiedContext = measured(
                     requestId,
                     "context_preparation",
@@ -284,16 +331,13 @@ public class ConversationService {
                                     == ConversationIntentResolver.Decision.CONTINUATION
                     )
             )
-                    + "\n\nDécision de continuité prise par Bandy : "
-                    + (decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? "CONTINUATION. Utilise le fil complet pour déterminer si la "
-                            + "demande actuelle se rattache au sujet précédent. "
-                            + "Réutilise les données déjà chargées seulement si elles "
-                            + "répondent à cette demande."
-                    : "NOUVELLE INTENTION explicitement détectée. Ignore les "
-                            + "filtres et résultats précédents pour décider des "
-                            + "critères de cette demande.");
+                    + "\\n\\nDécision de dialogue de Bandy : "
+                    + relation.name()
+                    + ". Raison : "
+                    + contextResolution.decision().rationale()
+                    + ". Utilise l'historique et les objectifs fournis comme contexte, "
+                    + "mais ne réutilise aucun résultat opérationnel si l'état transmis "
+                    + "est absent.");
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
@@ -319,11 +363,12 @@ public class ConversationService {
             measured(
                     requestId,
                     "response_persistence",
-                    () -> repository.completeRequest(
+                    () -> completionService.complete(
                             conversationId,
                             requestId,
                             request.claimId(),
-                            completedResponse
+                            completedResponse,
+                            java.util.Optional.of(contextResolution.proposedState())
                     )
             );
             return completedResponse;
