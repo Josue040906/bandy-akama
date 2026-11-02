@@ -41,9 +41,19 @@ public class ContextDecisionValidator {
         }
 
         if (proposal.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
+            DialogueObjective clarificationTarget = findTarget(
+                    input.dialogueState(),
+                    proposal.targetObjectiveId()
+            );
+            if (clarificationTarget != null
+                    && clarificationTarget.status() == DialogueObjectiveStatus.COMPLETED) {
+                throw invalid(
+                        "Une clarification ne peut pas cibler un objectif terminé."
+                );
+            }
             return new ContextDecision(
                     proposal.relation(),
-                    proposal.targetObjectiveId(),
+                    clarificationTarget == null ? null : clarificationTarget.id(),
                     proposal.rationale(),
                     proposal.clarificationQuestion()
             );
