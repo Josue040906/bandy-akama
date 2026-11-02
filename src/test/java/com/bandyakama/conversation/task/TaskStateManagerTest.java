@@ -86,26 +86,51 @@ class TaskStateManagerTest {
     }
 
     @Test
-    void appliesToolUpdatesWithoutMutatingPreviousStateAndKeepsProfileCacheBounded() {
-        ObjectNode previous = objectMapper.createObjectNode();
-        ObjectNode existingProfiles = previous.putObject("profiles");
-        existingProfiles.putObject("old-profile").put("name", "Ancien");
+    void retainsConfiguredGenericToolResultsWithinTheSizeLimit() {
+        ObjectNode previous = objectMapper.createObjectNode()
+                .put("toolName", "previous_lookup");
+        previous.putObject("profiles").putObject("legacy-profile")
+                .put("name", "Legacy snapshot");
 
         List<ChatResponse.ToolState> updates = List.of(
-                profileUpdate("MAT-001", "A"),
-                profileUpdate("MAT-002", "B"),
-                profileUpdate("MAT-003", "C"),
-                profileUpdate("MAT-004", "D")
+                new ChatResponse.ToolState(
+                        "lookup_customer",
+                        Map.of("customerId", "C-42"),
+                        Map.of("id", "C-42", "status", "ACTIVE")
+                )
         );
 
         ObjectNode next = manager.applyToolUpdates(previous, updates, false);
 
-        assertTrue(previous.path("profiles").has("old-profile"));
-        assertFalse(previous.path("profiles").has("MAT-004"));
-        assertEquals("get_agent_profile", next.path("toolName").asText());
-        assertEquals(3, next.path("profiles").size());
-        assertTrue(next.path("profiles").has("mat-004"));
-        assertFalse(next.path("profiles").has("old-profile"));
+        assertEquals("lookup_customer", next.path("toolName").asText());
+        assertEquals("C-42", next.path("arguments").path("customerId").asText());
+        assertEquals("C-42", next.path("retainedResult").path("id").asText());
+        assertEquals("ACTIVE", next.path("retainedResult").path("status").asText());
+        assertEquals(
+                "Legacy snapshot",
+                next.path("profiles").path("legacy-profile").path("name").asText()
+        );
+        assertEquals("previous_lookup", previous.path("toolName").asText());
+    }
+
+    @Test
+    void skipsOversizedRetainedResultsWithoutFailingTheConversation() {
+        List<ChatResponse.ToolState> updates = List.of(
+                new ChatResponse.ToolState(
+                        "large_document_lookup",
+                        Map.of("documentId", "D-1"),
+                        Map.of("content", "x".repeat(9_000))
+                )
+        );
+
+        ObjectNode next = manager.applyToolUpdates(
+                objectMapper.createObjectNode(),
+                updates,
+                false
+        );
+
+        assertEquals("large_document_lookup", next.path("toolName").asText());
+        assertFalse(next.has("retainedResult"));
     }
 
     @Test
@@ -153,11 +178,4 @@ class TaskStateManagerTest {
         assertEquals("finance", state.path("criteria").path("service").asText());
     }
 
-    private ChatResponse.ToolState profileUpdate(String matricule, String name) {
-        return new ChatResponse.ToolState(
-                "get_agent_profile",
-                Map.of("nom_agent", name),
-                Map.of("agent", Map.of("matricule", matricule, "name", name))
-        );
-    }
 }
