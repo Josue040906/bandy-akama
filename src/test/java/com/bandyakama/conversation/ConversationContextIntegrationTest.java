@@ -5,6 +5,7 @@ import com.bandyakama.conversation.dialogue.ContextEngineInput;
 import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueObjective;
+import com.bandyakama.conversation.dialogue.DialogueObjectiveStatus;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
@@ -175,4 +176,131 @@ class ConversationContextIntegrationTest {
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
         );
     }
+
+    @Test
+    void suspendsAndResumesObjectivesAcrossUnrelatedDomains() {
+        UserIdentity identity = new UserIdentity("multi-domain-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(),
+                identity.ownerId()
+        );
+        when(assistant.respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        )).thenReturn(
+                new ChatResponse("Le rapport de ventes est commencé.", List.of()),
+                new ChatResponse("Les principes de sécurité API sont prêts.", List.of()),
+                new ChatResponse("Reprenons le rapport de ventes.", List.of())
+        );
+
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    DialogueState state = input.dialogueState();
+                    String message = input.currentMessage().toLowerCase();
+                    if (state.objectives().isEmpty()) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "La demande démarre un objectif de reporting.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Préparer un rapport de ventes",
+                                "Préparation d'un rapport de ventes.",
+                                List.of()
+                        );
+                    }
+                    if (message.contains("api rest")) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "La sécurité API constitue un objectif indépendant.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Étudier la sécurité d'une API REST",
+                                "Étude des principes de sécurité API.",
+                                List.of()
+                        );
+                    }
+                    DialogueObjective suspendedReport = state.objectives().stream()
+                            .filter(objective ->
+                                    objective.goal().equals("Préparer un rapport de ventes")
+                                            && objective.status()
+                                            == DialogueObjectiveStatus.SUSPENDED
+                            )
+                            .findFirst()
+                            .orElseThrow();
+                    return new ContextInterpretationProposal(
+                            DialogueRelation.TOPIC_RESUMPTION,
+                            suspendedReport.id(),
+                            "L'utilisateur reprend explicitement le rapport suspendu.",
+                            null,
+                            InterpretationConfidence.HIGH,
+                            null,
+                            "Reprise du rapport de ventes.",
+                            List.of()
+                    );
+                });
+
+        conversationService.sendMessage(
+                conversation.id(),
+                identity,
+                "Prépare un rapport de ventes.",
+                null,
+                UUID.randomUUID()
+        );
+        DialogueState afterReport = dialogueStateRepository.load(conversation.id());
+        String reportId = afterReport.activeObjectiveId();
+
+        conversationService.sendMessage(
+                conversation.id(),
+                identity,
+                "Comment sécuriser une API REST ?",
+                null,
+                UUID.randomUUID()
+        );
+        DialogueState afterSecurity = dialogueStateRepository.load(conversation.id());
+        String securityId = afterSecurity.activeObjectiveId();
+        assertEquals(2, afterSecurity.objectives().size());
+        assertEquals(
+                DialogueObjectiveStatus.SUSPENDED,
+                objective(afterSecurity, reportId).status()
+        );
+        assertEquals(
+                "Étudier la sécurité d'une API REST",
+                objective(afterSecurity, securityId).goal()
+        );
+
+        conversationService.sendMessage(
+                conversation.id(),
+                identity,
+                "Reprenons le rapport de ventes.",
+                null,
+                UUID.randomUUID()
+        );
+        DialogueState afterResumption = dialogueStateRepository.load(conversation.id());
+
+        assertEquals(reportId, afterResumption.activeObjectiveId());
+        assertEquals(
+                DialogueObjectiveStatus.ACTIVE,
+                objective(afterResumption, reportId).status()
+        );
+        assertEquals(
+                DialogueObjectiveStatus.SUSPENDED,
+                objective(afterResumption, securityId).status()
+        );
+        verify(dialogueInterpreter, times(3)).interpret(any(ContextEngineInput.class));
+    }
+
+    private DialogueObjective objective(DialogueState state, String id) {
+        return state.objectives().stream()
+                .filter(objective -> objective.id().equals(id))
+                .findFirst()
+                .orElseThrow();
+    }
+
+
 }
