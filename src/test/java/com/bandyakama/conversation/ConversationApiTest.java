@@ -449,7 +449,7 @@ class ConversationApiTest {
 
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
+        assertTrue(academicContext.contains("Reuse prior information only when it is"));
         assertTrue(academicContext.contains("CONTINUATION"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
@@ -641,8 +641,7 @@ class ConversationApiTest {
         );
         String independentFollowUpContext = context.getAllValues().get(2);
         assertTrue(independentFollowUpContext.contains(
-                "État structuré précédent (à conserver uniquement si la demande "
-                        + "continue cette intention) :\n{}"
+                "Previous structured state (reuse only when relevant):\n{}"
         ));
         assertFalse(independentFollowUpContext.contains("A-7"));
         assertTrue(independentFollowUpContext.contains("comptabilité"));
@@ -760,8 +759,9 @@ class ConversationApiTest {
         );
         String finalContext = context.getAllValues().get(2);
         String stateBlock = finalContext.substring(
-                finalContext.indexOf(") :\n") + 4,
-                finalContext.indexOf("\nRéférences aux résultats")
+                finalContext.indexOf("Previous structured state (reuse only when relevant):\n")
+                        + "Previous structured state (reuse only when relevant):\n".length(),
+                finalContext.indexOf("\nReferences to previous results")
         );
         var structuredState = objectMapper.readTree(stateBlock);
         var filters = structuredState.path("criteria").path("filters");
@@ -941,7 +941,7 @@ class ConversationApiTest {
         );
         String rebuiltContext = context.getAllValues().get(6);
 
-        assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
+        assertTrue(rebuiltContext.contains("Summary of earlier conversation:"), rebuiltContext);
         assertTrue(rebuiltContext.contains("comptabilité"), rebuiltContext);
         assertFalse(rebuiltContext.contains("OLD-RESULT-123"));
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
@@ -1175,7 +1175,7 @@ class ConversationApiTest {
         );
         String finalContext = context.getAllValues().get(10);
         assertTrue(finalContext
-                .contains("Résumé extractif des échanges plus anciens"));
+                .contains("Summary of earlier conversation:"));
         assertTrue(finalContext.contains("Ancien sujet 0"));
         assertTrue(finalContext.contains("Ancien sujet 4"));
         assertTrue(finalContext.contains("Ancien sujet 5"));
