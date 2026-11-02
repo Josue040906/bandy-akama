@@ -18,9 +18,9 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doThrow;
 
 @SpringBootTest(properties = {
@@ -115,7 +115,7 @@ class ConversationCompletionTransactionTest {
                 WHERE conversation_id = ?
                     AND dialogue_state::text LIKE '%objective-rollback-test%'
                 """, Integer.class, conversationId));
-        assertEquals(null, jdbcTemplate.queryForObject("""
+        assertNull(jdbcTemplate.queryForObject("""
                 SELECT active_request_id FROM bandy_conversation WHERE id = ?
                 """, UUID.class, conversationId));
     }
