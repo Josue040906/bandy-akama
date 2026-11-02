@@ -1,6 +1,7 @@
 package com.bandyakama.conversation.dialogue;
 
 import java.util.List;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -51,6 +52,9 @@ public class DialogueStateManager {
         Objects.requireNonNull(conversationId, "conversationId must not be null.");
 
         DialogueState currentState = stateRepository.load(conversationId);
+        if (currentState.objectives().isEmpty()) {
+            currentState = recoverActiveObjective(history, conversationSummary);
+        }
         ContextEngineInput input = new ContextEngineInput(
                 currentMessage,
                 currentMessageSequenceNumber,
@@ -59,5 +63,44 @@ public class DialogueStateManager {
                 conversationSummary
         );
         return contextEngine.resolve(input);
+    }
+
+    /**
+     * Rehydrates a minimal active objective when the dialogue-state row was
+     * lost but durable message history survived. The latest user message is
+     * the safest available anchor; the interpreter decides whether the
+     * incoming turn continues it or starts an independent objective.
+     */
+    private DialogueState recoverActiveObjective(
+            List<DialogueMessage> history,
+            String conversationSummary
+    ) {
+        DialogueMessage latestUserMessage = history.stream()
+                .filter(message -> message.role() == DialogueMessage.Role.USER)
+                .reduce((first, second) -> second)
+                .orElse(null);
+        if (latestUserMessage == null) {
+            return DialogueState.empty();
+        }
+
+        Instant recoveredAt = Instant.EPOCH;
+        DialogueObjective recovered = new DialogueObjective(
+                "recovered-" + latestUserMessage.sequenceNumber(),
+                latestUserMessage.content(),
+                conversationSummary.isBlank()
+                        ? latestUserMessage.content()
+                        : conversationSummary,
+                DialogueObjectiveStatus.ACTIVE,
+                null,
+                recoveredAt,
+                recoveredAt,
+                List.of()
+        );
+        return new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                recovered.id(),
+                List.of(recovered),
+                null
+        );
     }
 }
