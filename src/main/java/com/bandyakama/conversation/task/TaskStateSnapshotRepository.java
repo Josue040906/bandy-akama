@@ -68,7 +68,8 @@ public class TaskStateSnapshotRepository {
             JsonNode freshness = readJson(stored.freshness());
             if (state == null || !state.isObject()
                     || references == null || !references.isArray()
-                    || freshness == null || !freshness.isArray()) {
+                    || freshness == null || !freshness.isArray()
+                    || references.size() != freshness.size()) {
                 return Optional.empty();
             }
             // Defense in depth: profile payloads must not be restored from a
