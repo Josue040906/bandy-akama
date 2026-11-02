@@ -7,6 +7,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.genai.Client;
 import com.google.genai.errors.ApiException;
+import com.google.genai.types.Content;
+import com.google.genai.types.Part;
 import com.google.genai.types.GenerateContentConfig;
 import com.google.genai.types.HttpOptions;
 import com.google.genai.types.HttpRetryOptions;
@@ -18,7 +20,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import java.util.UUID;
 
 /**
  * Gemini-backed, tool-free semantic interpreter.
@@ -151,7 +152,7 @@ public class GeminiDialogueInterpreter implements DialogueInterpreter {
                 .retryOptions(retries)
                 .build();
         return GenerateContentConfig.builder()
-                .systemInstruction(SYSTEM_INSTRUCTION)
+                .systemInstruction(Content.fromParts(Part.fromText(SYSTEM_INSTRUCTION)))
                 .responseMimeType("application/json")
                 .candidateCount(1)
                 .maxOutputTokens(512)
