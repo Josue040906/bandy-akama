@@ -150,7 +150,7 @@ class ConversationContextIntegrationTest {
     }
 
     @Test
-    void persistsOnlyAllowlistedCriteriaAndSafeReferenceMetadataInTaskSnapshot()
+    void persistsOnlyAllowlistedOperationalCriteriaInTaskSnapshot()
             throws Exception {
         UserIdentity identity = new UserIdentity("snapshot-security-owner", "client-a");
         Conversation conversation = conversationRepository.create(
