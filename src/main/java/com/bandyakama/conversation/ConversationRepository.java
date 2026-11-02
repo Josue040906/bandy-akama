@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
@@ -23,7 +22,6 @@ import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -58,8 +56,8 @@ public class ConversationRepository {
     private final ConversationMemoryRepository memoryRepository;
 
     /**
-     * Spring constructor: JDBC concerns stay here while task-state rules are
-     * delegated to the dedicated application service.
+     * Spring constructor for conversation lifecycle and request coordination.
+     * Context reads and durable memory are delegated to dedicated repositories.
      */
     @Autowired
     public ConversationRepository(
