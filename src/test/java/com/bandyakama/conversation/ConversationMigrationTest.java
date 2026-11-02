@@ -126,10 +126,26 @@ class ConversationMigrationTest {
                 conversationId
         );
         try {
-            assertEquals(1, new ObjectMapper().readTree(dialogueState)
-                    .path("schemaVersion").asInt());
+            ObjectMapper mapper = new ObjectMapper();
+            com.fasterxml.jackson.databind.JsonNode storedValue =
+                    mapper.readTree(dialogueState);
+
+            // H2's PostgreSQL-mode JSONB compatibility layer may expose the
+            // JSON document as a JSON string; PostgreSQL exposes the object.
+            // Normalize both representations before asserting the contract.
+            if (storedValue.isTextual()) {
+                storedValue = mapper.readTree(storedValue.asText());
+            }
+
+            assertTrue(storedValue.isObject(),
+                    "dialogue_state doit être un objet JSON.");
+            assertEquals(1, storedValue.path("schemaVersion").asInt(),
+                    "dialogue_state doit utiliser le schéma universel v1.");
         } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
-            throw new AssertionError("La valeur dialogue_state doit être un JSON valide.", exception);
+            throw new AssertionError(
+                    "La valeur dialogue_state doit être un JSON valide.",
+                    exception
+            );
         }
     }
 
