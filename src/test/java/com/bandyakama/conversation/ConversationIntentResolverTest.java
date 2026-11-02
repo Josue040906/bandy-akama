@@ -260,6 +260,7 @@ class ConversationIntentResolverTest {
         for (String independentRequest : new String[]{
                 "Explique la comptabilité.",
                 "Présente le système de gestion des ressources humaines.",
+                "Présente le système de gestion et ses principes.",
                 "Décris le fonctionnement du recrutement."
         }) {
             assertEquals(
