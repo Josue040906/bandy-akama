@@ -202,6 +202,25 @@ class ToolRegistryTest {
                         "http://localhost:5173"
                 ));
     }
+ 
+    @Test
+    void rejectsJsonMergeForNonStringParameters() {
+        ToolDefinition tool = tool("invalidMerge", "GET");
+        ToolParameter parameter = tool.getParameters().get(0);
+        parameter.setType("integer");
+        parameter.setMergeStrategy(ToolParameter.MergeStrategy.MERGE_JSON);
+
+        assertThrows(IllegalArgumentException.class, tool::validate);
+    }
+
+    @Test
+    void rejectsMergeKeysWithoutJsonMergeStrategy() {
+        ToolDefinition tool = tool("invalidMergeKey", "GET");
+        tool.getParameters().get(0).setMergeKey("field");
+
+        assertThrows(IllegalArgumentException.class, tool::validate);
+    }
+
 
     private ToolDefinition tool(String name, String method) {
         ToolParameter query = new ToolParameter(
