@@ -20,9 +20,11 @@ public class ContextDecisionValidator {
 
         if (proposal.confidence() == InterpretationConfidence.LOW
                 && proposal.relation() != DialogueRelation.NEEDS_CLARIFICATION) {
+            PendingClarification pending =
+                    input.dialogueState().pendingClarification();
             return new ContextDecision(
                     DialogueRelation.NEEDS_CLARIFICATION,
-                    null,
+                    pending == null ? null : pending.targetObjectiveId(),
                     "L'interprétation sémantique est trop incertaine pour modifier un objectif.",
                     "Pouvez-vous préciser ce que vous souhaitez poursuivre ou modifier ?"
             );
