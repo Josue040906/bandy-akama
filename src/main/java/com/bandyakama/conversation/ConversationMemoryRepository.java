@@ -65,10 +65,13 @@ public class ConversationMemoryRepository {
     @Transactional
     public void updateMemory(
             UUID conversationId,
-            List<ChatResponse.ToolState> toolStates,
-            List<ChatResponse.ToolResult> persistentToolResults,
-            boolean clearConversationState
+            ChatResponse response,
+            List<ChatResponse.ToolResult> persistentToolResults
     ) {
+        Objects.requireNonNull(response, "response must not be null.");
+        List<ChatResponse.ToolState> toolStates =
+                taskStateManager.updatesFor(response);
+        boolean clearConversationState = response.resetConversationState();
         MemorySnapshot memory = jdbcTemplate.queryForObject("""
                         SELECT summary, active_state::text AS active_state,
                                result_references::text AS result_references,
