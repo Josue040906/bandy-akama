@@ -50,10 +50,21 @@ public class DialogueStateRepository {
         }
 
         try {
-            DialogueState state = objectMapper.readValue(
-                    serialized,
-                    DialogueState.class
-            );
+            /*
+             * PostgreSQL returns JSONB::text as a JSON object. H2's
+             * PostgreSQL-mode JSONB compatibility layer can instead return
+             * the same document wrapped as a JSON string. Normalize both
+             * representations before binding the domain model.
+             */
+            com.fasterxml.jackson.databind.JsonNode storedValue =
+                    objectMapper.readTree(serialized);
+            if (storedValue != null && storedValue.isTextual()) {
+                storedValue = objectMapper.readTree(storedValue.asText());
+            }
+
+            DialogueState state = storedValue == null
+                    ? null
+                    : objectMapper.treeToValue(storedValue, DialogueState.class);
             return state == null ? DialogueState.empty() : state;
         } catch (JsonProcessingException | IllegalArgumentException invalidState) {
             throw new IllegalStateException(
