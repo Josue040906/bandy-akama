@@ -106,6 +106,30 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "active_claim_id"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
+        assertTrue(hasTable(jdbc, "bandy_conversation_message"));
+        assertTrue(hasTable(jdbc, "bandy_conversation_memory"));
+        assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "dialogue_state"));
+        assertEquals(1, jdbc.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                    AND dialogue_state->>'schemaVersion' = '1'
+                """,
+                Integer.class,
+                conversationId
+        ));
+    }
+
+
+    private boolean hasTable(JdbcTemplate jdbc, String tableName) {
+        return Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1 FROM INFORMATION_SCHEMA.TABLES
+                    WHERE LOWER(TABLE_NAME) = LOWER(?)
+                )
+                """,
+                Boolean.class,
+                tableName
+        ));
     }
 
     private boolean hasColumn(
