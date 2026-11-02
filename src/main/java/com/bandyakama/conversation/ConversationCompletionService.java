@@ -95,16 +95,26 @@ public class ConversationCompletionService {
                 proposedDialogueState,
                 "proposedDialogueState must not be null."
         );
+        Objects.requireNonNull(activeObjectiveId, "activeObjectiveId must not be null.");
 
         // Both repositories use REQUIRED transactions. Their writes therefore
         // join this boundary and cannot commit independently of one another.
-        conversationRepository.completeRequest(
-                conversationId,
-                idempotencyKey,
-                claimId,
-                response,
-                resumedStateOverride
-        );
+        if (resumedStateOverride == null) {
+            conversationRepository.completeRequest(
+                    conversationId,
+                    idempotencyKey,
+                    claimId,
+                    response
+            );
+        } else {
+            conversationRepository.completeRequest(
+                    conversationId,
+                    idempotencyKey,
+                    claimId,
+                    response,
+                    resumedStateOverride
+            );
+        }
         proposedDialogueState.ifPresent(state ->
                 dialogueStateRepository.save(conversationId, state)
         );
