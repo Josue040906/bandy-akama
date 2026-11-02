@@ -22,7 +22,8 @@ public record ContextDecision(
         rationale = requireText(rationale, "rationale");
 
         boolean requiresExistingTarget = switch (relation) {
-            case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION -> true;
+            case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION,
+                    TASK_COMPLETION -> true;
             case NEW_TASK, NEW_TOPIC_REQUEST, SOCIAL_TURN, NEEDS_CLARIFICATION -> false;
         };
         if (requiresExistingTarget
