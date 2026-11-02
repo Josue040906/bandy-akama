@@ -2,6 +2,9 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.service.GeminiAssistant;
+import com.bandyakama.conversation.dialogue.DialogueObjective;
+import com.bandyakama.conversation.dialogue.DialogueObjectiveStatus;
+import com.bandyakama.conversation.dialogue.DialogueState;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
@@ -127,6 +130,105 @@ class ConversationApiTest {
                 .andExpect(jsonPath("$.total").value(
                         existingOwnerConversations + 1
                 ));
+    }
+
+    @Test
+    void persistsDialogueStateAcrossRequestsAndLeavesItUnchangedOnFailure()
+            throws Exception {
+        UUID conversationId = createConversation("42");
+        UUID isolatedConversationId = createConversation("42");
+        Instant now = Instant.now();
+        DialogueState expectedState = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "objective-1",
+                List.of(new DialogueObjective(
+                        "objective-1",
+                        "Prepare a project proposal",
+                        "The user is preparing a project proposal.",
+                        DialogueObjectiveStatus.ACTIVE,
+                        null,
+                        now,
+                        now,
+                        List.of()
+                )),
+                null
+        );
+
+        UUID firstRequestId = UUID.randomUUID();
+        ConversationRepository.RequestStart firstRequest =
+                conversationRepository.beginRequest(
+                        conversationId,
+                        "assistant-rh",
+                        "42",
+                        firstRequestId,
+                        "Je prépare une proposition de projet."
+                );
+        assertEquals(DialogueState.empty(), firstRequest.dialogueState());
+        conversationRepository.completeRequest(
+                conversationId,
+                firstRequestId,
+                firstRequest.claimId(),
+                new ChatResponse("Très bien.", List.of()),
+                expectedState
+        );
+
+        ConversationRepository.RequestStart replay =
+                conversationRepository.beginRequest(
+                        conversationId,
+                        "assistant-rh",
+                        "42",
+                        firstRequestId,
+                        "Je prépare une proposition de projet."
+                );
+        assertNotNull(replay.completedResponse());
+
+        UUID failedRequestId = UUID.randomUUID();
+        ConversationRepository.RequestStart failedRequest =
+                conversationRepository.beginRequest(
+                        conversationId,
+                        "assistant-rh",
+                        "42",
+                        failedRequestId,
+                        "Ajoute un calendrier."
+                );
+        assertEquals(expectedState, failedRequest.dialogueState());
+        conversationRepository.failRequest(
+                conversationId,
+                failedRequestId,
+                failedRequest.claimId()
+        );
+
+        UUID nextRequestId = UUID.randomUUID();
+        ConversationRepository.RequestStart nextRequest =
+                conversationRepository.beginRequest(
+                        conversationId,
+                        "assistant-rh",
+                        "42",
+                        nextRequestId,
+                        "Reprenons la proposition."
+                );
+        assertEquals(expectedState, nextRequest.dialogueState());
+        conversationRepository.failRequest(
+                conversationId,
+                nextRequestId,
+                nextRequest.claimId()
+        );
+
+        UUID isolatedRequestId = UUID.randomUUID();
+        ConversationRepository.RequestStart isolatedRequest =
+                conversationRepository.beginRequest(
+                        isolatedConversationId,
+                        "assistant-rh",
+                        "42",
+                        isolatedRequestId,
+                        "Nouvelle conversation."
+                );
+        assertEquals(DialogueState.empty(), isolatedRequest.dialogueState());
+        conversationRepository.failRequest(
+                isolatedConversationId,
+                isolatedRequestId,
+                isolatedRequest.claimId()
+        );
     }
 
     @Test
