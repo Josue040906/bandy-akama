@@ -591,6 +591,17 @@ public class ConversationRepository {
             UUID claimId,
             ChatResponse response
     ) {
+        completeRequest(conversationId, idempotencyKey, claimId, response, null);
+    }
+
+    @Transactional
+    public void completeRequest(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            ChatResponse response,
+            JsonNode resumedStateOverride
+    ) {
         requireActiveClaim(conversationId, idempotencyKey, claimId);
         Set<String> sensitiveToolNames = sensitiveToolNames(response.toolResults());
         List<ChatResponse.ToolResult> persistentToolResults =
@@ -637,7 +648,8 @@ public class ConversationRepository {
                 conversationId,
                 taskStateManager.updatesFor(response),
                 persistentToolResults,
-                response.resetConversationState()
+                response.resetConversationState(),
+                resumedStateOverride
         );
 
         ChatResponse persistedResponse = new ChatResponse(
@@ -748,7 +760,8 @@ public class ConversationRepository {
             UUID conversationId,
             List<ChatResponse.ToolState> toolStates,
             List<ChatResponse.ToolResult> persistentToolResults,
-            boolean clearConversationState
+            boolean clearConversationState,
+            JsonNode resumedStateOverride
     ) {
         MemorySnapshot memory = jdbcTemplate.queryForObject("""
                         SELECT summary, active_state::text AS active_state,
@@ -765,11 +778,13 @@ public class ConversationRepository {
                 ),
                 conversationId
         );
-        JsonNode previousState = readStoredJson(memory.activeState());
+        JsonNode previousState = resumedStateOverride == null
+                ? readStoredJson(memory.activeState())
+                : resumedStateOverride.deepCopy();
         String state = toJson(taskStateManager.applyToolUpdates(
                 previousState,
                 toolStates,
-                clearConversationState
+                clearConversationState && resumedStateOverride == null
         ));
         ArrayNode references = readArray(memory.resultReferences());
         if (clearConversationState) {
