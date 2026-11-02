@@ -11,17 +11,13 @@ import java.util.Objects;
  */
 public record ContextResolution(
         ContextDecision decision,
+        InterpretationConfidence confidence,
         DialogueState proposedState
 ) {
     public ContextResolution {
-        decision = Objects.requireNonNull(
-                decision,
-                "decision must not be null."
-        );
-        proposedState = Objects.requireNonNull(
-                proposedState,
-                "proposedState must not be null."
-        );
+        decision = Objects.requireNonNull(decision, "decision must not be null.");
+        confidence = Objects.requireNonNull(confidence, "confidence must not be null.");
+        proposedState = Objects.requireNonNull(proposedState, "proposedState must not be null.");
 
         if (decision.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             PendingClarification pending = proposedState.pendingClarification();
@@ -35,10 +31,7 @@ public record ContextResolution(
                         "The pending clarification must match the decision question."
                 );
             }
-            if (!Objects.equals(
-                    decision.targetObjectiveId(),
-                    pending.targetObjectiveId()
-            )) {
+            if (!Objects.equals(decision.targetObjectiveId(), pending.targetObjectiveId())) {
                 throw new IllegalArgumentException(
                         "The pending clarification target must match the decision target."
                 );
@@ -56,9 +49,7 @@ public record ContextResolution(
                     );
                 }
             } else if (!proposedState.objectives().stream()
-                    .anyMatch(objective -> objective.id().equals(
-                            decision.targetObjectiveId()
-                    ))) {
+                    .anyMatch(objective -> objective.id().equals(decision.targetObjectiveId()))) {
                 throw new IllegalArgumentException(
                         "The decision target must exist in the proposed state."
                 );
