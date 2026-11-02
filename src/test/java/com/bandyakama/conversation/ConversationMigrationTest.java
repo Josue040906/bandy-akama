@@ -109,6 +109,10 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "approved_for_gemini"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "retain_result_in_state"));
+        assertTrue(hasTable(jdbc, "bandy_tool_parameter"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_parameter", "merge_strategy"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_parameter", "merge_key"));
+        assertTrue(hasColumn(jdbc, "bandy_tool_parameter", "remove_marker"));
         assertTrue(hasTable(jdbc, "bandy_conversation_message"));
         assertTrue(hasTable(jdbc, "bandy_conversation_memory"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "dialogue_state"));
