@@ -5,6 +5,7 @@ import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
 import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +27,7 @@ public class ConversationCompletionService {
     private final DialogueStateRepository dialogueStateRepository;
     private final TaskStateSnapshotRepository taskStateSnapshotRepository;
 
+    @Autowired
     public ConversationCompletionService(
             ConversationRepository conversationRepository,
             DialogueStateRepository dialogueStateRepository,
