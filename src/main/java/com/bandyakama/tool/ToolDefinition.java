@@ -30,6 +30,12 @@ public class ToolDefinition {
 
     private boolean enabled = true;
 
+    /** Explicit approval required before exposing this tool to Gemini. */
+    private boolean approvedForGemini;
+
+    /** Explicit opt-in for retaining this tool's result in operational state. */
+    private boolean retainResultInState;
+
     private boolean sensitive;
 
     @NotBlank
@@ -73,6 +79,16 @@ public class ToolDefinition {
 
     public boolean isEnabled() { return enabled; }
     public void setEnabled(boolean enabled) { this.enabled = enabled; }
+
+    public boolean isApprovedForGemini() { return approvedForGemini; }
+    public void setApprovedForGemini(boolean approvedForGemini) {
+        this.approvedForGemini = approvedForGemini;
+    }
+
+    public boolean isRetainResultInState() { return retainResultInState; }
+    public void setRetainResultInState(boolean retainResultInState) {
+        this.retainResultInState = retainResultInState;
+    }
 
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
