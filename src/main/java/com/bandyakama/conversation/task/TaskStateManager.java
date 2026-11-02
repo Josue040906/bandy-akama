@@ -26,8 +26,7 @@ import java.util.Objects;
 public class TaskStateManager {
     private static final Logger LOGGER =
             LoggerFactory.getLogger(TaskStateManager.class);
-    private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
-    private static final int MAX_CACHED_PROFILES = 3;
+    private static final int MAX_RETAINED_RESULT_CHARACTERS = 8_000;
 
     private final ObjectMapper objectMapper;
 
@@ -91,39 +90,34 @@ public class TaskStateManager {
 
         for (ChatResponse.ToolState toolState : toolStates) {
             Objects.requireNonNull(toolState, "toolState must not be null.");
-            ObjectNode cachedProfiles = currentState.path("profiles").isObject()
-                    ? ((ObjectNode) currentState.path("profiles")).deepCopy()
-                    : objectMapper.createObjectNode();
+            JsonNode legacyProfiles = currentState.path("profiles");
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
             );
 
-            if ("get_agent_profile".equals(toolState.name())
-                    && toolState.result() != null) {
-                JsonNode profile = objectMapper.valueToTree(toolState.result());
-                String serializedProfile = writeJson(profile);
-                if (serializedProfile.length() <= MAX_CACHED_PROFILE_CHARACTERS) {
-                    cachedProfiles.set(
-                            profileCacheKey(toolState.arguments(), profile),
-                            profile
-                    );
-                    while (cachedProfiles.size() > MAX_CACHED_PROFILES) {
-                        cachedProfiles.remove(cachedProfiles.fieldNames().next());
-                    }
+            // Preserve legacy RH profile snapshots during migration, but new
+            // retention behavior is driven only by the tool configuration.
+            if (legacyProfiles.isObject() && !legacyProfiles.isEmpty()) {
+                nextState.set("profiles", legacyProfiles.deepCopy());
+            }
+
+            if (toolState.result() != null) {
+                JsonNode retainedResult = objectMapper.valueToTree(toolState.result());
+                String serializedResult = writeJson(retainedResult);
+                if (serializedResult.length() <= MAX_RETAINED_RESULT_CHARACTERS) {
+                    nextState.set("retainedResult", retainedResult);
                 } else {
                     LOGGER.warn(
-                            "Assistant profile cache skipped because the result "
-                                    + "exceeded {} characters (actual: {}).",
-                            MAX_CACHED_PROFILE_CHARACTERS,
-                            serializedProfile.length()
+                            "Tool result retention skipped for {} because the "
+                                    + "result exceeded {} characters (actual: {}).",
+                            toolState.name(),
+                            MAX_RETAINED_RESULT_CHARACTERS,
+                            serializedResult.length()
                     );
                 }
             }
 
-            if (!cachedProfiles.isEmpty()) {
-                nextState.set("profiles", cachedProfiles);
-            }
             currentState = nextState;
         }
         return currentState.isObject()
@@ -144,9 +138,7 @@ public class TaskStateManager {
                 .map(result -> new ChatResponse.ToolState(
                         result.name(),
                         result.arguments(),
-                        "get_agent_profile".equals(result.name())
-                                ? result.result()
-                                : null
+                        null
                 ))
                 .toList();
     }
@@ -182,19 +174,6 @@ public class TaskStateManager {
             }
         }
         return state;
-    }
-
-    private String profileCacheKey(
-            Map<String, Object> arguments,
-            JsonNode profile
-    ) {
-        String matricule = profile.path("agent").path("matricule").asText("");
-        String identity = matricule.isBlank()
-                ? String.valueOf(arguments == null
-                        ? ""
-                        : arguments.getOrDefault("nom_agent", ""))
-                : matricule;
-        return identity.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private String writeJson(Object value) {
