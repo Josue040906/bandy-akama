@@ -48,11 +48,19 @@ public record ContextResolution(
                             "A new task must produce an active objective."
                     );
                 }
-            } else if (!proposedState.objectives().stream()
-                    .anyMatch(objective -> objective.id().equals(decision.targetObjectiveId()))) {
-                throw new IllegalArgumentException(
-                        "The decision target must exist in the proposed state."
-                );
+            } else {
+                boolean targetExists = false;
+                for (DialogueObjective objective : proposedState.objectives()) {
+                    if (objective.id().equals(decision.targetObjectiveId())) {
+                        targetExists = true;
+                        break;
+                    }
+                }
+                if (!targetExists) {
+                    throw new IllegalArgumentException(
+                            "The decision target must exist in the proposed state."
+                    );
+                }
             }
         }
     }
