@@ -236,7 +236,7 @@ class ConversationContextIntegrationTest {
         assertTrue(stateJson.contains("classe"));
         assertFalse(stateJson.contains("RH12345678"));
         assertFalse(stateJson.contains("Bearer private-token"));
-        assertFalse(stateJson.contains("\\\"sexe\\\""));
+        assertFalse(stateJson.contains("sexe"));
         assertEquals(1, references.size());
         assertTrue(referencesJson.contains("get_organization_info"));
         assertTrue(referencesJson.contains("SERVICE"));
