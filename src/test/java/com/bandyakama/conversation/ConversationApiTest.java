@@ -126,8 +126,9 @@ class ConversationApiTest {
                     } else {
                         relation = DialogueRelation.CONTINUATION;
                         target = input.dialogueState().activeObjectiveId();
+                        String objectiveId = target;
                         summary = input.dialogueState().objectives().stream()
-                                .filter(objective -> objective.id().equals(target))
+                                .filter(objective -> objective.id().equals(objectiveId))
                                 .map(objective -> objective.summary() + " "
                                         + input.currentMessage())
                                 .findFirst()
