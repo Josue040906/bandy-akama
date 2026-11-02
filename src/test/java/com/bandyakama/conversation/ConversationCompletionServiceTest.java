@@ -12,10 +12,10 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class ConversationCompletionServiceTest {
 
@@ -94,12 +94,14 @@ class ConversationCompletionServiceTest {
         UUID requestId = UUID.randomUUID();
         UUID claimId = UUID.randomUUID();
         ChatResponse response = new ChatResponse("Réponse.", List.of());
-        when(conversationRepository.completeRequest(
-                conversationId,
-                requestId,
-                claimId,
-                response
-        )).thenThrow(new IllegalStateException("completion failed"));
+        doThrow(new IllegalStateException("completion failed"))
+                .when(conversationRepository)
+                .completeRequest(
+                        conversationId,
+                        requestId,
+                        claimId,
+                        response
+                );
 
         assertThrows(
                 IllegalStateException.class,
