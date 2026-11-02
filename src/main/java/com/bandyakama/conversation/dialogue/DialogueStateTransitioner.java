@@ -57,6 +57,34 @@ public class DialogueStateTransitioner {
             );
         }
 
+        if (decision.relation() == DialogueRelation.TASK_COMPLETION) {
+            DialogueObjective target = current.objectives().stream()
+                    .filter(objective -> objective.id().equals(
+                            decision.targetObjectiveId()
+                    ))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException(
+                            "La décision référence un objectif absent."
+                    ));
+            if (target.status() != DialogueObjectiveStatus.ACTIVE
+                    || !Objects.equals(current.activeObjectiveId(), target.id())) {
+                throw new IllegalArgumentException(
+                        "Seul l'objectif actif peut être clôturé."
+                );
+            }
+            List<DialogueObjective> completed = current.objectives().stream()
+                    .map(objective -> objective.id().equals(target.id())
+                            ? withStatus(objective, DialogueObjectiveStatus.COMPLETED, now)
+                            : objective)
+                    .toList();
+            return new DialogueState(
+                    DialogueState.CURRENT_SCHEMA_VERSION,
+                    null,
+                    completed,
+                    null
+            );
+        }
+
         if (decision.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             return new DialogueState(
                     DialogueState.CURRENT_SCHEMA_VERSION,
