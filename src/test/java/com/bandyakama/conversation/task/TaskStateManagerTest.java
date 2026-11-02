@@ -108,8 +108,10 @@ class TaskStateManagerTest {
         assertEquals("ACTIVE", next.path("retainedResult").path("status").asText());
         assertEquals(
                 "Legacy snapshot",
-                next.path("profiles").path("legacy-profile").path("name").asText()
+                next.path("extensions").path("profiles")
+                        .path("legacy-profile").path("name").asText()
         );
+        assertFalse(next.has("profiles"));
         assertEquals("previous_lookup", previous.path("toolName").asText());
     }
 
@@ -175,7 +177,12 @@ class TaskStateManagerTest {
 
         assertEquals("TOOL_CALL", state.path("intent").asText());
         assertEquals("search_records", state.path("toolName").asText());
-        assertEquals("finance", state.path("criteria").path("service").asText());
+        assertEquals(
+                "finance",
+                state.path("structuredArguments").path("criteriaJson")
+                        .path("service").asText()
+        );
+        assertFalse(state.has("criteria"));
     }
 
     @Test
@@ -199,6 +206,35 @@ class TaskStateManagerTest {
                 state.path("criteria").path("filters").get(0)
                         .path("value").asInt()
         );
+    }
+
+
+
+    @Test
+    void carriesUnknownLegacyStateFieldsAsOpaqueExtensions() {
+        ObjectNode previous = objectMapper.createObjectNode()
+                .put("toolName", "legacy_tool");
+        previous.putObject("profiles").put("cached", true);
+        previous.putObject("customMetadata").put("source", "archive");
+
+        ObjectNode next = manager.applyToolUpdates(
+                previous,
+                List.of(new ChatResponse.ToolState(
+                        "generic_tool",
+                        Map.of("query", "new")
+                )),
+                false
+        );
+
+        assertTrue(next.path("extensions").path("profiles")
+                .path("cached").asBoolean());
+        assertEquals(
+                "archive",
+                next.path("extensions").path("customMetadata")
+                        .path("source").asText()
+        );
+        assertFalse(next.has("profiles"));
+        assertFalse(next.has("customMetadata"));
     }
 
 
