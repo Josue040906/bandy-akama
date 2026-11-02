@@ -77,6 +77,7 @@ public class DialogueStateManager {
     ) {
         DialogueMessage latestUserMessage = history.stream()
                 .filter(message -> message.role() == DialogueMessage.Role.USER)
+                .filter(message -> !isControlMessage(message.content()))
                 .reduce((first, second) -> second)
                 .orElse(null);
         if (latestUserMessage == null) {
@@ -101,6 +102,25 @@ public class DialogueStateManager {
                 recovered.id(),
                 List.of(recovered),
                 null
+        );
+    }
+
+    private boolean isControlMessage(String message) {
+        String normalized = java.text.Normalizer.normalize(
+                message.toLowerCase(java.util.Locale.ROOT),
+                java.text.Normalizer.Form.NFD
+        ).replaceAll("\\p{M}+", "")
+                .replaceAll("\\s+([?!.])", "$1")
+                .replaceAll("\\s+", " ").strip();
+        return normalized.matches(
+                "^(bonjour|bonsoir|salut|coucou|hello|hi|hey|salama|manao ahoana)"
+                        + "( bandy( akama)?| assistant)?[.!?]*$"
+        ) || normalized.matches(
+                "^(je veux |je souhaite |je voudrais )?(poser )?(une )?"
+                        + "(nouvelle question|nouvelle recherche)[.!?]*$"
+                        + "|^(changeons de sujet|passons a autre chose|"
+                        + "passons a un autre sujet|parlons d['’]un autre sujet|"
+                        + "rien a voir)[.!?]*$"
         );
     }
 }
