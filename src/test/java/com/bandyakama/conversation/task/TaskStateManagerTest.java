@@ -178,4 +178,28 @@ class TaskStateManagerTest {
         assertEquals("finance", state.path("criteria").path("service").asText());
     }
 
+    @Test
+    void reconstructsStructuredJsonArgumentsForAnyToolAndKeepsLegacyCriteriaAlias() {
+        ObjectNode arguments = objectMapper.createObjectNode();
+        arguments.put("querySpec", "{\"filters\":[{\"field\":\"status\",\"value\":\"OPEN\"}]}");
+        arguments.put("criteriaJson", "{\"filters\":[{\"field\":\"age\",\"value\":30}]}");
+
+        ObjectNode state = manager.fromHistoricalToolResult(
+                "generic_search",
+                arguments
+        );
+
+        assertEquals(
+                "status",
+                state.path("structuredArguments").path("querySpec")
+                        .path("filters").get(0).path("field").asText()
+        );
+        assertEquals(
+                30,
+                state.path("criteria").path("filters").get(0)
+                        .path("value").asInt()
+        );
+    }
+
+
 }
