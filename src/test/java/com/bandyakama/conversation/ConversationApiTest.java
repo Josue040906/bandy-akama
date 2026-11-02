@@ -1,10 +1,16 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.dialogue.ContextEngineInput;
+import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
+import com.bandyakama.conversation.dialogue.DialogueInterpreter;
+import com.bandyakama.conversation.dialogue.DialogueRelation;
+import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.service.GeminiAssistant;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -59,7 +65,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest(properties = {
         "bandy.conversations.allowed-application-ids=client-a,client-b",
         "bandy.conversations.context.recent-messages=10",
-        "bandy.conversations.dialogue.enabled=false"
 })
 @AutoConfigureMockMvc
 class ConversationApiTest {
@@ -80,6 +85,62 @@ class ConversationApiTest {
 
     @MockBean
     private GeminiAssistant assistant;
+
+    /** API tests must not require a live Gemini credential. */
+    @MockBean
+    private DialogueInterpreter dialogueInterpreter;
+
+    @BeforeEach
+    void configureDeterministicDialogueInterpreter() {
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    String message = input.currentMessage().toLowerCase(
+                            java.util.Locale.ROOT
+                    ).strip();
+                    DialogueRelation relation;
+                    String target = null;
+                    String goal = null;
+                    String summary = input.currentMessage();
+                    boolean independent = message.matches(
+                            "^(?:maintenant\\s+)?(?:cherche|recherche|trouve|liste|"
+                                    + "explique|decris|presente|nouvelle\\s+question|"
+                                    + "combien|qui|pourquoi)\\b.*"
+                    );
+                    if (input.dialogueState().pendingClarification() != null
+                            && !independent) {
+                        relation = DialogueRelation.USER_CLARIFICATION;
+                        target = input.dialogueState().pendingClarification()
+                                .targetObjectiveId();
+                        if (target == null) {
+                            target = input.dialogueState().activeObjectiveId();
+                        }
+                        if (target == null) {
+                            relation = DialogueRelation.NEW_TASK;
+                            goal = input.currentMessage();
+                        }
+                    } else if (input.dialogueState().activeObjectiveId() == null
+                            || independent) {
+                        relation = DialogueRelation.NEW_TASK;
+                        goal = input.currentMessage();
+                    } else {
+                        relation = DialogueRelation.CONTINUATION;
+                        target = input.dialogueState().activeObjectiveId();
+                        summary = input.dialogueState().objectives().stream()
+                                .filter(objective -> objective.id().equals(target))
+                                .map(objective -> objective.summary() + " "
+                                        + input.currentMessage())
+                                .findFirst()
+                                .orElse(input.currentMessage());
+                    }
+                    return new ContextInterpretationProposal(
+                            relation, target,
+                            "Interprétation déterministe du test d'intégration.",
+                            null, InterpretationConfidence.HIGH, goal, summary,
+                            java.util.List.of()
+                    );
+                });
+    }
 
     @AfterEach
     void resetAssistant() {
