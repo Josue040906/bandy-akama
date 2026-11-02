@@ -327,10 +327,17 @@ public class ConversationService {
                     ? taskStateManager.forDialogueRelation(relation, resumedStateOverride)
                     : taskStateManager.forDialogueRelation(relation, request.activeState());
             if (relation == DialogueRelation.SOCIAL_TURN
-                    || relation == DialogueRelation.NEW_TOPIC_REQUEST) {
-                String text = relation == DialogueRelation.SOCIAL_TURN
-                        ? greetingText(message)
-                        : "Bien sûr. Quelle est votre nouvelle question ?";
+                    || relation == DialogueRelation.NEW_TOPIC_REQUEST
+                    || relation == DialogueRelation.TASK_COMPLETION) {
+                String text = switch (relation) {
+                    case SOCIAL_TURN -> greetingText(message);
+                    case NEW_TOPIC_REQUEST -> "Bien sûr. Quelle est votre nouvelle question ?";
+                    case TASK_COMPLETION -> "D'accord, cet objectif est maintenant marqué comme terminé. "
+                            + "Vous pouvez commencer un nouvel objectif ou reprendre un objectif suspendu.";
+                    default -> throw new IllegalStateException(
+                            "Unexpected dialogue control relation: " + relation
+                    );
+                };
                 ChatResponse controlResponse = new ChatResponse(
                         text, java.util.List.of(), conversationId
                 ).withConversationStateReset(resetState);
