@@ -12,8 +12,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.sql.ResultSet;
 
-import static org.mockito.Mockito.mock;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
