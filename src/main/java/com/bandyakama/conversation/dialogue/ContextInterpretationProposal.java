@@ -1,5 +1,6 @@
 package com.bandyakama.conversation.dialogue;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -14,41 +15,54 @@ public record ContextInterpretationProposal(
         String targetObjectiveId,
         String rationale,
         String clarificationQuestion,
-        InterpretationConfidence confidence
+        InterpretationConfidence confidence,
+        String objectiveGoal,
+        String objectiveSummary,
+        List<ProposedDialogueReference> referenceMentions
 ) {
     public ContextInterpretationProposal {
         relation = Objects.requireNonNull(relation, "relation must not be null.");
         rationale = requireText(rationale, "rationale");
-        confidence = Objects.requireNonNull(
-                confidence,
-                "confidence must not be null."
-        );
+        confidence = Objects.requireNonNull(confidence, "confidence must not be null.");
+        referenceMentions = List.copyOf(Objects.requireNonNull(
+                referenceMentions, "referenceMentions must not be null."
+        ));
 
         boolean requiresTarget = switch (relation) {
             case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION -> true;
             case NEW_TASK, NEEDS_CLARIFICATION -> false;
         };
-        if (requiresTarget
-                && (targetObjectiveId == null || targetObjectiveId.isBlank())) {
-            throw new IllegalArgumentException(
-                    relation + " requires a target objective."
-            );
+        if (requiresTarget && (targetObjectiveId == null || targetObjectiveId.isBlank())) {
+            throw new IllegalArgumentException(relation + " requires a target objective.");
         }
         if (targetObjectiveId != null && targetObjectiveId.isBlank()) {
-            throw new IllegalArgumentException(
-                    "targetObjectiveId must be null or non-blank."
-            );
+            throw new IllegalArgumentException("targetObjectiveId must be null or non-blank.");
         }
 
         if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
-            clarificationQuestion = requireText(
-                    clarificationQuestion,
-                    "clarificationQuestion"
-            );
-        } else if (clarificationQuestion != null) {
-            throw new IllegalArgumentException(
-                    "clarificationQuestion is only valid for NEEDS_CLARIFICATION."
-            );
+            clarificationQuestion = requireText(clarificationQuestion, "clarificationQuestion");
+            if (objectiveGoal != null || objectiveSummary != null
+                    || !referenceMentions.isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A clarification proposal must not propose an objective update."
+                );
+            }
+        } else {
+            if (clarificationQuestion != null) {
+                throw new IllegalArgumentException(
+                        "clarificationQuestion is only valid for NEEDS_CLARIFICATION."
+                );
+            }
+            objectiveSummary = requireText(objectiveSummary, "objectiveSummary");
+            if ((relation == DialogueRelation.NEW_TASK || relation == DialogueRelation.CORRECTION)
+                    && (objectiveGoal == null || objectiveGoal.isBlank())) {
+                throw new IllegalArgumentException(
+                        relation + " requires an objectiveGoal."
+                );
+            }
+            if (objectiveGoal != null && objectiveGoal.isBlank()) {
+                throw new IllegalArgumentException("objectiveGoal must be null or non-blank.");
+            }
         }
     }
 
