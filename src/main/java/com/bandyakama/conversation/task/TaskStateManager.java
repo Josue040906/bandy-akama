@@ -165,13 +165,36 @@ public class TaskStateManager {
         state.set("arguments", arguments == null
                 ? objectMapper.createObjectNode()
                 : arguments.deepCopy());
-        JsonNode criteriaJson = state.path("arguments").path("criteriaJson");
-        if (criteriaJson.isTextual()) {
-            try {
-                state.set("criteria", objectMapper.readTree(criteriaJson.textValue()));
-            } catch (JsonProcessingException invalidToolInput) {
-                state.put("criteriaText", criteriaJson.textValue());
+        JsonNode argumentsNode = state.path("arguments");
+        ObjectNode structuredArguments = objectMapper.createObjectNode();
+        if (argumentsNode.isObject()) {
+            java.util.Iterator<Map.Entry<String, JsonNode>> fields =
+                    argumentsNode.fields();
+            while (fields.hasNext()) {
+                Map.Entry<String, JsonNode> field = fields.next();
+                if (!field.getValue().isTextual()) {
+                    continue;
+                }
+                try {
+                    JsonNode parsed = objectMapper.readTree(
+                            field.getValue().textValue()
+                    );
+                    if (parsed != null && parsed.isContainerNode()) {
+                        structuredArguments.set(field.getKey(), parsed);
+                        // Compatibility alias consumed only by the legacy RH intent resolver.
+                        if ("criteriaJson".equals(field.getKey())) {
+                            state.set("criteria", parsed.deepCopy());
+                        }
+                    }
+                } catch (JsonProcessingException invalidStructuredArgument) {
+                    if ("criteriaJson".equals(field.getKey())) {
+                        state.put("criteriaText", field.getValue().textValue());
+                    }
+                }
             }
+        }
+        if (!structuredArguments.isEmpty()) {
+            state.set("structuredArguments", structuredArguments);
         }
         return state;
     }
