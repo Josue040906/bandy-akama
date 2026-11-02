@@ -8,8 +8,11 @@ import com.bandyakama.service.GeminiAssistant;
 import com.bandyakama.conversation.dialogue.ContextResolution;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
+import com.bandyakama.conversation.task.TaskStateManager;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -25,16 +28,19 @@ public class ConversationService {
     private final ConversationIntentResolver intentResolver;
     private final DialogueStateManager dialogueStateManager;
     private final ConversationCompletionService completionService;
+    private final TaskStateManager taskStateManager;
     private final PerformanceTelemetry performanceTelemetry;
     private final int turnBudgetMillis;
     private final boolean dialogueEngineEnabled;
 
+    @Autowired
     public ConversationService(
             ConversationRepository repository,
             GeminiAssistant assistant,
             ConversationIntentResolver intentResolver,
             DialogueStateManager dialogueStateManager,
             ConversationCompletionService completionService,
+            TaskStateManager taskStateManager,
             PerformanceTelemetry performanceTelemetry,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis,
@@ -46,6 +52,10 @@ public class ConversationService {
         this.intentResolver = intentResolver;
         this.dialogueStateManager = dialogueStateManager;
         this.completionService = completionService;
+        this.taskStateManager = java.util.Objects.requireNonNull(
+                taskStateManager,
+                "taskStateManager must not be null."
+        );
         this.performanceTelemetry = performanceTelemetry;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
@@ -54,6 +64,33 @@ public class ConversationService {
         }
         this.turnBudgetMillis = turnBudgetMillis;
         this.dialogueEngineEnabled = dialogueEngineEnabled;
+    }
+
+    /**
+     * Backward-compatible constructor for direct unit-test instantiation.
+     * Spring uses the injected constructor above.
+     */
+    public ConversationService(
+            ConversationRepository repository,
+            GeminiAssistant assistant,
+            ConversationIntentResolver intentResolver,
+            DialogueStateManager dialogueStateManager,
+            ConversationCompletionService completionService,
+            PerformanceTelemetry performanceTelemetry,
+            int turnBudgetMillis,
+            boolean dialogueEngineEnabled
+    ) {
+        this(
+                repository,
+                assistant,
+                intentResolver,
+                dialogueStateManager,
+                completionService,
+                new TaskStateManager(new ObjectMapper()),
+                performanceTelemetry,
+                turnBudgetMillis,
+                dialogueEngineEnabled
+        );
     }
 
     public Conversation create(UserIdentity identity) {
@@ -329,11 +366,10 @@ public class ConversationService {
                 }
                 resetState = relation == DialogueRelation.NEW_TASK
                         || relation == DialogueRelation.TOPIC_RESUMPTION;
-                stateForRequest = switch (relation) {
-                    case CONTINUATION, CORRECTION, USER_CLARIFICATION ->
-                            request.activeState();
-                    case NEW_TASK, TOPIC_RESUMPTION, NEEDS_CLARIFICATION -> null;
-                };
+                stateForRequest = taskStateManager.forDialogueRelation(
+                        relation,
+                        request.activeState()
+                );
                 decisionInstruction = " — Décision de dialogue de Bandy : "
                         + relation.name()
                         + ". Raison : "
@@ -349,10 +385,11 @@ public class ConversationService {
                 );
                 resetState = legacyDecision
                         == ConversationIntentResolver.Decision.NEW_INTENT;
-                stateForRequest = legacyDecision
-                        == ConversationIntentResolver.Decision.CONTINUATION
-                        ? request.activeState()
-                        : null;
+                stateForRequest = taskStateManager.forLegacyContinuation(
+                        legacyDecision
+                                == ConversationIntentResolver.Decision.CONTINUATION,
+                        request.activeState()
+                );
                 decisionInstruction = " — Décision de continuité prise par Bandy : "
                         + (legacyDecision
                         == ConversationIntentResolver.Decision.CONTINUATION
