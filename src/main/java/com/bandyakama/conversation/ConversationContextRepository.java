@@ -2,6 +2,7 @@ package com.bandyakama.conversation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -32,7 +33,9 @@ public class ConversationContextRepository {
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
             ConversationContextAssembler contextAssembler,
+            @Value("${bandy.conversations.context.recent-messages:10}")
             int recentMessages,
+            @Value("${bandy.conversations.context.max-characters:18000}")
             int maxContextCharacters
     ) {
         this.jdbcTemplate = Objects.requireNonNull(
