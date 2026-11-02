@@ -1,14 +1,14 @@
 package com.bandyakama.conversation;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.springframework.stereotype.Component;
 
 import java.text.Normalizer;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.regex.Pattern;
 
-@Component
+/** @deprecated Legacy classification utility retained only for migration tests. */
+@Deprecated(forRemoval = true)
 public class ConversationIntentResolver {
     private static final Pattern CONTINUATION = Pattern.compile(
             "^(?:et\\s+(?:les\\s+)?(?:hommes|femmes|agents|agentes|"

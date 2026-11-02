@@ -2,6 +2,12 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
+import com.bandyakama.conversation.dialogue.ContextDecision;
+import com.bandyakama.conversation.dialogue.ContextResolution;
+import com.bandyakama.conversation.dialogue.DialogueRelation;
+import com.bandyakama.conversation.dialogue.DialogueState;
+import com.bandyakama.conversation.dialogue.InterpretationConfidence;
+import com.bandyakama.conversation.task.TaskStateManager;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.security.UserIdentity;
@@ -17,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
@@ -46,12 +52,29 @@ class ConversationServiceBudgetTest {
                 claimId,
                 new ObjectMapper().createObjectNode()
         ));
-        when(repository.contextForRequest(
-                any(),
-                any(),
-                any(),
-                anyBoolean()
-        )).thenReturn("");
+        when(repository.dialogueTurnContextForRequest(any(), any()))
+                .thenReturn(new ConversationRepository.DialogueTurnContext(
+                        2, java.util.List.of(), ""
+                ));
+        when(dialogueStateManager.prepareTurn(
+                any(), anyString(), anyLong(), any(), anyString()
+        )).thenReturn(new ContextResolution(
+                new ContextDecision(
+                        DialogueRelation.NEW_TASK, null, "New task", null
+                ),
+                InterpretationConfidence.HIGH,
+                new DialogueState(
+                        DialogueState.CURRENT_SCHEMA_VERSION,
+                        "new-objective",
+                        java.util.List.of(new com.bandyakama.conversation.dialogue.DialogueObjective(
+                                "new-objective", "Test", "Test", 
+                                com.bandyakama.conversation.dialogue.DialogueObjectiveStatus.ACTIVE,
+                                null, java.time.Instant.now(), java.time.Instant.now(),
+                                java.util.List.of()
+                        )),
+                        null
+                )
+        ));
         when(assistant.respond(
                 anyString(),
                 nullable(String.class),
@@ -73,12 +96,11 @@ class ConversationServiceBudgetTest {
         ConversationService service = new ConversationService(
                 repository,
                 assistant,
-                new ConversationIntentResolver(),
                 dialogueStateManager,
                 completionService,
+                new TaskStateManager(new ObjectMapper()),
                 new PerformanceTelemetry(),
-                100,
-                false
+                100
         );
 
         ResponseStatusException failure = assertThrows(

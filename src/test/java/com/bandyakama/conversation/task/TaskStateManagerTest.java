@@ -24,7 +24,10 @@ class TaskStateManagerTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        manager = new TaskStateManager(objectMapper);
+        manager = new TaskStateManager(
+                objectMapper,
+                List.of(new AgentProfileStateContributor(objectMapper))
+        );
     }
 
     @Test
@@ -35,7 +38,8 @@ class TaskStateManagerTest {
         for (DialogueRelation relation : List.of(
                 DialogueRelation.CONTINUATION,
                 DialogueRelation.CORRECTION,
-                DialogueRelation.USER_CLARIFICATION
+                DialogueRelation.USER_CLARIFICATION,
+                DialogueRelation.SOCIAL_TURN
         )) {
             JsonNode selected = manager.forDialogueRelation(relation, persisted);
             assertEquals(persisted, selected);
@@ -45,6 +49,7 @@ class TaskStateManagerTest {
         for (DialogueRelation relation : List.of(
                 DialogueRelation.NEW_TASK,
                 DialogueRelation.TOPIC_RESUMPTION,
+                DialogueRelation.NEW_TOPIC_REQUEST,
                 DialogueRelation.NEEDS_CLARIFICATION
         )) {
             assertNull(manager.forDialogueRelation(relation, persisted));
@@ -55,19 +60,12 @@ class TaskStateManagerTest {
     void resetsOperationalStateOnlyForNewOrResumedTasks() {
         assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TASK));
         assertTrue(manager.resetsOperationalState(DialogueRelation.TOPIC_RESUMPTION));
+        assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TOPIC_REQUEST));
         assertFalse(manager.resetsOperationalState(DialogueRelation.CONTINUATION));
         assertFalse(manager.resetsOperationalState(DialogueRelation.CORRECTION));
         assertFalse(manager.resetsOperationalState(DialogueRelation.USER_CLARIFICATION));
+        assertFalse(manager.resetsOperationalState(DialogueRelation.SOCIAL_TURN));
         assertFalse(manager.resetsOperationalState(DialogueRelation.NEEDS_CLARIFICATION));
-    }
-
-    @Test
-    void legacyPolicyRetainsStateOnlyForContinuation() {
-        ObjectNode persisted = objectMapper.createObjectNode().put("intent", "SEARCH");
-
-        assertEquals(persisted, manager.forLegacyContinuation(true, persisted));
-        assertNotSame(persisted, manager.forLegacyContinuation(true, persisted));
-        assertNull(manager.forLegacyContinuation(false, persisted));
     }
 
     @Test
@@ -106,6 +104,25 @@ class TaskStateManagerTest {
         assertEquals(3, next.path("profiles").size());
         assertTrue(next.path("profiles").has("mat-004"));
         assertFalse(next.path("profiles").has("old-profile"));
+    }
+
+    @Test
+    void capabilityContributorCarriesProfileCacheAcrossUnrelatedTools() {
+        ObjectNode afterProfile = manager.applyToolUpdates(
+                null,
+                List.of(profileUpdate("MAT-100", "Agent")),
+                false
+        );
+        ObjectNode afterSearch = manager.applyToolUpdates(
+                afterProfile,
+                List.of(new ChatResponse.ToolState(
+                        "search_agents", Map.of("query", "Agent")
+                )),
+                false
+        );
+
+        assertTrue(afterSearch.path("profiles").has("mat-100"));
+        assertEquals("search_agents", afterSearch.path("toolName").asText());
     }
 
     @Test

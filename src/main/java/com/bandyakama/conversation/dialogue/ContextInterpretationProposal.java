@@ -30,7 +30,7 @@ public record ContextInterpretationProposal(
 
         boolean requiresTarget = switch (relation) {
             case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION -> true;
-            case NEW_TASK, NEEDS_CLARIFICATION -> false;
+            case NEW_TASK, NEW_TOPIC_REQUEST, SOCIAL_TURN, NEEDS_CLARIFICATION -> false;
         };
         if (requiresTarget && (targetObjectiveId == null || targetObjectiveId.isBlank())) {
             throw new IllegalArgumentException(relation + " requires a target objective.");
@@ -39,7 +39,16 @@ public record ContextInterpretationProposal(
             throw new IllegalArgumentException("targetObjectiveId must be null or non-blank.");
         }
 
-        if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
+        if (relation == DialogueRelation.SOCIAL_TURN
+                || relation == DialogueRelation.NEW_TOPIC_REQUEST) {
+            if (targetObjectiveId != null || clarificationQuestion != null
+                    || objectiveGoal != null || objectiveSummary != null
+                    || !referenceMentions.isEmpty()) {
+                throw new IllegalArgumentException(
+                        relation + " must not propose objective or clarification data."
+                );
+            }
+        } else if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
             clarificationQuestion = requireText(clarificationQuestion, "clarificationQuestion");
             if (objectiveGoal != null || objectiveSummary != null
                     || !referenceMentions.isEmpty()) {

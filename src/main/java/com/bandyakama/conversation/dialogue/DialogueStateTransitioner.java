@@ -33,6 +33,30 @@ public class DialogueStateTransitioner {
         DialogueState current = input.dialogueState();
         Instant now = clock.instant();
 
+        if (decision.relation() == DialogueRelation.SOCIAL_TURN) {
+            // A greeting is a real dialogue turn, but it must preserve both
+            // objectives and any pending clarification exactly as they are.
+            return current;
+        }
+
+        if (decision.relation() == DialogueRelation.NEW_TOPIC_REQUEST) {
+            List<DialogueObjective> suspended = current.objectives().stream()
+                    .map(objective -> withStatus(
+                            objective,
+                            objective.status() == DialogueObjectiveStatus.ACTIVE
+                                    ? DialogueObjectiveStatus.SUSPENDED
+                                    : objective.status(),
+                            now
+                    ))
+                    .toList();
+            return new DialogueState(
+                    DialogueState.CURRENT_SCHEMA_VERSION,
+                    null,
+                    suspended,
+                    null
+            );
+        }
+
         if (decision.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             return new DialogueState(
                     DialogueState.CURRENT_SCHEMA_VERSION,

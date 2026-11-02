@@ -85,6 +85,42 @@ class ContextDecisionValidatorTest {
     }
 
     @Test
+    void socialTurnMayPreserveAnExistingPendingClarification() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "active",
+                List.of(active),
+                new PendingClarification(
+                        "active", "Quel élément ?", "Référence ambiguë.", NOW
+                )
+        );
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.SOCIAL_TURN, null, "Salutation.", null,
+                InterpretationConfidence.HIGH, null, null, List.of()
+        );
+
+        ContextDecision decision = validator.validate(input(state), proposal);
+
+        assertEquals(DialogueRelation.SOCIAL_TURN, decision.relation());
+        assertEquals(null, decision.targetObjectiveId());
+    }
+
+    @Test
+    void newTopicRequestIsAcceptedWithoutCreatingAnArtificialObjective() {
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.NEW_TOPIC_REQUEST, null, "Demande de nouveau sujet.",
+                null, InterpretationConfidence.HIGH, null, null, List.of()
+        );
+
+        ContextDecision decision = validator.validate(
+                input(DialogueState.empty()), proposal
+        );
+
+        assertEquals(DialogueRelation.NEW_TOPIC_REQUEST, decision.relation());
+    }
+
+    @Test
     void doesNotAllowAContinuationToBypassPendingClarification() {
         DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
         DialogueState state = new DialogueState(

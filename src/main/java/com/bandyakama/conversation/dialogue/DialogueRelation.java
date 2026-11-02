@@ -20,6 +20,12 @@ public enum DialogueRelation {
     /** The message answers a clarification requested by the assistant. */
     USER_CLARIFICATION,
 
+    /** A social turn (for example a greeting) that must not alter dialogue state. */
+    SOCIAL_TURN,
+
+    /** The user explicitly asks to start a fresh question without giving it yet. */
+    NEW_TOPIC_REQUEST,
+
     /** The message cannot safely be attached to an objective without asking. */
     NEEDS_CLARIFICATION
 }

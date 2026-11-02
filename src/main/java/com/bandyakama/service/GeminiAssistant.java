@@ -2,7 +2,6 @@ package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationStateMerger;
-import com.bandyakama.conversation.ConversationIntentResolver;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
@@ -189,18 +188,6 @@ public class GeminiAssistant {
         TurnMetrics metrics = new TurnMetrics();
         boolean succeeded = false;
         try {
-            Optional<String> greeting =
-                    ConversationIntentResolver.greetingResponse(message);
-            if (greeting.isPresent()) {
-                performanceTelemetry.stage(
-                        requestId,
-                        "deterministic_greeting",
-                        startedAt,
-                        true
-                );
-                succeeded = true;
-                return new ChatResponse(greeting.get(), List.of());
-            }
             ChatResponse response = respondInternal(
                     message,
                     authorization,

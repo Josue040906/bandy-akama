@@ -23,7 +23,7 @@ public record ContextDecision(
 
         boolean requiresExistingTarget = switch (relation) {
             case CONTINUATION, TOPIC_RESUMPTION, CORRECTION, USER_CLARIFICATION -> true;
-            case NEW_TASK, NEEDS_CLARIFICATION -> false;
+            case NEW_TASK, NEW_TOPIC_REQUEST, SOCIAL_TURN, NEEDS_CLARIFICATION -> false;
         };
         if (requiresExistingTarget
                 && (targetObjectiveId == null || targetObjectiveId.isBlank())) {
@@ -34,6 +34,15 @@ public record ContextDecision(
         if (targetObjectiveId != null && targetObjectiveId.isBlank()) {
             throw new IllegalArgumentException(
                     "targetObjectiveId must be null or non-blank."
+            );
+        }
+
+        if ((relation == DialogueRelation.NEW_TASK
+                || relation == DialogueRelation.NEW_TOPIC_REQUEST
+                || relation == DialogueRelation.SOCIAL_TURN)
+                && targetObjectiveId != null) {
+            throw new IllegalArgumentException(
+                    relation + " must not target an existing objective."
             );
         }
 

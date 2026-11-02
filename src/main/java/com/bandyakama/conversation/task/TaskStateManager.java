@@ -6,12 +6,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -24,18 +22,25 @@ import java.util.Objects;
  */
 @Service
 public class TaskStateManager {
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(TaskStateManager.class);
-    private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
-    private static final int MAX_CACHED_PROFILES = 3;
-
     private final ObjectMapper objectMapper;
+    private final List<OperationalStateContributor> contributors;
 
-    public TaskStateManager(ObjectMapper objectMapper) {
+    @Autowired
+    public TaskStateManager(
+            ObjectMapper objectMapper,
+            List<OperationalStateContributor> contributors
+    ) {
         this.objectMapper = Objects.requireNonNull(
-                objectMapper,
-                "objectMapper must not be null."
+                objectMapper, "objectMapper must not be null."
         );
+        this.contributors = List.copyOf(Objects.requireNonNull(
+                contributors, "contributors must not be null."
+        ));
+    }
+
+    /** Convenient constructor for domain-neutral unit tests and standalone use. */
+    public TaskStateManager(ObjectMapper objectMapper) {
+        this(objectMapper, List.of());
     }
 
     /**
@@ -48,9 +53,9 @@ public class TaskStateManager {
     ) {
         Objects.requireNonNull(relation, "relation must not be null.");
         return switch (relation) {
-            case CONTINUATION, CORRECTION, USER_CLARIFICATION ->
+            case CONTINUATION, CORRECTION, USER_CLARIFICATION, SOCIAL_TURN ->
                     copyOrNull(persistedState);
-            case NEW_TASK, TOPIC_RESUMPTION, NEEDS_CLARIFICATION -> null;
+            case NEW_TASK, TOPIC_RESUMPTION, NEW_TOPIC_REQUEST, NEEDS_CLARIFICATION -> null;
         };
     }
 
@@ -61,15 +66,8 @@ public class TaskStateManager {
     public boolean resetsOperationalState(DialogueRelation relation) {
         Objects.requireNonNull(relation, "relation must not be null.");
         return relation == DialogueRelation.NEW_TASK
-                || relation == DialogueRelation.TOPIC_RESUMPTION;
-    }
-
-    /** Compatibility policy for the legacy intent resolver. */
-    public JsonNode forLegacyContinuation(
-            boolean continuation,
-            JsonNode persistedState
-    ) {
-        return continuation ? copyOrNull(persistedState) : null;
+                || relation == DialogueRelation.TOPIC_RESUMPTION
+                || relation == DialogueRelation.NEW_TOPIC_REQUEST;
     }
 
     /**
@@ -91,38 +89,14 @@ public class TaskStateManager {
 
         for (ChatResponse.ToolState toolState : toolStates) {
             Objects.requireNonNull(toolState, "toolState must not be null.");
-            ObjectNode cachedProfiles = currentState.path("profiles").isObject()
-                    ? ((ObjectNode) currentState.path("profiles")).deepCopy()
-                    : objectMapper.createObjectNode();
             ObjectNode nextState = toolState(
                     toolState.name(),
                     objectMapper.valueToTree(toolState.arguments())
             );
-
-            if ("get_agent_profile".equals(toolState.name())
-                    && toolState.result() != null) {
-                JsonNode profile = objectMapper.valueToTree(toolState.result());
-                String serializedProfile = writeJson(profile);
-                if (serializedProfile.length() <= MAX_CACHED_PROFILE_CHARACTERS) {
-                    cachedProfiles.set(
-                            profileCacheKey(toolState.arguments(), profile),
-                            profile
-                    );
-                    while (cachedProfiles.size() > MAX_CACHED_PROFILES) {
-                        cachedProfiles.remove(cachedProfiles.fieldNames().next());
-                    }
-                } else {
-                    LOGGER.warn(
-                            "Assistant profile cache skipped because the result "
-                                    + "exceeded {} characters (actual: {}).",
-                            MAX_CACHED_PROFILE_CHARACTERS,
-                            serializedProfile.length()
-                    );
+            for (OperationalStateContributor contributor : contributors) {
+                if (contributor.supports(toolState)) {
+                    contributor.contribute(nextState, currentState, toolState);
                 }
-            }
-
-            if (!cachedProfiles.isEmpty()) {
-                nextState.set("profiles", cachedProfiles);
             }
             currentState = nextState;
         }
@@ -144,9 +118,7 @@ public class TaskStateManager {
                 .map(result -> new ChatResponse.ToolState(
                         result.name(),
                         result.arguments(),
-                        "get_agent_profile".equals(result.name())
-                                ? result.result()
-                                : null
+                        result.result()
                 ))
                 .toList();
     }
@@ -184,27 +156,4 @@ public class TaskStateManager {
         return state;
     }
 
-    private String profileCacheKey(
-            Map<String, Object> arguments,
-            JsonNode profile
-    ) {
-        String matricule = profile.path("agent").path("matricule").asText("");
-        String identity = matricule.isBlank()
-                ? String.valueOf(arguments == null
-                        ? ""
-                        : arguments.getOrDefault("nom_agent", ""))
-                : matricule;
-        return identity.trim().toLowerCase(java.util.Locale.ROOT);
-    }
-
-    private String writeJson(Object value) {
-        try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
-            throw new IllegalArgumentException(
-                    "Impossible de sérialiser l’état opérationnel.",
-                    exception
-            );
-        }
-    }
 }

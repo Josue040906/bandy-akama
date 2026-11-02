@@ -47,6 +47,9 @@ public class GeminiDialogueInterpreter implements DialogueInterpreter {
             - USER_CLARIFICATION : répond à une clarification encore en attente.
             - NEEDS_CLARIFICATION : plusieurs interprétations plausibles ou référence
               impossible à résoudre sans risque.
+            - SOCIAL_TURN : message social bref (salutation), sans modification d'objectif.
+            - NEW_TOPIC_REQUEST : l'utilisateur demande explicitement une nouvelle question
+              ou un changement de sujet sans encore formuler le nouvel objectif.
 
             Règles :
             1. Ne déduis jamais une référence à partir du seul dernier message si
@@ -66,6 +69,10 @@ public class GeminiDialogueInterpreter implements DialogueInterpreter {
             9. Ne change jamais une demande indépendante en continuation par
                simple proximité thématique.
             10. N'utilise aucune règle propre à un secteur métier.
+            11. Préfère SOCIAL_TURN uniquement pour une salutation autonome ; elle ne
+                doit jamais effacer une clarification ou un objectif existant.
+            12. Préfère NEW_TOPIC_REQUEST pour une demande explicite de changer de sujet
+                sans contenu du nouveau sujet ; ne crée pas d'objectif artificiel.
 
             Retourne exclusivement un objet JSON avec ces champs :
             relation, targetObjectiveId, rationale, clarificationQuestion,

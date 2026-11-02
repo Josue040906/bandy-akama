@@ -34,9 +34,24 @@ public class ContextDecisionValidator {
         if (pending != null
                 && proposal.relation() != DialogueRelation.USER_CLARIFICATION
                 && proposal.relation() != DialogueRelation.NEW_TASK
+                && proposal.relation() != DialogueRelation.NEW_TOPIC_REQUEST
+                && proposal.relation() != DialogueRelation.SOCIAL_TURN
                 && proposal.relation() != DialogueRelation.NEEDS_CLARIFICATION) {
             throw invalid(
                     "Une clarification est en attente : elle doit être résolue ou explicitement remplacée."
+            );
+        }
+
+        if (proposal.relation() == DialogueRelation.SOCIAL_TURN
+                || proposal.relation() == DialogueRelation.NEW_TOPIC_REQUEST) {
+            if (proposal.targetObjectiveId() != null
+                    || proposal.objectiveGoal() != null
+                    || proposal.objectiveSummary() != null
+                    || !proposal.referenceMentions().isEmpty()) {
+                throw invalid(proposal.relation() + " ne doit modifier aucun objectif.");
+            }
+            return new ContextDecision(
+                    proposal.relation(), null, proposal.rationale(), null
             );
         }
 
@@ -110,6 +125,9 @@ public class ContextDecisionValidator {
                     throw invalid("La clarification cible un objectif terminé.");
                 }
             }
+            case SOCIAL_TURN, NEW_TOPIC_REQUEST -> throw new IllegalStateException(
+                    "Social and new-topic requests are handled before target validation."
+            );
             case NEEDS_CLARIFICATION -> throw new IllegalStateException(
                     "Clarification proposals are handled before target validation."
             );

@@ -84,6 +84,52 @@ class DialogueStateTransitionerTest {
                 next.pendingClarification().question());
     }
 
+    @Test
+    void socialTurnPreservesObjectivesAndPendingClarificationExactly() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        PendingClarification pending = new PendingClarification(
+                "active", "Quel élément ?", "Référence ambiguë.", NOW
+        );
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, "active", List.of(active), pending
+        );
+        ContextEngineInput input = input(state);
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.SOCIAL_TURN, null, "Salutation.", null,
+                InterpretationConfidence.HIGH, null, null, List.of()
+        );
+        ContextDecision decision = new ContextDecision(
+                DialogueRelation.SOCIAL_TURN, null, "Salutation.", null
+        );
+
+        DialogueState next = transitioner.transition(input, proposal, decision);
+
+        assertEquals(state, next);
+    }
+
+    @Test
+    void newTopicRequestSuspendsActiveObjectiveAndClearsPendingClarification() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, "active", List.of(active),
+                new PendingClarification("active", "Quel élément ?", "Ambigu.", NOW)
+        );
+        ContextEngineInput input = input(state);
+        ContextInterpretationProposal proposal = new ContextInterpretationProposal(
+                DialogueRelation.NEW_TOPIC_REQUEST, null, "Nouveau sujet.", null,
+                InterpretationConfidence.HIGH, null, null, List.of()
+        );
+        ContextDecision decision = new ContextDecision(
+                DialogueRelation.NEW_TOPIC_REQUEST, null, "Nouveau sujet.", null
+        );
+
+        DialogueState next = transitioner.transition(input, proposal, decision);
+
+        assertEquals(null, next.activeObjectiveId());
+        assertEquals(DialogueObjectiveStatus.SUSPENDED, next.objectives().get(0).status());
+        assertEquals(null, next.pendingClarification());
+    }
+
     private ContextEngineInput input(DialogueState state) {
         return new ContextEngineInput("Message courant", 2, state, List.of(), "");
     }

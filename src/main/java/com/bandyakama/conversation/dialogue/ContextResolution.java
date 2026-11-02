@@ -36,6 +36,16 @@ public record ContextResolution(
                         "The pending clarification target must match the decision target."
                 );
             }
+        } else if (decision.relation() == DialogueRelation.SOCIAL_TURN) {
+            // Social turns intentionally preserve the complete state, including
+            // an unresolved clarification; they do not resolve it.
+        } else if (decision.relation() == DialogueRelation.NEW_TOPIC_REQUEST) {
+            if (proposedState.pendingClarification() != null
+                    || proposedState.activeObjectiveId() != null) {
+                throw new IllegalArgumentException(
+                        "A new-topic request must suspend active work and clear pending clarification."
+                );
+            }
         } else {
             if (proposedState.pendingClarification() != null) {
                 throw new IllegalArgumentException(
@@ -48,7 +58,7 @@ public record ContextResolution(
                             "A new task must produce an active objective."
                     );
                 }
-            } else {
+            } else if (decision.relation() != DialogueRelation.NEW_TOPIC_REQUEST) {
                 boolean targetExists = false;
                 for (DialogueObjective objective : proposedState.objectives()) {
                     if (objective.id().equals(decision.targetObjectiveId())) {
