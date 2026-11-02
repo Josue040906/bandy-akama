@@ -23,6 +23,20 @@ public class ToolParameter {
 
     private boolean required;
 
+    /** How this parameter is merged with the previous call of the same tool. */
+    private MergeStrategy mergeStrategy = MergeStrategy.REPLACE;
+
+    /** Optional object key used to merge arrays inside MERGE_JSON values. */
+    private String mergeKey;
+
+    /** Boolean marker used to remove an item from a keyed array. */
+    private String removeMarker = "remove";
+
+    public enum MergeStrategy {
+        REPLACE,
+        MERGE_JSON
+    }
+
     public ToolParameter() {
     }
 
@@ -70,6 +84,32 @@ public class ToolParameter {
         this.location = location;
     }
 
+    public MergeStrategy getMergeStrategy() {
+        return mergeStrategy == null ? MergeStrategy.REPLACE : mergeStrategy;
+    }
+
+    public void setMergeStrategy(MergeStrategy mergeStrategy) {
+        this.mergeStrategy = mergeStrategy == null
+                ? MergeStrategy.REPLACE
+                : mergeStrategy;
+    }
+
+    public String getMergeKey() {
+        return mergeKey;
+    }
+
+    public void setMergeKey(String mergeKey) {
+        this.mergeKey = mergeKey;
+    }
+
+    public String getRemoveMarker() {
+        return removeMarker;
+    }
+
+    public void setRemoveMarker(String removeMarker) {
+        this.removeMarker = removeMarker;
+    }
+
     public boolean isRequired() {
         return required;
     }
@@ -87,6 +127,31 @@ public class ToolParameter {
         }
         if (description == null || description.isBlank()) {
             throw new IllegalArgumentException("Chaque paramètre doit avoir une description.");
+        }
+        if (mergeStrategy == null) {
+            mergeStrategy = MergeStrategy.REPLACE;
+        }
+        if (mergeStrategy == MergeStrategy.MERGE_JSON
+                && !"string".equalsIgnoreCase(type)) {
+            throw new IllegalArgumentException(
+                    "La stratégie MERGE_JSON exige un paramètre de type string."
+            );
+        }
+        if (mergeKey != null && !mergeKey.isBlank()
+                && !mergeKey.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
+            throw new IllegalArgumentException("Clé de fusion invalide.");
+        }
+        if (removeMarker != null && !removeMarker.isBlank()
+                && !removeMarker.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {
+            throw new IllegalArgumentException("Marqueur de suppression invalide.");
+        }
+        if (mergeStrategy != MergeStrategy.MERGE_JSON
+                && ((mergeKey != null && !mergeKey.isBlank())
+                || (removeMarker != null && !removeMarker.isBlank()
+                && !"remove".equals(removeMarker)))) {
+            throw new IllegalArgumentException(
+                    "Les options de fusion JSON exigent la stratégie MERGE_JSON."
+            );
         }
         if (location != null
                 && !location.matches("(?i)query|path|body")) {
