@@ -265,7 +265,24 @@ class ConversationContextIntegrationTest {
                 String.class,
                 conversation.id()
         );
+        Boolean organizationToolSensitive = jdbcTemplate.queryForObject(
+                "SELECT sensitive FROM bandy_tool WHERE name = 'get_organization_info'",
+                Boolean.class
+        );
+        String memoryReferencesJson = jdbcTemplate.queryForObject("""
+                SELECT result_references::text
+                FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversation.id()
+        );
+        JsonNode memoryReferences = objectMapper.readTree(memoryReferencesJson);
         JsonNode references = objectMapper.readTree(referencesJson);
+        assertFalse(organizationToolSensitive,
+                "The fixture tool must be non-sensitive for this metadata-persistence test.");
+        assertEquals(1, memoryReferences.size(),
+                "The tool result must reach conversation memory before snapshot capture.");
 
         assertTrue(stateJson.contains("Informatique"));
         assertTrue(stateJson.contains("classe"));
