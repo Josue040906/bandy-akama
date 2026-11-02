@@ -241,12 +241,21 @@ class ConversationContextIntegrationTest {
                 ))
         ));
 
-        conversationService.sendMessage(
+        ChatResponse actualResponse = conversationService.sendMessage(
                 conversation.id(),
                 identity,
                 "Cherche les agents du service informatique.",
                 null,
                 UUID.randomUUID()
+        );
+        assertEquals(1, actualResponse.toolResults().size(),
+                "The mocked assistant response must reach ConversationService unchanged.");
+        verify(assistant).respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
         );
 
         String stateJson = jdbcTemplate.queryForObject("""
