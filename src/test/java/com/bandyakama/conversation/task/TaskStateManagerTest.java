@@ -52,6 +52,16 @@ class TaskStateManagerTest {
     }
 
     @Test
+    void resetsOperationalStateOnlyForNewOrResumedTasks() {
+        assertTrue(manager.resetsOperationalState(DialogueRelation.NEW_TASK));
+        assertTrue(manager.resetsOperationalState(DialogueRelation.TOPIC_RESUMPTION));
+        assertFalse(manager.resetsOperationalState(DialogueRelation.CONTINUATION));
+        assertFalse(manager.resetsOperationalState(DialogueRelation.CORRECTION));
+        assertFalse(manager.resetsOperationalState(DialogueRelation.USER_CLARIFICATION));
+        assertFalse(manager.resetsOperationalState(DialogueRelation.NEEDS_CLARIFICATION));
+    }
+
+    @Test
     void legacyPolicyRetainsStateOnlyForContinuation() {
         ObjectNode persisted = objectMapper.createObjectNode().put("intent", "SEARCH");
 
