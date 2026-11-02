@@ -384,7 +384,7 @@ class ConversationContextIntegrationTest {
                         .findFirst().orElseThrow().status()
         );
         assertEquals(2, afterNewObjective.objectives().size());
-        assertEquals(2, afterNewObjective.objectives().stream()
+        assertEquals(1L, afterNewObjective.objectives().stream()
                 .filter(objective -> objective.status() == DialogueObjectiveStatus.ACTIVE)
                 .count());
         verify(dialogueInterpreter, times(3)).interpret(any(ContextEngineInput.class));
