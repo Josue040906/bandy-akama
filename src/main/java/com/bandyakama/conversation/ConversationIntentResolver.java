@@ -73,6 +73,10 @@ public class ConversationIntentResolver {
                     + "mon\\s+matricule|ma\\s+carriere|mon\\s+poste|"
                     + "mon\\s+service|ma\\s+direction)\\b"
     );
+    private static final Pattern PROFILE_REFERENCE = Pattern.compile(
+            "^(?:(?:explique|decris|presente)(?:-moi)?\\s+)?"
+                    + "(?:son|sa|ses|leur|leurs|il|elle|lui|celui|celle|cet|cette|ces)\\b"
+    );
 
     public Decision resolve(String message, JsonNode activeState) {
         if (greetingResponse(message).isPresent()) {
@@ -92,8 +96,11 @@ public class ConversationIntentResolver {
         if ("get_agent_profile".equals(
                 activeState.path("toolName").asText()
         )) {
-            return NEW_SEARCH.matcher(normalized).find()
-                    || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find()
+            boolean explicitTopicChange = NEW_SEARCH.matcher(normalized).find()
+                    || EXPLICIT_TOPIC_CHANGE.matcher(normalized).find();
+            boolean independentRequest = INDEPENDENT_INTENT.matcher(normalized).find()
+                    && !PROFILE_REFERENCE.matcher(normalized).find();
+            return explicitTopicChange || independentRequest
                     ? Decision.NEW_INTENT
                     : Decision.CONTINUATION;
         }
