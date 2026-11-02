@@ -12,6 +12,8 @@ import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolErrorHandlerRegistry;
+import com.bandyakama.security.ToolAuthorizationPolicy;
 import com.bandyakama.tool.ToolParameter;
 import com.google.genai.Chat;
 import com.google.genai.Client;
@@ -59,6 +61,7 @@ public class GeminiAssistant {
     private final String model;
     private final AssistantConfigurationRepository configurationRepository;
     private final ToolExecutor toolExecutor;
+    private final ToolErrorHandlerRegistry toolErrorHandlers;
     private final ConversationStateMerger stateMerger;
     private final PerformanceTelemetry performanceTelemetry;
     private final ObjectMapper objectMapper;
@@ -80,6 +83,7 @@ public class GeminiAssistant {
             GeminiClientFactory geminiClientFactory,
             AssistantConfigurationRepository configurationRepository,
             ToolExecutor toolExecutor,
+            ToolErrorHandlerRegistry toolErrorHandlers,
             ConversationStateMerger stateMerger,
             PerformanceTelemetry performanceTelemetry,
             ObjectMapper objectMapper
@@ -99,6 +103,10 @@ public class GeminiAssistant {
         this.model = model;
         this.configurationRepository = configurationRepository;
         this.toolExecutor = toolExecutor;
+        this.toolErrorHandlers = java.util.Objects.requireNonNull(
+                toolErrorHandlers,
+                "toolErrorHandlers must not be null."
+        );
         this.stateMerger = stateMerger;
         this.performanceTelemetry = performanceTelemetry;
         this.objectMapper = objectMapper;
@@ -133,6 +141,7 @@ public class GeminiAssistant {
                 geminiClientFactory,
                 configurationRepository,
                 toolExecutor,
+                ToolErrorHandlerRegistry.empty(),
                 stateMerger,
                 performanceTelemetry,
                 objectMapper
@@ -404,7 +413,7 @@ public class GeminiAssistant {
                 toolStates.add(new ChatResponse.ToolState(
                         name,
                         effectiveArguments,
-                        "get_agent_profile".equals(name) ? result : null
+                        execution.retainInState() ? result : null
                 ));
                 activeState = stateMerger.stateAfterToolCall(
                         name,
@@ -791,25 +800,9 @@ public class GeminiAssistant {
     static List<ToolDefinition> selectAllowedTools(
             List<ToolDefinition> availableTools
     ) {
-        if (availableTools == null) {
-            return List.of();
-        }
-        Set<String> allowedNames = Set.of(
-                "get_agent_profile",
-                "search_agents",
-                "get_organization_info"
+        return com.bandyakama.tool.ToolPolicy.selectUsableForGemini(
+                availableTools
         );
-        return availableTools.stream()
-                .filter(tool -> allowedNames.contains(tool.getName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        ToolDefinition::getName,
-                        tool -> tool,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
     }
 
     static GenerateContentConfig generationConfig(
@@ -869,6 +862,7 @@ public class GeminiAssistant {
             ToolInvocationCache invocationCache,
             TurnMetrics metrics
     ) {
+        ToolAuthorizationPolicy.requireUserAuthorization(authorization);
         ToolDefinition definition = Optional.ofNullable(enabledTools.get(name))
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.BAD_GATEWAY,
@@ -880,7 +874,8 @@ public class GeminiAssistant {
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
                     invocationCache.get(name, arguments),
-                    definition.isSensitive() || isSensitiveReadTool(name)
+                    definition.isSensitive(),
+                    definition.isRetainResultInState()
             );
         }
 
@@ -894,7 +889,8 @@ public class GeminiAssistant {
             invocationCache.put(name, arguments, result);
             return new ToolExecutionResult(
                     result,
-                    definition.isSensitive() || isSensitiveReadTool(name)
+                    definition.isSensitive(),
+                definition.isRetainResultInState()
             );
         } catch (IllegalArgumentException exception) {
             throw new ResponseStatusException(
@@ -903,12 +899,15 @@ public class GeminiAssistant {
                     exception
             );
         } catch (RestClientResponseException exception) {
-            Optional<Map<String, Object>> profileLookupResult =
-                    profileLookupError(name, exception.getStatusCode());
-            if (profileLookupResult.isPresent()) {
+            Optional<Object> handledResult = toolErrorHandlers.handle(
+                    definition,
+                    exception.getStatusCode()
+            );
+            if (handledResult.isPresent()) {
                 return new ToolExecutionResult(
-                        profileLookupResult.get(),
-                        definition.isSensitive() || isSensitiveReadTool(name)
+                        handledResult.get(),
+                        definition.isSensitive(),
+                        definition.isRetainResultInState()
                 );
             }
 
@@ -924,35 +923,6 @@ public class GeminiAssistant {
                     exception
             );
         }
-    }
-
-    private boolean isSensitiveReadTool(String name) {
-        return Set.of("get_agent_profile", "search_agents").contains(name);
-    }
-
-    static Optional<Map<String, Object>> profileLookupError(
-            String toolName,
-            HttpStatusCode status
-    ) {
-        if (!"get_agent_profile".equals(toolName)) {
-            return Optional.empty();
-        }
-        if (status.value() == HttpStatus.NOT_FOUND.value()) {
-            return Optional.of(Map.of(
-                    "found", false,
-                    "message", "Aucun agent ne correspond exactement à cette "
-                            + "identité. Demandez le nom complet exact ou le "
-                            + "matricule."
-            ));
-        }
-        if (status.value() == HttpStatus.CONFLICT.value()) {
-            return Optional.of(Map.of(
-                    "ambiguous", true,
-                    "message", "Plusieurs agents correspondent. Demandez le "
-                            + "matricule ou un autre identifiant distinctif."
-            ));
-        }
-        return Optional.empty();
     }
 
     private Tool toGeminiTool(List<ToolDefinition> definitions) {
@@ -1005,7 +975,11 @@ public class GeminiAssistant {
         };
     }
 
-    private record ToolExecutionResult(Object result, boolean sensitive) {
+    private record ToolExecutionResult(
+            Object result,
+            boolean sensitive,
+            boolean retainInState
+    ) {
     }
 
     private static final class TurnMetrics {
