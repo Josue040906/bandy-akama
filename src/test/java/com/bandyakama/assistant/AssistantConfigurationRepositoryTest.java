@@ -42,6 +42,8 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertTrue(snapshot.enabledTools().get(0).isApprovedForGemini());
+            assertTrue(snapshot.enabledTools().get(0).isRetainResultInState());
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
@@ -103,6 +105,8 @@ class AssistantConfigurationRepositoryTest {
                     http_method VARCHAR(10),
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
+                    approved_for_gemini BOOLEAN,
+                    retain_result_in_state BOOLEAN,
                     sensitive BOOLEAN
                 )
                 """);
@@ -128,15 +132,15 @@ class AssistantConfigurationRepositoryTest {
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool
                 (name, description, when_to_use, http_method, endpoint_url,
-                 enabled, sensitive) VALUES
+                 enabled, approved_for_gemini, retain_result_in_state, sensitive) VALUES
                 ('get_agent_profile', 'Agent profile', 'For agent questions',
-                 'GET', 'http://localhost/profile', TRUE, TRUE),
+                 'GET', 'http://localhost/profile', TRUE, TRUE, TRUE, TRUE),
                 ('search_agents', 'Agent search', 'For agent searches',
-                 'POST', 'http://localhost/search', TRUE, TRUE),
+                 'POST', 'http://localhost/search', TRUE, FALSE, FALSE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
-                 'GET', 'http://localhost/organization', TRUE, FALSE),
+                 'GET', 'http://localhost/organization', TRUE, TRUE, FALSE, FALSE),
                 ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, TRUE)
+                 'http://localhost/legacy', TRUE, FALSE, FALSE, TRUE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
