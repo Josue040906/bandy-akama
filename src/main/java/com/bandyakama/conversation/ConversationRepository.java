@@ -793,6 +793,7 @@ public class ConversationRepository {
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             ObjectNode reference = objectMapper.createObjectNode();
             reference.put("toolName", toolResult.name());
+            reference.put("capturedAt", Instant.now().toString());
             reference.set("arguments", objectMapper.valueToTree(toolResult.arguments()));
             reference.set("result", objectMapper.valueToTree(toolResult.result()));
             references.add(reference);
