@@ -109,14 +109,15 @@ class ConversationMigrationTest {
         assertTrue(hasTable(jdbc, "bandy_conversation_message"));
         assertTrue(hasTable(jdbc, "bandy_conversation_memory"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "dialogue_state"));
-        assertEquals(1, jdbc.queryForObject("""
-                SELECT COUNT(*) FROM bandy_conversation_memory
+        String dialogueState = jdbc.queryForObject("""
+                SELECT CAST(dialogue_state AS VARCHAR)
+                FROM bandy_conversation_memory
                 WHERE conversation_id = ?
-                    AND dialogue_state->>'schemaVersion' = '1'
                 """,
-                Integer.class,
+                String.class,
                 conversationId
-        ));
+        );
+        assertTrue(dialogueState.contains("\"schemaVersion\":1"));
     }
 
 
