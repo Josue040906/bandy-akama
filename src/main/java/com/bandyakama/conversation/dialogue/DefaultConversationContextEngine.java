@@ -62,7 +62,8 @@ public class DefaultConversationContextEngine implements ConversationContextEngi
         String normalized = Normalizer.normalize(
                 input.currentMessage().toLowerCase(Locale.ROOT),
                 Normalizer.Form.NFD
-        ).replaceAll("\\p{M}+", "").replaceAll("\\s+", " ").strip();
+        ).replaceAll("\\p{M}+", "").replaceAll("\\s+([?!.])", "$1")
+                .replaceAll("\\s+", " ").strip();
         DialogueRelation relation;
         if (GREETING.matcher(normalized).matches()) {
             relation = DialogueRelation.SOCIAL_TURN;
