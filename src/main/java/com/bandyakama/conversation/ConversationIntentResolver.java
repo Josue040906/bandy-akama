@@ -74,7 +74,8 @@ public class ConversationIntentResolver {
                     + "mon\\s+service|ma\\s+direction)\\b"
     );
     private static final Pattern PROFILE_REFERENCE = Pattern.compile(
-            "\\b(?:son|sa|ses|leur|leurs|il|elle|lui|celui|celle|cet|cette|ces)\\b"
+            "^(?:(?:explique|decris|presente)(?:-moi)?\\s+)?"
+                    + "(?:son|sa|ses|leur|leurs|il|elle|lui|celui|celle|cet|cette|ces)\\b"
     );
 
     public Decision resolve(String message, JsonNode activeState) {
