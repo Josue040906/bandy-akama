@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -221,7 +223,6 @@ class ConversationContextIntegrationTest {
                 String.class,
                 conversation.id()
         );
-        JsonNode state = objectMapper.readTree(stateJson);
         JsonNode references = objectMapper.readTree(referencesJson);
 
         assertTrue(stateJson.contains("Informatique"));
