@@ -493,6 +493,70 @@ public class ConversationRepository {
         return List.copyOf(messages);
     }
 
+    /**
+     * Returns the domain-neutral conversational material required by the
+     * dialogue interpreter. The current user message is excluded from history.
+     */
+    public DialogueTurnContext dialogueTurnContextForRequest(
+            UUID conversationId,
+            UUID requestId
+    ) {
+        Long currentSequence = jdbcTemplate.queryForObject("""
+                SELECT sequence_number
+                FROM bandy_conversation_message
+                WHERE conversation_id = ? AND request_id = ? AND role = 'USER'
+                """,
+                Long.class,
+                conversationId,
+                requestId
+        );
+        if (currentSequence == null) {
+            throw new IllegalStateException(
+                    "Le message courant est absent de l'historique de conversation."
+            );
+        }
+
+        List<com.bandyakama.conversation.dialogue.DialogueMessage> history =
+                jdbcTemplate.query("""
+                        SELECT sequence_number, role, content
+                        FROM bandy_conversation_message
+                        WHERE conversation_id = ?
+                            AND role IN ('USER', 'ASSISTANT')
+                            AND (request_id IS NULL OR request_id <> ?)
+                        ORDER BY sequence_number DESC
+                        LIMIT ?
+                        """,
+                        (resultSet, rowNumber) ->
+                                new com.bandyakama.conversation.dialogue.DialogueMessage(
+                                        resultSet.getLong("sequence_number"),
+                                        "USER".equals(resultSet.getString("role"))
+                                                ? com.bandyakama.conversation.dialogue.DialogueMessage.Role.USER
+                                                : com.bandyakama.conversation.dialogue.DialogueMessage.Role.ASSISTANT,
+                                        truncate(
+                                                resultSet.getString("content"),
+                                                MAX_RECENT_CONTENT_LENGTH
+                                        )
+                                ),
+                        conversationId,
+                        requestId,
+                        recentMessages
+                );
+        java.util.Collections.reverse(history);
+
+        String summary = jdbcTemplate.queryForObject("""
+                SELECT summary FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversationId
+        );
+        return new DialogueTurnContext(
+                currentSequence,
+                history,
+                summary == null ? "" : summary
+        );
+    }
+
     @Transactional
     public void completeRequest(
             UUID conversationId,
@@ -1345,6 +1409,24 @@ public class ConversationRepository {
 
     private static String truncate(String value, int limit) {
         return value.length() <= limit ? value : value.substring(0, limit);
+    }
+
+    public record DialogueTurnContext(
+            long currentMessageSequenceNumber,
+            List<com.bandyakama.conversation.dialogue.DialogueMessage> history,
+            String conversationSummary
+    ) {
+        public DialogueTurnContext {
+            if (currentMessageSequenceNumber < 1) {
+                throw new IllegalArgumentException(
+                        "currentMessageSequenceNumber must be positive."
+                );
+            }
+            history = List.copyOf(history);
+            conversationSummary = conversationSummary == null
+                    ? ""
+                    : conversationSummary;
+        }
     }
 
     public record RequestStart(
