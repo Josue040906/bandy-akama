@@ -10,7 +10,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -128,7 +127,6 @@ public class TaskStateSnapshotRepository {
         safeState.remove("profiles");
         ArrayNode references = objectMapper.createArrayNode();
         ArrayNode freshness = objectMapper.createArrayNode();
-        Instant capturedAt = Instant.now();
         for (JsonNode reference : parsedReferences) {
             if (reference == null || !reference.isObject()) {
                 continue;
@@ -136,9 +134,15 @@ public class TaskStateSnapshotRepository {
             references.add(reference.deepCopy());
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("toolName", reference.path("toolName").asText(""));
-            metadata.put("capturedAt", capturedAt.toString());
+            String capturedAt = reference.path("capturedAt").asText("");
+            metadata.put("capturedAt", capturedAt.isBlank() ? "UNKNOWN" : capturedAt);
             metadata.put("status", "STALE");
-            metadata.put("reason", "NO_VERIFIED_FRESHNESS_POLICY");
+            metadata.put(
+                    "reason",
+                    capturedAt.isBlank()
+                            ? "MISSING_CAPTURE_TIMESTAMP"
+                            : "NO_VERIFIED_FRESHNESS_POLICY"
+            );
             freshness.add(metadata);
         }
 
