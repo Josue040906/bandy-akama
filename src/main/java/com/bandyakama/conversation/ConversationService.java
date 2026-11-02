@@ -9,6 +9,7 @@ import com.bandyakama.conversation.dialogue.ContextResolution;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
 import com.bandyakama.conversation.task.TaskStateManager;
+import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.http.HttpStatus;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,6 +28,7 @@ public class ConversationService {
     private final DialogueStateManager dialogueStateManager;
     private final ConversationCompletionService completionService;
     private final TaskStateManager taskStateManager;
+    private final TaskStateSnapshotRepository taskStateSnapshotRepository;
     private final PerformanceTelemetry performanceTelemetry;
     private final int turnBudgetMillis;
 
@@ -37,6 +39,7 @@ public class ConversationService {
             DialogueStateManager dialogueStateManager,
             ConversationCompletionService completionService,
             TaskStateManager taskStateManager,
+            TaskStateSnapshotRepository taskStateSnapshotRepository,
             PerformanceTelemetry performanceTelemetry,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
@@ -50,6 +53,32 @@ public class ConversationService {
         this.taskStateManager = java.util.Objects.requireNonNull(
                 taskStateManager, "taskStateManager must not be null."
         );
+        this.taskStateSnapshotRepository = java.util.Objects.requireNonNull(
+                taskStateSnapshotRepository, "taskStateSnapshotRepository must not be null."
+        );
+        this.performanceTelemetry = performanceTelemetry;
+        if (turnBudgetMillis < 1) {
+            throw new IllegalArgumentException("Le budget de requête doit être positif.");
+        }
+        this.turnBudgetMillis = turnBudgetMillis;
+    }
+
+    /** Compatibility constructor for focused unit tests. */
+    public ConversationService(
+            ConversationRepository repository,
+            GeminiAssistant assistant,
+            DialogueStateManager dialogueStateManager,
+            ConversationCompletionService completionService,
+            TaskStateManager taskStateManager,
+            PerformanceTelemetry performanceTelemetry,
+            int turnBudgetMillis
+    ) {
+        this.repository = repository;
+        this.assistant = assistant;
+        this.dialogueStateManager = java.util.Objects.requireNonNull(dialogueStateManager);
+        this.completionService = completionService;
+        this.taskStateManager = java.util.Objects.requireNonNull(taskStateManager);
+        this.taskStateSnapshotRepository = null;
         this.performanceTelemetry = performanceTelemetry;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException("Le budget de requête doit être positif.");
@@ -269,17 +298,29 @@ public class ConversationService {
                                 requestId,
                                 request.claimId(),
                                 clarification,
-                                java.util.Optional.of(resolvedClarification.proposedState())
+                                java.util.Optional.of(resolvedClarification.proposedState()),
+                                java.util.Optional.ofNullable(
+                                        resolvedClarification.proposedState().activeObjectiveId()
+                                ),
+                                null
                         )
                 );
                 return clarification;
             }
 
             resetState = taskStateManager.resetsOperationalState(relation);
-            stateForRequest = taskStateManager.forDialogueRelation(
-                    relation,
-                    request.activeState()
-            );
+            JsonNode resumedStateOverride = null;
+            if (relation == DialogueRelation.TOPIC_RESUMPTION
+                    && taskStateSnapshotRepository != null) {
+                resumedStateOverride = taskStateSnapshotRepository.load(
+                        conversationId,
+                        contextResolution.decision().targetObjectiveId()
+                ).map(TaskStateSnapshotRepository.Snapshot::operationalState)
+                        .orElse(null);
+            }
+            stateForRequest = relation == DialogueRelation.TOPIC_RESUMPTION
+                    ? taskStateManager.forDialogueRelation(relation, resumedStateOverride)
+                    : taskStateManager.forDialogueRelation(relation, request.activeState());
             if (relation == DialogueRelation.SOCIAL_TURN
                     || relation == DialogueRelation.NEW_TOPIC_REQUEST) {
                 String text = relation == DialogueRelation.SOCIAL_TURN
@@ -296,7 +337,11 @@ public class ConversationService {
                                 requestId,
                                 request.claimId(),
                                 controlResponse,
-                                java.util.Optional.of(contextResolution.proposedState())
+                                java.util.Optional.of(contextResolution.proposedState()),
+                                java.util.Optional.ofNullable(
+                                        contextResolution.proposedState().activeObjectiveId()
+                                ),
+                                null
                         )
                 );
                 return controlResponse;
@@ -310,7 +355,8 @@ public class ConversationService {
                     + "est absent.";
 
             JsonNode operationalState = stateForRequest;
-            boolean includeResultReferences = operationalState != null;
+            boolean includeResultReferences = operationalState != null
+                    && relation != DialogueRelation.TOPIC_RESUMPTION;
             String classifiedContext = measured(
                     requestId,
                     "context_preparation",
@@ -355,7 +401,12 @@ public class ConversationService {
                             requestId,
                             request.claimId(),
                             completedResponse,
-                            proposedDialogueState
+                            proposedDialogueState,
+                            java.util.Optional.ofNullable(
+                                    contextResolution.proposedState().activeObjectiveId()
+                            ),
+                            relation == DialogueRelation.TOPIC_RESUMPTION
+                                    ? stateForRequest : null
                     )
             );
             return completedResponse;
