@@ -55,7 +55,7 @@ public class TaskStateManager {
         return switch (relation) {
             case CONTINUATION, CORRECTION, USER_CLARIFICATION, SOCIAL_TURN,
                     TOPIC_RESUMPTION -> copyOrNull(persistedState);
-            case NEW_TASK, NEW_TOPIC_REQUEST, NEEDS_CLARIFICATION -> null;
+            case NEW_TASK, NEW_TOPIC_REQUEST, NEEDS_CLARIFICATION, TASK_COMPLETION -> null;
         };
     }
 
@@ -67,7 +67,8 @@ public class TaskStateManager {
         Objects.requireNonNull(relation, "relation must not be null.");
         return relation == DialogueRelation.NEW_TASK
                 || relation == DialogueRelation.TOPIC_RESUMPTION
-                || relation == DialogueRelation.NEW_TOPIC_REQUEST;
+                || relation == DialogueRelation.NEW_TOPIC_REQUEST
+                || relation == DialogueRelation.TASK_COMPLETION;
     }
 
     /**
