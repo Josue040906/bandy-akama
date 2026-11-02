@@ -206,6 +206,11 @@ public class ConversationContextRepository {
         }
         try {
             JsonNode parsed = objectMapper.readTree(value);
+            // H2 in PostgreSQL compatibility mode may expose JSONB as a
+            // JSON-encoded string, while PostgreSQL returns the JSON value.
+            if (parsed != null && parsed.isTextual()) {
+                parsed = objectMapper.readTree(parsed.asText());
+            }
             return parsed == null ? objectMapper.createArrayNode() : parsed;
         } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
             throw new IllegalStateException(
