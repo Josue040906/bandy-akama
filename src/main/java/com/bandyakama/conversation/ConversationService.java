@@ -475,7 +475,7 @@ public class ConversationService {
         for (int index = 0; index < references.size(); index++) {
             com.fasterxml.jackson.databind.JsonNode reference = references.get(index);
             com.fasterxml.jackson.databind.JsonNode metadata = freshness.get(index);
-            hints.append("\\n- outil=")
+            hints.append("\n- outil=")
                     .append(reference.path("toolName").asText("inconnu"))
                     .append(", arguments=")
                     .append(reference.path("arguments").toString())
