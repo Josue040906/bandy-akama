@@ -92,16 +92,23 @@ public class ConversationContextAssembler {
             int characterLimit
     ) {
         Objects.requireNonNull(history, "history must not be null.");
+        int fixedOverhead = ConversationPromptContext.marker().length();
+        if (characterLimit <= fixedOverhead + 2) {
+            throw new IllegalArgumentException(
+                    "characterLimit is too small for the history marker."
+            );
+        }
+        int historyBudget = Math.max(
+                2,
+                (characterLimit - fixedOverhead) / 2
+        );
         String serializedHistory = compactJson(
                 objectMapper.valueToTree(history),
-                characterLimit / 2
+                historyBudget
         );
-        int contextLimit = Math.max(
-                1,
-                characterLimit
-                        - ConversationPromptContext.marker().length()
-                        - serializedHistory.length()
-        );
+        int contextLimit = characterLimit
+                - fixedOverhead
+                - serializedHistory.length();
         String context = buildContext(
                 activeState,
                 resultReferences,
