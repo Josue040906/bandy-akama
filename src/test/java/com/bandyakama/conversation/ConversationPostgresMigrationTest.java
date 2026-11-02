@@ -39,7 +39,7 @@ class ConversationPostgresMigrationTest {
         flyway.migrate();
 
         JdbcTemplate jdbc = new JdbcTemplate(dataSource);
-        assertEquals(7, jdbc.queryForObject(
+        assertEquals(8, jdbc.queryForObject(
                 "SELECT MAX(version::INTEGER) FROM flyway_schema_history "
                         + "WHERE success = TRUE",
                 Integer.class
@@ -83,6 +83,27 @@ class ConversationPostgresMigrationTest {
                     WHERE table_schema = current_schema()
                         AND table_name = 'bandy_tool'
                         AND column_name = 'retain_result_in_state'
+                )
+                """,
+                Boolean.class
+        )));
+
+        assertTrue(Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                        AND table_name = 'bandy_tool_parameter'
+                        AND column_name = 'merge_strategy'
+                )
+                """,
+                Boolean.class
+        )));
+        assertTrue(Boolean.TRUE.equals(jdbc.queryForObject("""
+                SELECT EXISTS (
+                    SELECT 1 FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                        AND table_name = 'bandy_tool_parameter'
+                        AND column_name = 'merge_key'
                 )
                 """,
                 Boolean.class
