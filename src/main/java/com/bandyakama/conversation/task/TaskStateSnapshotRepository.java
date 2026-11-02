@@ -24,10 +24,11 @@ import java.util.UUID;
  */
 @Repository
 public class TaskStateSnapshotRepository {
-    private static final int CURRENT_SCHEMA_VERSION = 1;
+    private static final int CURRENT_SCHEMA_VERSION = 2;
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final TaskStateSnapshotSanitizer sanitizer;
     private volatile Boolean postgresDatabase;
 
     public TaskStateSnapshotRepository(
@@ -36,6 +37,7 @@ public class TaskStateSnapshotRepository {
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.sanitizer = new TaskStateSnapshotSanitizer(objectMapper);
     }
 
     @Transactional(readOnly = true)
@@ -73,13 +75,12 @@ public class TaskStateSnapshotRepository {
                     || references.size() != freshness.size()) {
                 return Optional.empty();
             }
-            // Defense in depth: profile payloads must not be restored from a
-            // task snapshot even if an older writer accidentally stored them.
-            ObjectNode safeState = ((ObjectNode) state).deepCopy();
-            safeState.remove("profiles");
+            // Sanitize again on read to protect legacy/manual rows.
+            ObjectNode safeState = sanitizer.sanitizeOperationalState(state);
+            ArrayNode safeReferences = sanitizeReferences((ArrayNode) references);
             return Optional.of(new Snapshot(
                     safeState,
-                    (ArrayNode) references.deepCopy(),
+                    safeReferences,
                     (ArrayNode) freshness.deepCopy()
             ));
         } catch (EmptyResultDataAccessException missing) {
@@ -123,10 +124,7 @@ public class TaskStateSnapshotRepository {
             throw new IllegalStateException("Operational memory is malformed.");
         }
 
-        ObjectNode safeState = ((ObjectNode) parsedState).deepCopy();
-        // Agent profile data is sensitive and has its own bounded contributor;
-        // it must not be duplicated into per-objective snapshots.
-        safeState.remove("profiles");
+        ObjectNode safeState = sanitizer.sanitizeOperationalState(parsedState);
         ArrayNode references = objectMapper.createArrayNode();
         ArrayNode freshness = objectMapper.createArrayNode();
         for (JsonNode reference : parsedReferences) {
@@ -134,12 +132,11 @@ public class TaskStateSnapshotRepository {
                 continue;
             }
             ObjectNode safeReference = objectMapper.createObjectNode();
-            safeReference.put("toolName", reference.path("toolName").asText(""));
+            String toolName = reference.path("toolName").asText("");
+            safeReference.put("toolName", toolName);
             safeReference.set(
                     "arguments",
-                    reference.path("arguments").isMissingNode()
-                            ? objectMapper.createObjectNode()
-                            : reference.path("arguments").deepCopy()
+                    sanitizer.sanitizeArguments(toolName, reference.path("arguments"))
             );
             String capturedAt = reference.path("capturedAt").asText("");
             safeReference.put("capturedAt", capturedAt);
@@ -190,6 +187,25 @@ public class TaskStateSnapshotRepository {
                 writeJson(references),
                 writeJson(freshness)
         );
+    }
+
+    private ArrayNode sanitizeReferences(ArrayNode source) {
+        ArrayNode safe = objectMapper.createArrayNode();
+        for (JsonNode reference : source) {
+            if (reference == null || !reference.isObject()) {
+                continue;
+            }
+            ObjectNode item = objectMapper.createObjectNode();
+            String toolName = reference.path("toolName").asText("");
+            item.put("toolName", toolName);
+            item.set(
+                    "arguments",
+                    sanitizer.sanitizeArguments(toolName, reference.path("arguments"))
+            );
+            item.put("capturedAt", reference.path("capturedAt").asText(""));
+            safe.add(item);
+        }
+        return safe;
     }
 
     /**
