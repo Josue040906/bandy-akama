@@ -44,6 +44,8 @@ public class GeminiDialogueInterpreter implements DialogueInterpreter {
             - NEW_TASK : démarre un objectif indépendant.
             - TOPIC_RESUMPTION : reprend un objectif suspendu identifiable.
             - CORRECTION : corrige le but ou les informations d'un objectif existant.
+            - TASK_COMPLETION : l'utilisateur demande explicitement de terminer ou d'abandonner
+              l'objectif actuellement actif ; cette relation clôt l'objectif sans en créer un autre.
             - USER_CLARIFICATION : répond à une clarification encore en attente.
             - NEEDS_CLARIFICATION : plusieurs interprétations plausibles ou référence
               impossible à résoudre sans risque.
@@ -60,18 +62,20 @@ public class GeminiDialogueInterpreter implements DialogueInterpreter {
             4. CONTINUATION, TOPIC_RESUMPTION, CORRECTION et USER_CLARIFICATION
                doivent fournir targetObjectiveId existant et objectiveSummary.
             5. CORRECTION doit fournir objectiveGoal corrigé.
-            6. NEEDS_CLARIFICATION doit fournir une question concise et ne doit
+            6. TASK_COMPLETION doit cibler l'identifiant exact de l'objectif ACTIVE et ne doit
+               fournir ni objectiveGoal, ni objectiveSummary, ni références.
+            7. NEEDS_CLARIFICATION doit fournir une question concise et ne doit
                proposer ni objectif ni références.
-            7. La confiance est HIGH, MEDIUM ou LOW. N'utilise HIGH que si la
+            8. La confiance est HIGH, MEDIUM ou LOW. N'utilise HIGH que si la
                relation et la cible sont clairement étayées.
-            8. Les références proposées sont uniquement des mentions utiles
+            9. Les références proposées sont uniquement des mentions utiles
                explicites dans le message courant. N'invente aucune entité.
-            9. Ne change jamais une demande indépendante en continuation par
+            10. Ne change jamais une demande indépendante en continuation par
                simple proximité thématique.
-            10. N'utilise aucune règle propre à un secteur métier.
-            11. Préfère SOCIAL_TURN uniquement pour une salutation autonome ; elle ne
+            11. N'utilise aucune règle propre à un secteur métier.
+            12. Préfère SOCIAL_TURN uniquement pour une salutation autonome ; elle ne
                 doit jamais effacer une clarification ou un objectif existant.
-            12. Préfère NEW_TOPIC_REQUEST pour une demande explicite de changer de sujet
+            13. Préfère NEW_TOPIC_REQUEST pour une demande explicite de changer de sujet
                 sans contenu du nouveau sujet ; ne crée pas d'objectif artificiel.
 
             Retourne exclusivement un objet JSON avec ces champs :
