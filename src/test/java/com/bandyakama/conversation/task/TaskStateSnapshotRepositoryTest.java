@@ -8,9 +8,9 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
+import java.sql.ResultSet;
 import java.util.Optional;
 import java.util.UUID;
-import java.sql.ResultSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -43,7 +43,7 @@ class TaskStateSnapshotRepositoryTest {
     @Test
     void invalidSchemaVersionIsTreatedAsMissingSnapshot() throws Exception {
         stubSnapshotRow(99,
-                "{\\"toolName\\":\\"search_agents\\"}",
+                "{\"toolName\":\"search_agents\"}",
                 "[]",
                 "[]");
 
@@ -57,14 +57,14 @@ class TaskStateSnapshotRepositoryTest {
     void restoresCriteriaButStripsSensitiveProfileCacheAndOldResultPayloads()
             throws Exception {
         stubSnapshotRow(1,
-                "{\\"toolName\\":\\"search_agents\\","
-                        + "\\"profiles\\":{\\"agent\\":{\\"secret\\":true}}}",
-                "[{\\"toolName\\":\\"search_agents\\","
-                        + "\\"arguments\\":{\\"query\\":\\"A\\"},"
-                        + "\\"capturedAt\\":\\"2026-11-02T10:00:00Z\\"}]",
-                "[{\\"toolName\\":\\"search_agents\\","
-                        + "\\"capturedAt\\":\\"2026-11-02T10:00:00Z\\","
-                        + "\\"status\\":\\"STALE\\"}]");
+                "{\"toolName\":\"search_agents\","
+                        + "\"profiles\":{\"agent\":{\"secret\":true}}}",
+                "[{\"toolName\":\"search_agents\","
+                        + "\"arguments\":{\"query\":\"A\"},"
+                        + "\"capturedAt\":\"2026-11-02T10:00:00Z\"}]",
+                "[{\"toolName\":\"search_agents\","
+                        + "\"capturedAt\":\"2026-11-02T10:00:00Z\","
+                        + "\"status\":\"STALE\"}]");
 
         TaskStateSnapshotRepository.Snapshot snapshot = repository.load(
                 UUID.randomUUID(), "objective-1"
