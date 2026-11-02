@@ -74,6 +74,83 @@ class ConversationStateMergerTest {
     }
 
     @Test
+    void retainsIndependentRangeFiltersForTheSameField() throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\"filters\":["
+                            + "{\"field\":\"age\",\"operator\":\"GTE\",\"value\":20},"
+                            + "{\"field\":\"age\",\"operator\":\"LTE\",\"value\":40}]}"
+                  }
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GTE\",\"value\":25}]}"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree(
+                (String) merged.get("criteriaJson")
+        );
+
+        assertEquals(2, criteria.path("filters").size());
+        assertEquals(25, filterByOperator(criteria, "age", "GTE")
+                .path("value").asInt());
+        assertEquals(40, filterByOperator(criteria, "age", "LTE")
+                .path("value").asInt());
+    }
+
+    @Test
+    void removesOnlyTheRequestedOperatorOrAllFiltersForAField() throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\"filters\":["
+                            + "{\"field\":\"age\",\"operator\":\"GTE\",\"value\":20},"
+                            + "{\"field\":\"age\",\"operator\":\"LTE\",\"value\":40},"
+                            + "{\"field\":\"sexe\",\"operator\":\"EQ\",\"value\":\"F\"}]}"
+                  }
+                }
+                """);
+
+        Map<String, Object> removeOne = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\"filters\":[{\"field\":\"age\",\"operator\":\"GTE\",\"remove\":true}]}"
+                )
+        );
+        JsonNode oneRemaining = objectMapper.readTree(
+                (String) removeOne.get("criteriaJson")
+        );
+        assertEquals(2, oneRemaining.path("filters").size());
+        assertEquals(40, filterByOperator(oneRemaining, "age", "LTE")
+                .path("value").asInt());
+
+        Map<String, Object> removeAll = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\"filters\":[{\"field\":\"age\",\"remove\":true}]}"
+                )
+        );
+        JsonNode withoutAge = objectMapper.readTree(
+                (String) removeAll.get("criteriaJson")
+        );
+        assertEquals(1, withoutAge.path("filters").size());
+        assertEquals("sexe", withoutAge.path("filters").get(0)
+                .path("field").asText());
+    }
+
+    @Test
     void neverCarriesArgumentsAcrossDifferentToolIntents() throws Exception {
         JsonNode previous = objectMapper.readTree("""
                 {
@@ -202,6 +279,20 @@ class ConversationStateMergerTest {
                         activeState
                 )
         );
+    }
+
+    private JsonNode filterByOperator(
+            JsonNode criteria,
+            String field,
+            String operator
+    ) {
+        for (JsonNode filter : criteria.path("filters")) {
+            if (field.equals(filter.path("field").asText())
+                    && operator.equals(filter.path("operator").asText())) {
+                return filter;
+            }
+        }
+        throw new AssertionError("Missing filter: " + field + "/" + operator);
     }
 
     private JsonNode filter(JsonNode criteria, String field) {
