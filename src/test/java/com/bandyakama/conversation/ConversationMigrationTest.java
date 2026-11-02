@@ -125,7 +125,12 @@ class ConversationMigrationTest {
                 String.class,
                 conversationId
         );
-        assertTrue(dialogueState.contains("\"schemaVersion\":1"));
+        try {
+            assertEquals(1, new ObjectMapper().readTree(dialogueState)
+                    .path("schemaVersion").asInt());
+        } catch (com.fasterxml.jackson.core.JsonProcessingException exception) {
+            throw new AssertionError("La valeur dialogue_state doit être un JSON valide.", exception);
+        }
     }
 
 
