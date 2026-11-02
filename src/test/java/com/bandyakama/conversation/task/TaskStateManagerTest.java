@@ -186,7 +186,7 @@ class TaskStateManagerTest {
     }
 
     @Test
-    void reconstructsStructuredJsonArgumentsForAnyToolAndKeepsLegacyCriteriaAlias() {
+    void reconstructsStructuredJsonArgumentsForAnyToolWithoutDomainAliases() {
         ObjectNode arguments = objectMapper.createObjectNode();
         arguments.put("querySpec", "{\"filters\":[{\"field\":\"status\",\"value\":\"OPEN\"}]}");
 
