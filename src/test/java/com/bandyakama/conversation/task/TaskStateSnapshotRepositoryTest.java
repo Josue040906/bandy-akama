@@ -85,6 +85,63 @@ class TaskStateSnapshotRepositoryTest {
     }
 
     @Test
+    void capturePersistsOnlySafeReferenceMetadataAndMarksItStale() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        TaskStateSnapshotRepository repository =
+                new TaskStateSnapshotRepository(jdbc, objectMapper);
+        Connection connection = mock(Connection.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("H2");
+        when(jdbc.execute(any(ConnectionCallback.class))).thenAnswer(invocation -> {
+            ConnectionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInConnection(connection);
+        });
+        when(jdbc.queryForObject(
+                anyString(),
+                any(RowMapper.class),
+                any(Object[].class)
+        )).thenAnswer(invocation -> {
+            RowMapper<?> mapper = invocation.getArgument(1);
+            ResultSet resultSet = mock(ResultSet.class);
+            when(resultSet.getString("active_state")).thenReturn(
+                    "{\"toolName\":\"search_agents\",\"arguments\":{"
+                            + "\"criteriaJson\":\"{\\\"filters\\\":[{"
+                            + "\\\"field\\\":\\\"service\\\","
+                            + "\\\"operator\\\":\\\"EQ\\\","
+                            + "\\\"value\\\":\\\"Informatique\\\"}]}\"}}"
+            );
+            when(resultSet.getString("result_references")).thenReturn("""
+                    [{"toolName":"get_organization_info",
+                      "capturedAt":"2026-11-02T20:00:00Z",
+                      "arguments":{"query":"Rakoto RH12345678","scope":"SERVICE"},
+                      "result":{"description":"private payload","matricule":"RH12345678"}}]
+                    """);
+            return mapper.mapRow(resultSet, 0);
+        });
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+
+        repository.capture(UUID.randomUUID(), "objective-safe-references");
+
+        ArgumentCaptor<Object[]> parameters = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).update(anyString(), parameters.capture());
+        JsonNode savedReferences = objectMapper.readTree((String) parameters.getValue()[4]);
+        JsonNode savedFreshness = objectMapper.readTree((String) parameters.getValue()[5]);
+
+        assertEquals(1, savedReferences.size());
+        assertEquals("get_organization_info",
+                savedReferences.get(0).path("toolName").asText());
+        assertEquals("SERVICE",
+                savedReferences.get(0).path("arguments").path("scope").asText());
+        assertFalse(savedReferences.toString().contains("Rakoto"));
+        assertFalse(savedReferences.toString().contains("RH12345678"));
+        assertFalse(savedReferences.toString().contains("private payload"));
+        assertFalse(savedReferences.get(0).has("result"));
+        assertEquals(1, savedFreshness.size());
+        assertEquals("STALE", savedFreshness.get(0).path("status").asText());
+    }
+
+    @Test
     void selectsPostgresOnConflictUpsertWhenRunningOnPostgresql() throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         ObjectMapper mapper = new ObjectMapper();
