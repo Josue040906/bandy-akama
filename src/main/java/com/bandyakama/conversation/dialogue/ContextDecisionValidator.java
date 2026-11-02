@@ -89,8 +89,6 @@ public class ContextDecisionValidator {
             }
             case USER_CLARIFICATION -> {
                 requireTarget(target, proposal);
-                PendingClarification pending =
-                        input.dialogueState().pendingClarification();
                 if (pending == null) {
                     throw invalid("Aucune clarification n'est actuellement attendue.");
                 }
