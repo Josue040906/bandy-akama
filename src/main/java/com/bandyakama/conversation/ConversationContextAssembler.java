@@ -191,7 +191,8 @@ public class ConversationContextAssembler {
         return switch (field.toLowerCase(java.util.Locale.ROOT)) {
             case "id", "name", "title", "intent", "toolname", "type",
                     "status", "query", "criteria", "filters", "arguments",
-                    "value", "result", "content", "timestamp" -> 0;
+                    "value", "result", "content", "timestamp", "matricule",
+                    "employeeid", "field", "operator" -> 0;
             default -> 1;
         };
     }
