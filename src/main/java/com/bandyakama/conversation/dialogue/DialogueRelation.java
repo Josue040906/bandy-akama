@@ -17,6 +17,9 @@ public enum DialogueRelation {
     /** The message corrects information or direction within an objective. */
     CORRECTION,
 
+    /** The user explicitly closes the currently active objective. */
+    TASK_COMPLETION,
+
     /** The message answers a clarification requested by the assistant. */
     USER_CLARIFICATION,
 
