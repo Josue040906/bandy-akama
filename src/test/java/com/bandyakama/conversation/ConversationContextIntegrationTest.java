@@ -287,6 +287,117 @@ class ConversationContextIntegrationTest {
     }
 
     @Test
+    void explicitlyCompletesActiveObjectiveAndAllowsANewObjectiveAfterward() {
+        UserIdentity identity = new UserIdentity("objective-completion-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(),
+                identity.ownerId()
+        );
+
+        when(assistant.respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        )).thenReturn(
+                new ChatResponse("Le rapport est prêt.", List.of()),
+                new ChatResponse("Le nouveau sujet est prêt.", List.of())
+        );
+
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    DialogueState state = input.dialogueState();
+                    if (input.currentMessage().equals("Prépare un rapport de ventes.")) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK,
+                                null,
+                                "La demande démarre un rapport.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                "Préparer un rapport de ventes",
+                                "Rapport de ventes en préparation.",
+                                List.of()
+                        );
+                    }
+                    if (input.currentMessage().equals("Le rapport est terminé, merci.")) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.TASK_COMPLETION,
+                                state.activeObjectiveId(),
+                                "L'utilisateur clôt explicitement le rapport.",
+                                null,
+                                InterpretationConfidence.HIGH,
+                                null,
+                                null,
+                                List.of()
+                        );
+                    }
+                    return new ContextInterpretationProposal(
+                            DialogueRelation.NEW_TASK,
+                            null,
+                            "La demande suivante constitue un nouvel objectif.",
+                            null,
+                            InterpretationConfidence.HIGH,
+                            "Préparer une présentation",
+                            "Présentation en préparation.",
+                            List.of()
+                    );
+                });
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Prépare un rapport de ventes.", null, UUID.randomUUID()
+        );
+        DialogueState afterCreation = dialogueStateRepository.load(conversation.id());
+        String reportId = afterCreation.activeObjectiveId();
+        assertNotNull(reportId);
+
+        ChatResponse completionResponse = conversationService.sendMessage(
+                conversation.id(), identity,
+                "Le rapport est terminé, merci.", null, UUID.randomUUID()
+        );
+        DialogueState afterCompletion = dialogueStateRepository.load(conversation.id());
+
+        assertTrue(completionResponse.content().toLowerCase().contains("terminé"));
+        assertEquals(null, afterCompletion.activeObjectiveId());
+        assertEquals(
+                DialogueObjectiveStatus.COMPLETED,
+                afterCompletion.objectives().stream()
+                        .filter(objective -> objective.id().equals(reportId))
+                        .findFirst().orElseThrow().status()
+        );
+        assertEquals(1, afterCompletion.objectives().size());
+
+        conversationService.sendMessage(
+                conversation.id(), identity,
+                "Prépare maintenant une présentation.", null, UUID.randomUUID()
+        );
+        DialogueState afterNewObjective = dialogueStateRepository.load(conversation.id());
+
+        assertNotNull(afterNewObjective.activeObjectiveId());
+        assertFalse(reportId.equals(afterNewObjective.activeObjectiveId()));
+        assertEquals(
+                DialogueObjectiveStatus.COMPLETED,
+                afterNewObjective.objectives().stream()
+                        .filter(objective -> objective.id().equals(reportId))
+                        .findFirst().orElseThrow().status()
+        );
+        assertEquals(2, afterNewObjective.objectives().size());
+        assertEquals(2, afterNewObjective.objectives().stream()
+                .filter(objective -> objective.status() == DialogueObjectiveStatus.ACTIVE)
+                .count());
+        verify(dialogueInterpreter, times(3)).interpret(any(ContextEngineInput.class));
+        verify(assistant, times(2)).respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+        );
+    }
+
+    @Test
     void persistsOnlyAllowlistedOperationalCriteriaInTaskSnapshot()
             throws Exception {
         UserIdentity identity = new UserIdentity("snapshot-security-owner", "client-a");
