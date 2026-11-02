@@ -44,7 +44,10 @@ public class ToolExecutionController {
         if(toolOptional.isEmpty()){
             return ResponseEntity.notFound().build();
         }
-        ToolDefinition tool =  toolOptional.get();
+        ToolDefinition tool = toolOptional.get();
+        if (!com.bandyakama.tool.ToolPolicy.isUsableForGemini(tool)) {
+            return ResponseEntity.notFound().build();
+        }
         try {
             Object result = toolExecutor.execute(tool, arguments);
             return ResponseEntity.ok(result);
