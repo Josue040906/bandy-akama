@@ -82,7 +82,7 @@ public class TaskStateSnapshotRepository {
             ));
         } catch (EmptyResultDataAccessException missing) {
             return Optional.empty();
-        } catch (RuntimeException | JsonProcessingException malformed) {
+        } catch (RuntimeException malformed) {
             // A corrupt snapshot is a cache miss, not a reason to destroy it
             // or prevent the user from resuming by rerunning the operation.
             return Optional.empty();
@@ -179,14 +179,21 @@ public class TaskStateSnapshotRepository {
         );
     }
 
-    private JsonNode readJson(String value) throws JsonProcessingException {
+    private JsonNode readJson(String value) {
         if (value == null || value.isBlank()) {
             return null;
         }
-        JsonNode parsed = objectMapper.readTree(value);
-        return parsed != null && parsed.isTextual()
-                ? objectMapper.readTree(parsed.asText())
-                : parsed;
+        try {
+            JsonNode parsed = objectMapper.readTree(value);
+            return parsed != null && parsed.isTextual()
+                    ? objectMapper.readTree(parsed.asText())
+                    : parsed;
+        } catch (JsonProcessingException malformedJson) {
+            throw new IllegalArgumentException(
+                    "Stored conversation task state contains invalid JSON.",
+                    malformedJson
+            );
+        }
     }
 
     private String writeJson(Object value) {
