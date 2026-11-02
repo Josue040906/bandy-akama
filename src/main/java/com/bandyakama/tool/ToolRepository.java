@@ -44,6 +44,13 @@ public class ToolRepository {
                         resultSet.getBoolean("required")
                 );
                 parameter.setLocation(resultSet.getString("location"));
+                parameter.setMergeStrategy(
+                        ToolParameter.MergeStrategy.valueOf(
+                                resultSet.getString("merge_strategy")
+                        )
+                );
+                parameter.setMergeKey(resultSet.getString("merge_key"));
+                parameter.setRemoveMarker(resultSet.getString("remove_marker"));
                 return parameter;
             };
 
@@ -117,8 +124,9 @@ public class ToolRepository {
             ToolParameter parameter = parameters.get(index);
             jdbcTemplate.update("""
                     INSERT INTO bandy_tool_parameter (
-                        tool_name, name, type, description, location, required, position
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                        tool_name, name, type, description, location, required,
+                        merge_strategy, merge_key, remove_marker, position
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     tool.getName(),
                     parameter.getName(),
@@ -126,6 +134,9 @@ public class ToolRepository {
                     parameter.getDescription(),
                     parameter.getLocation(),
                     parameter.isRequired(),
+                    parameter.getMergeStrategy().name(),
+                    parameter.getMergeKey(),
+                    parameter.getRemoveMarker(),
                     index
             );
         }
@@ -167,7 +178,8 @@ public class ToolRepository {
 
     private ToolDefinition loadParameters(ToolDefinition tool) {
         tool.setParameters(jdbcTemplate.query(
-                "SELECT name, type, description, location, required "
+                "SELECT name, type, description, location, required, "
+                        + "merge_strategy, merge_key, remove_marker "
                         + "FROM bandy_tool_parameter WHERE tool_name = ? "
                         + "ORDER BY position",
                 PARAMETER_ROW_MAPPER,
@@ -194,7 +206,8 @@ public class ToolRepository {
                 new ArrayList<>()
         ));
         jdbcTemplate.query(
-                "SELECT tool_name, name, type, description, location, required "
+                "SELECT tool_name, name, type, description, location, required, "
+                        + "merge_strategy, merge_key, remove_marker "
                         + "FROM bandy_tool_parameter WHERE tool_name IN ("
                         + placeholders + ") ORDER BY tool_name, position",
                 resultSet -> {
