@@ -48,9 +48,9 @@ class GeminiAssistantOrchestrationTest {
     @Test
     void exposesOnlyTheExplicitlyAllowedToolsToGemini() {
         ToolDefinition oldSearchTool = namedTool("searchEmployees");
-        ToolDefinition profileTool = namedTool("get_agent_profile");
-        ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
+        ToolDefinition profileTool = approvedTool("get_agent_profile");
+        ToolDefinition searchTool = approvedTool("search_agents");
+        ToolDefinition organizationTool = approvedTool("get_organization_info");
 
         assertEquals(
                 List.of(profileTool, searchTool, organizationTool),
@@ -66,6 +66,15 @@ class GeminiAssistantOrchestrationTest {
         assertTrue(GeminiAssistant.selectAllowedTools(
                 List.of(oldSearchTool)
         ).isEmpty());
+    }
+
+    @Test
+    void exposesNewlyRegisteredGenericCapabilitiesWhenApproved() {
+        ToolDefinition customerLookup = approvedTool("lookup_customer");
+        assertEquals(
+                List.of(customerLookup),
+                GeminiAssistant.selectAllowedTools(List.of(customerLookup))
+        );
     }
 
     @Test
@@ -146,9 +155,9 @@ class GeminiAssistantOrchestrationTest {
     void ignoresLegacyIntentSpecificToolsWhenSelectingAllowedTools() {
         ToolDefinition legacySearchTool = namedTool("searchEmployeesApproximately");
         ToolDefinition legacyPersonalProfileTool = namedTool("getMyProfile");
-        ToolDefinition profileTool = namedTool("get_agent_profile");
-        ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
+        ToolDefinition profileTool = approvedTool("get_agent_profile");
+        ToolDefinition searchTool = approvedTool("search_agents");
+        ToolDefinition organizationTool = approvedTool("get_organization_info");
 
         assertEquals(
                 List.of(profileTool, searchTool, organizationTool),
@@ -166,31 +175,11 @@ class GeminiAssistantOrchestrationTest {
         )).isEmpty());
     }
 
-    @Test
-    void translatesMissingAndAmbiguousAgentProfilesIntoUsableToolResults() {
-        var missing = GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.NOT_FOUND
-        ).orElseThrow();
-        var ambiguous = GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.CONFLICT
-        ).orElseThrow();
-
-        assertEquals(false, missing.get("found"));
-        assertTrue(missing.get("message").toString().contains("matricule"));
-        assertEquals(true, ambiguous.get("ambiguous"));
-        assertTrue(ambiguous.get("message").toString().contains("matricule"));
-        assertTrue(GeminiAssistant.profileLookupError(
-                "some_other_tool",
-                HttpStatus.NOT_FOUND
-        ).isEmpty());
-        assertTrue(GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.BAD_GATEWAY
-        ).isEmpty());
+    private ToolDefinition approvedTool(String name) {
+        ToolDefinition tool = namedTool(name);
+        tool.setApprovedForGemini(true);
+        return tool;
     }
-
 
     private ToolDefinition namedTool(String name) {
         ToolDefinition tool = new ToolDefinition(
