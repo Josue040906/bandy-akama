@@ -12,33 +12,39 @@ import java.util.Objects;
  */
 public record ContextEngineInput(
         String currentMessage,
+        long currentMessageSequenceNumber,
         DialogueState dialogueState,
         List<DialogueMessage> history,
         String conversationSummary
 ) {
     public ContextEngineInput {
         currentMessage = requireText(currentMessage, "currentMessage");
+        if (currentMessageSequenceNumber < 1) {
+            throw new IllegalArgumentException(
+                    "currentMessageSequenceNumber must be positive."
+            );
+        }
         dialogueState = Objects.requireNonNull(
-                dialogueState,
-                "dialogueState must not be null."
+                dialogueState, "dialogueState must not be null."
         );
         history = List.copyOf(
                 Objects.requireNonNull(history, "history must not be null.")
         );
         conversationSummary = Objects.requireNonNull(
-                conversationSummary,
-                "conversationSummary must not be null."
+                conversationSummary, "conversationSummary must not be null."
         );
 
         long previousSequence = 0;
         for (DialogueMessage message : history) {
-            Objects.requireNonNull(
-                    message,
-                    "history must not contain null messages."
-            );
+            Objects.requireNonNull(message, "history must not contain null messages.");
             if (message.sequenceNumber() <= previousSequence) {
                 throw new IllegalArgumentException(
                         "history must be ordered by strictly increasing sequence number."
+                );
+            }
+            if (message.sequenceNumber() >= currentMessageSequenceNumber) {
+                throw new IllegalArgumentException(
+                        "history messages must precede the current message."
                 );
             }
             previousSequence = message.sequenceNumber();
