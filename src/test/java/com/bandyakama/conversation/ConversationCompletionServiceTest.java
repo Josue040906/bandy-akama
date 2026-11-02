@@ -3,6 +3,8 @@ package com.bandyakama.conversation;
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
+import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
@@ -59,6 +61,40 @@ class ConversationCompletionServiceTest {
                 conversationId,
                 proposedState
         );
+    }
+
+    @Test
+    void capturesActiveObjectiveSnapshotAfterSuccessfulResponsePersistence() {
+        ConversationRepository repository = mock(ConversationRepository.class);
+        DialogueStateRepository dialogueRepository = mock(DialogueStateRepository.class);
+        TaskStateSnapshotRepository taskSnapshots = mock(TaskStateSnapshotRepository.class);
+        ConversationCompletionService service = new ConversationCompletionService(
+                repository, dialogueRepository, taskSnapshots
+        );
+        UUID conversationId = UUID.randomUUID();
+        UUID requestId = UUID.randomUUID();
+        UUID claimId = UUID.randomUUID();
+        ChatResponse response = new ChatResponse("Recherche terminée.", List.of());
+        DialogueState state = DialogueState.empty();
+        com.fasterxml.jackson.databind.JsonNode resumedState =
+                new ObjectMapper().createObjectNode().put("toolName", "search_agents");
+
+        service.complete(
+                conversationId,
+                requestId,
+                claimId,
+                response,
+                Optional.of(state),
+                Optional.of("objective-1"),
+                resumedState
+        );
+
+        InOrder order = inOrder(repository, dialogueRepository, taskSnapshots);
+        order.verify(repository).completeRequest(
+                conversationId, requestId, claimId, response, resumedState
+        );
+        order.verify(dialogueRepository).save(conversationId, state);
+        order.verify(taskSnapshots).capture(conversationId, "objective-1");
     }
 
     @Test
