@@ -1,6 +1,7 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.dialogue.DialogueStateManager;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.security.UserIdentity;
@@ -29,6 +30,9 @@ class ConversationServiceBudgetTest {
     void expiredTurnIsReportedAsTimeoutAndReleasesItsRequestClaim()
             throws Exception {
         ConversationRepository repository = mock(ConversationRepository.class);
+        ConversationCompletionService completionService =
+                mock(ConversationCompletionService.class);
+        DialogueStateManager dialogueStateManager = mock(DialogueStateManager.class);
         GeminiAssistant assistant = mock(GeminiAssistant.class);
         UUID claimId = UUID.randomUUID();
         when(repository.beginRequest(
@@ -70,8 +74,11 @@ class ConversationServiceBudgetTest {
                 repository,
                 assistant,
                 new ConversationIntentResolver(),
+                dialogueStateManager,
+                completionService,
                 new PerformanceTelemetry(),
-                100
+                100,
+                false
         );
 
         ResponseStatusException failure = assertThrows(
