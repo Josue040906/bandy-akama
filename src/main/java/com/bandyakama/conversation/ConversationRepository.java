@@ -1,13 +1,13 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.task.TaskStateManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -32,11 +32,6 @@ import java.util.UUID;
 
 @Repository
 public class ConversationRepository {
-    private static final Logger LOGGER =
-            LoggerFactory.getLogger(ConversationRepository.class);
-    private static final int MAX_CACHED_PROFILE_CHARACTERS = 8_000;
-    private static final int MAX_CACHED_PROFILES = 3;
-
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
@@ -62,13 +57,20 @@ public class ConversationRepository {
 
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
+    private final TaskStateManager taskStateManager;
     private final int recentMessages;
     private final int maxSummaryLength;
     private final int maxContextCharacters;
 
+    /**
+     * Spring constructor: JDBC concerns stay here while task-state rules are
+     * delegated to the dedicated application service.
+     */
+    @Autowired
     public ConversationRepository(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper,
+            TaskStateManager taskStateManager,
             @Value("${bandy.conversations.context.recent-messages:10}")
             int recentMessages,
             @Value("${bandy.conversations.context.max-summary-characters:4000}")
@@ -78,6 +80,10 @@ public class ConversationRepository {
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.taskStateManager = java.util.Objects.requireNonNull(
+                taskStateManager,
+                "taskStateManager must not be null."
+        );
         if (recentMessages < 8 || recentMessages > 10) {
             throw new IllegalArgumentException(
                     "La fenêtre d’historique doit contenir de 8 à 10 messages."
@@ -86,6 +92,27 @@ public class ConversationRepository {
         this.recentMessages = recentMessages;
         this.maxSummaryLength = maxSummaryLength;
         this.maxContextCharacters = maxContextCharacters;
+    }
+
+    /**
+     * Retained for direct repository construction in existing tests and
+     * migration utilities. Production wiring always uses the Spring constructor.
+     */
+    public ConversationRepository(
+            JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper,
+            int recentMessages,
+            int maxSummaryLength,
+            int maxContextCharacters
+    ) {
+        this(
+                jdbcTemplate,
+                objectMapper,
+                new TaskStateManager(objectMapper),
+                recentMessages,
+                maxSummaryLength,
+                maxContextCharacters
+        );
     }
 
     @Transactional
@@ -608,7 +635,7 @@ public class ConversationRepository {
         );
         updateMemory(
                 conversationId,
-                stateUpdates(response),
+                taskStateManager.updatesFor(response),
                 persistentToolResults,
                 response.resetConversationState()
         );
@@ -738,51 +765,15 @@ public class ConversationRepository {
                 ),
                 conversationId
         );
-        String state = memory.activeState();
-        state = clearConversationState
-                ? "{}"
-                : toJson(readStoredJson(state));
+        JsonNode previousState = readStoredJson(memory.activeState());
+        String state = toJson(taskStateManager.applyToolUpdates(
+                previousState,
+                toolStates,
+                clearConversationState
+        ));
         ArrayNode references = readArray(memory.resultReferences());
         if (clearConversationState) {
             references.removeAll();
-        }
-        for (ChatResponse.ToolState toolState : toolStates) {
-            JsonNode previousState = readStoredJson(state);
-            ObjectNode cachedProfiles = previousState.path("profiles").isObject()
-                    ? ((ObjectNode) previousState.path("profiles")).deepCopy()
-                    : objectMapper.createObjectNode();
-            ObjectNode nextState = toolState(
-                    toolState.name(),
-                    objectMapper.valueToTree(toolState.arguments())
-            );
-            if ("get_agent_profile".equals(toolState.name())
-                    && toolState.result() != null) {
-                JsonNode profile = objectMapper.valueToTree(toolState.result());
-                String serializedProfile = toJson(profile);
-                if (serializedProfile.length()
-                        <= MAX_CACHED_PROFILE_CHARACTERS) {
-                    cachedProfiles.set(
-                            profileCacheKey(toolState.arguments(), profile),
-                            profile
-                    );
-                    while (cachedProfiles.size() > MAX_CACHED_PROFILES) {
-                        cachedProfiles.remove(
-                                cachedProfiles.fieldNames().next()
-                        );
-                    }
-                } else {
-                    LOGGER.warn(
-                            "Assistant profile cache skipped because the result "
-                                    + "exceeded {} characters (actual: {}).",
-                            MAX_CACHED_PROFILE_CHARACTERS,
-                            serializedProfile.length()
-                    );
-                }
-            }
-            if (!cachedProfiles.isEmpty()) {
-                nextState.set("profiles", cachedProfiles);
-            }
-            state = toJson(nextState);
         }
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             ObjectNode reference = objectMapper.createObjectNode();
@@ -830,21 +821,6 @@ public class ConversationRepository {
                 summarizedThrough,
                 conversationId
         );
-    }
-
-    private List<ChatResponse.ToolState> stateUpdates(ChatResponse response) {
-        if (!response.toolStates().isEmpty()) {
-            return response.toolStates();
-        }
-        return response.toolResults().stream()
-                .map(result -> new ChatResponse.ToolState(
-                        result.name(),
-                        result.arguments(),
-                        "get_agent_profile".equals(result.name())
-                                ? result.result()
-                                : null
-                ))
-                .toList();
     }
 
     private String appendSummary(String summary, String message) {
@@ -1182,7 +1158,10 @@ public class ConversationRepository {
             JsonNode metadata = message.metadata();
             String name = metadata.path("name").asText("");
             JsonNode arguments = metadata.path("arguments");
-            state = toJson(toolState(name, arguments));
+            state = toJson(taskStateManager.fromHistoricalToolResult(
+                    name,
+                    arguments
+            ));
 
             ObjectNode reference = objectMapper.createObjectNode();
             reference.put("toolName", name);
@@ -1224,33 +1203,6 @@ public class ConversationRepository {
                 summarizedThrough,
                 conversationId
         );
-    }
-
-    private ObjectNode toolState(String name, JsonNode arguments) {
-        ObjectNode state = objectMapper.createObjectNode();
-        state.put("intent", "TOOL_CALL");
-        state.put("toolName", name);
-        state.set("arguments", arguments);
-        JsonNode criteriaJson = arguments.path("criteriaJson");
-        if (criteriaJson.isTextual()) {
-            try {
-                state.set("criteria", objectMapper.readTree(criteriaJson.textValue()));
-            } catch (JsonProcessingException invalidToolInput) {
-                state.put("criteriaText", criteriaJson.textValue());
-            }
-        }
-        return state;
-    }
-
-    private String profileCacheKey(
-            Map<String, Object> arguments,
-            JsonNode profile
-    ) {
-        String matricule = profile.path("agent").path("matricule").asText("");
-        String identity = matricule.isBlank()
-                ? String.valueOf(arguments.getOrDefault("nom_agent", ""))
-                : matricule;
-        return identity.trim().toLowerCase(java.util.Locale.ROOT);
     }
 
     private ChatResponse readSavedResponse(
