@@ -266,11 +266,12 @@ public class ConversationService {
                 measured(
                         requestId,
                         "response_persistence",
-                        () -> repository.completeRequest(
+                        () -> completionService.complete(
                                 conversationId,
                                 requestId,
                                 request.claimId(),
-                                response
+                                response,
+                                java.util.Optional.empty()
                         )
                 );
                 return response;
