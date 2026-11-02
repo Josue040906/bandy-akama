@@ -1,5 +1,19 @@
 -- Per-parameter continuation semantics. Existing parameters keep REPLACE
 -- so the migration does not silently change established tool behavior.
+-- Some legacy deployments were baselined before the tool catalog migration.
+-- Ensure the parameter table exists before adding its continuation metadata.
+CREATE TABLE IF NOT EXISTS bandy_tool_parameter (
+    tool_name VARCHAR(64) NOT NULL REFERENCES bandy_tool(name) ON DELETE CASCADE,
+    name VARCHAR(64) NOT NULL,
+    type VARCHAR(20) NOT NULL,
+    description VARCHAR(1000) NOT NULL,
+    location VARCHAR(10),
+    required BOOLEAN NOT NULL DEFAULT FALSE,
+    position INTEGER NOT NULL,
+    PRIMARY KEY (tool_name, name),
+    UNIQUE (tool_name, position)
+);
+
 ALTER TABLE bandy_tool_parameter
     ADD COLUMN IF NOT EXISTS merge_strategy VARCHAR(20) NOT NULL DEFAULT 'REPLACE';
 
