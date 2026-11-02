@@ -9,6 +9,10 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 
 import java.sql.ResultSet;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import org.springframework.jdbc.core.ConnectionCallback;
+import org.mockito.ArgumentCaptor;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class TaskStateSnapshotRepositoryTest {
@@ -77,6 +82,51 @@ class TaskStateSnapshotRepositoryTest {
                 .path("arguments").isEmpty());
         assertFalse(snapshot.resultReferences().get(0).has("result"));
         assertEquals("STALE", snapshot.freshness().get(0).path("status").asText());
+    }
+
+    @Test
+    void selectsPostgresOnConflictUpsertWhenRunningOnPostgresql() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        ObjectMapper mapper = new ObjectMapper();
+        TaskStateSnapshotRepository postgresRepository =
+                new TaskStateSnapshotRepository(jdbc, mapper);
+        Connection connection = mock(Connection.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("PostgreSQL");
+        when(jdbc.execute(any(ConnectionCallback.class))).thenAnswer(invocation -> {
+            ConnectionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInConnection(connection);
+        });
+        when(jdbc.queryForObject(
+                anyString(),
+                any(RowMapper.class),
+                any(Object[].class)
+        )).thenAnswer(invocation -> {
+            RowMapper<?> rowMapper = invocation.getArgument(1);
+            ResultSet resultSet = mock(ResultSet.class);
+            when(resultSet.getString("active_state"))
+                    .thenReturn("{\\"toolName\\":\\"search_agents\\","
+                            + "\\"arguments\\":{\\"criteriaJson\\":\\"{\\\\"
+                            + "\\\"filters\\\\":[{\\\\"
+                            + "\\\"field\\\\":\\\\"
+                            + "\\\"service\\\\",\\\\"
+                            + "\\\"operator\\\\":\\\\"
+                            + "\\\"EQ\\\\",\\\\"
+                            + "\\\"value\\\\":\\\\"
+                            + "\\\"Informatique\\\\"
+                            + "\\\\"}]}\\"}}");
+            when(resultSet.getString("result_references")).thenReturn("[]");
+            return rowMapper.mapRow(resultSet, 0);
+        });
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+
+        postgresRepository.capture(UUID.randomUUID(), "objective-postgres");
+
+        ArgumentCaptor<String> sql = ArgumentCaptor.forClass(String.class);
+        verify(jdbc).update(sql.capture(), any(Object[].class));
+        assertTrue(sql.getValue().contains("ON CONFLICT (conversation_id, objective_id)"));
+        assertTrue(sql.getValue().contains("DO UPDATE SET"));
     }
 
     private void stubSnapshotRow(
