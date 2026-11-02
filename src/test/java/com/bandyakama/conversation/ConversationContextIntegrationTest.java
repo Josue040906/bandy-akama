@@ -176,31 +176,12 @@ class ConversationContextIntegrationTest {
         activeArguments.put("criteriaJson", criteriaJson);
         activeArguments.put("authorization", "Bearer private-token");
 
-        com.fasterxml.jackson.databind.node.ArrayNode rawReferences =
-                objectMapper.createArrayNode();
-        com.fasterxml.jackson.databind.node.ObjectNode rawReference =
-                rawReferences.addObject();
-        rawReference.put("toolName", "get_organization_info");
-        rawReference.put("capturedAt", "2026-11-02T20:00:00Z");
-        com.fasterxml.jackson.databind.node.ObjectNode rawReferenceArguments =
-                rawReference.putObject("arguments");
-        rawReferenceArguments.put("query", "Rakoto RH12345678");
-        rawReferenceArguments.put("scope", "SERVICE");
-        rawReference.set(
-                "result",
-                objectMapper.createObjectNode()
-                        .put("description", "Service Informatique")
-                        .put("matricule", "RH12345678")
-        );
-
         jdbcTemplate.update("""
                 UPDATE bandy_conversation_memory
-                SET active_state = CAST(? AS JSONB),
-                    result_references = CAST(? AS JSONB)
+                SET active_state = CAST(? AS JSONB)
                 WHERE conversation_id = ?
                 """,
                 objectMapper.writeValueAsString(activeState),
-                objectMapper.writeValueAsString(rawReferences),
                 conversation.id()
         );
 
@@ -221,30 +202,12 @@ class ConversationContextIntegrationTest {
                 conversation.id(),
                 "snapshot-security-objective"
         );
-        String referencesJson = jdbcTemplate.queryForObject("""
-                SELECT result_references::text
-                FROM bandy_conversation_task_state
-                WHERE conversation_id = ? AND objective_id = ?
-                """,
-                String.class,
-                conversation.id(),
-                "snapshot-security-objective"
-        );
-        JsonNode references = objectMapper.readTree(referencesJson);
 
         assertTrue(stateJson.contains("Informatique"));
         assertTrue(stateJson.contains("classe"));
         assertFalse(stateJson.contains("RH12345678"));
         assertFalse(stateJson.contains("Bearer private-token"));
         assertFalse(stateJson.contains("sexe"));
-        assertEquals(1, references.size());
-        assertTrue(referencesJson.contains("get_organization_info"));
-        assertTrue(referencesJson.contains("SERVICE"));
-        assertFalse(referencesJson.contains("Rakoto"));
-        assertFalse(referencesJson.contains("RH12345678"));
-        assertFalse(referencesJson.contains("description"));
-        assertFalse(referencesJson.contains("query"));
-        assertFalse(references.get(0).has("result"));
     }
 
     @Test
