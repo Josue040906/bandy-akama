@@ -3,6 +3,7 @@ package com.bandyakama.conversation.dialogue;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -28,7 +29,33 @@ class DialogueStateManagerTest {
     void restoresPersistedStateBeforeResolvingTheIncomingMessage() {
         UUID conversationId = UUID.randomUUID();
         DialogueState persistedState = DialogueState.empty();
-        ContextResolution expectedResolution = mock(ContextResolution.class);
+        Instant now = Instant.parse("2026-11-02T10:00:00Z");
+        DialogueObjective objective = new DialogueObjective(
+                "objective-1",
+                "Préparer un rapport",
+                "Préparation d'un rapport.",
+                DialogueObjectiveStatus.ACTIVE,
+                null,
+                now,
+                now,
+                List.of()
+        );
+        DialogueState proposedState = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                objective.id(),
+                List.of(objective),
+                null
+        );
+        ContextResolution expectedResolution = new ContextResolution(
+                new ContextDecision(
+                        DialogueRelation.NEW_TASK,
+                        null,
+                        "Nouvel objectif indépendant.",
+                        null
+                ),
+                InterpretationConfidence.HIGH,
+                proposedState
+        );
         List<DialogueMessage> history = List.of(
                 new DialogueMessage(
                         1,
