@@ -1,7 +1,7 @@
 package com.bandyakama.conversation;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -10,238 +10,76 @@ class ConversationIntentResolverTest {
     private final ConversationIntentResolver resolver =
             new ConversationIntentResolver();
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final com.fasterxml.jackson.databind.JsonNode activeState =
-            objectMapper.createObjectNode().put("toolName", "searchEmployees");
+    private final JsonNode activeState =
+            objectMapper.createObjectNode().put("toolName", "lookup_records");
 
     @Test
-    void classifiesSameDepartmentAndFilterFollowUpsAsContinuation() {
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Maintenant, cherche celles de moins de 30 ans dans la même direction.",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Et les hommes ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Montre leurs matricules.", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Affiche les agents trouvés.", activeState)
-        );
-    }
-
-    @Test
-    void keepsApproximateSearchWhenExplicitlyRetainingAndFilteringIt() {
-        JsonNode approximateSearch = objectMapper.createObjectNode()
-                .put("toolName", "searchEmployeesApproximately");
-
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Garde la recherche de Hery RANDRIAKOTOMANGA et limite "
-                                + "les candidats au service du Budget.",
-                        approximateSearch
-                )
-        );
-    }
-
-    @Test
-    void treatsCorrectedAgentIdentityAsAContinuationOfProfileLookup() {
-        JsonNode profileLookup = objectMapper.createObjectNode()
-                .put("toolName", "get_agent_profile");
-
-        for (String correction : new String[]{
-                "Il s'appelle TSIVOERY Josué Césaire",
-                "Elle s’appelle Mialy RAKOTO",
-                "Je crois qu’on l’appelle TSIVOERY Josué Césaire",
-                "Je crois qu'il s'appelle TSIVOERY Josué Césaire",
-                "On l’appelle TSIVOERY Josué Césaire",
-                "Son nom complet est TSIVOERY Josué Césaire",
-                "Matricule : AG-123"
-        }) {
-            assertEquals(
-                    ConversationIntentResolver.Decision.CONTINUATION,
-                    resolver.resolve(correction, profileLookup),
-                    correction
-            );
-        }
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Il s'appelle TSIVOERY Josué Césaire",
-                        activeState
-                )
-        );
-    }
-
-    @Test
-    void classifiesQuestionsAboutTheLoadedAgentAsProfileContinuations() {
-        JsonNode profileLookup = objectMapper.createObjectNode()
-                .put("toolName", "get_agent_profile");
-
+    void recognizesGenericFollowUpsAcrossDifferentToolDomains() {
         for (String followUp : new String[]{
-                "Parle-moi de son parcours académique.",
-                "Quels diplômes a-t-il ?",
-                "Et son âge ?",
-                "Son poste actuel",
-                "Parcours académique",
-                "Sait-tu à quelle catégorie il appartient",
-                "À quel corps appartient-il ?",
-                "Quel est son statut ?",
-                "Explique-moi sa situation professionnelle.",
-                "Quelles sont ses responsabilités actuelles ?",
-                "Et concernant son ancienneté ?"
+                "Et ajoute une comparaison par région.",
+                "Peux-tu préciser ?",
+                "Je voulais dire le trimestre précédent.",
+                "En fait, utilise la période de janvier.",
+                "Et celui de l'année dernière ?",
+                "Montre leurs résultats.",
+                "Ensuite, détaille cette partie."
         }) {
             assertEquals(
                     ConversationIntentResolver.Decision.CONTINUATION,
-                    resolver.resolve(followUp, profileLookup),
+                    resolver.resolve(followUp, activeState),
                     followUp
             );
         }
-
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Changeons de sujet : explique la comptabilité.",
-                        profileLookup
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Maintenant, cherche les agents du service financier.",
-                        profileLookup
-                )
-        );
     }
 
     @Test
-    void startsIndependentRequestsAndKeepsUnclassifiedMessagesInContext() {
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Explique la structure du Service du Personnel.",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Recherche les agents du Service Financier.",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Maintenant, explique la structure du Service du Personnel.",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Maintenant, cherche les hommes du Service Financier.",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Et ensuite ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Sait-tu à quelle catégorie il appartient ?",
-                        activeState
-                )
-        );
+    void recognizesCorrectionsWithoutKnowingTheToolOrItsArguments() {
+        for (String correction : new String[]{
+                "Je crois que la référence correcte est DOC-204.",
+                "Correction : utilise la deuxième version.",
+                "Plus précisément, la période doit commencer en avril.",
+                "Je me suis trompé, je voulais dire le rapport trimestriel."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.CONTINUATION,
+                    resolver.resolve(correction, activeState),
+                    correction
+            );
+        }
     }
 
     @Test
-    void treatsAnExplicitlyDifferentOrganizationAsANewSearch() throws Exception {
-        JsonNode state = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployees",
-                  "criteria": {
-                    "filters": [
-                      {
-                        "field": "direction",
-                        "operator": "EQ",
-                        "value": "Direction Générale de l'Administration"
-                      },
-                      {
-                        "field": "sexe",
-                        "operator": "EQ",
-                        "value": "F"
-                      }
-                    ]
-                  }
-                }
-                """);
-
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Cherche les hommes dans le Service du Personnel.",
-                        state
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Et les hommes ?", state)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Maintenant, cherche celles dans la même direction.",
-                        state
-                )
-        );
-    }
-
-    @Test
-    void classifiesPersonalProfileQuestionsAsIndependentIntents() {
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve("Que sais-tu sur moi ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve("Parle-moi de ma carrière.", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve("Qu'est ce que tu sais sur moi ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve("Que sais tu de moi ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve("Connais tu un certain Josié TSIVOARY ?", activeState)
-        );
-    }
-
-    @Test
-    void acceptsAnExplicitNewQuestionAfterRequestingClarification() {
-        for (String answer : new String[]{
-                "Une nouvelle question",
-                "Je veux poser une nouvelle question",
-                "Nouvelle question",
-                "Changeons de sujet"
+    void startsIndependentRequestsAcrossDifferentDomains() {
+        for (String independentRequest : new String[]{
+                "Explique la comptabilité.",
+                "Recherche les factures impayées.",
+                "Prépare un rapport de ventes.",
+                "Compare les performances des deux projets.",
+                "Que sais-tu sur moi ?",
+                "Parle-moi de ma formation."
         }) {
             assertEquals(
                     ConversationIntentResolver.Decision.NEW_INTENT,
-                    resolver.resolve(answer, activeState),
-                    answer
+                    resolver.resolve(independentRequest, activeState),
+                    independentRequest
+            );
+        }
+    }
+
+    @Test
+    void explicitTopicChangesAlwaysStartANewIntent() {
+        for (String topicChange : new String[]{
+                "Une nouvelle question",
+                "Je veux poser une nouvelle question",
+                "Changeons de sujet.",
+                "Passons à autre chose.",
+                "Rien à voir avec le sujet précédent.",
+                "Sans rapport : explique les bases de la cryptographie."
+        }) {
+            assertEquals(
+                    ConversationIntentResolver.Decision.NEW_INTENT,
+                    resolver.resolve(topicChange, activeState),
+                    topicChange
             );
         }
         assertEquals(
@@ -253,38 +91,37 @@ class ConversationIntentResolverTest {
     }
 
     @Test
-    void distinguishesIndependentRequestsFromQuestionsAboutTheLoadedProfile() {
-        JsonNode profileLookup = objectMapper.createObjectNode()
-                .put("toolName", "get_agent_profile");
-
-        for (String independentRequest : new String[]{
-                "Explique la comptabilité.",
-                "Présente le système de gestion des ressources humaines.",
-                "Présente le système de gestion et ses principes.",
-                "Décris le fonctionnement du recrutement."
+    void doesNotReuseStateWhenTheFallbackCannotEstablishAReference() {
+        for (String ambiguousMessage : new String[]{
+                "Le calendrier.",
+                "Un autre document.",
+                "La semaine prochaine."
         }) {
             assertEquals(
                     ConversationIntentResolver.Decision.NEW_INTENT,
-                    resolver.resolve(independentRequest, profileLookup),
-                    independentRequest
-            );
-        }
-
-        for (String profileFollowUp : new String[]{
-                "Explique sa situation professionnelle.",
-                "Présente ses diplômes.",
-                "Décris son parcours académique."
-        }) {
-            assertEquals(
-                    ConversationIntentResolver.Decision.CONTINUATION,
-                    resolver.resolve(profileFollowUp, profileLookup),
-                    profileFollowUp
+                    resolver.resolve(ambiguousMessage, activeState),
+                    ambiguousMessage
             );
         }
     }
 
     @Test
-    void keepsActiveSearchStateWhenTheUserSendsOnlyAGreeting() {
+    void treatsMessagesWithoutAnActiveToolStateAsNewIntents() {
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve("Et ajoute une comparaison.", null)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Continue.",
+                        objectMapper.createObjectNode()
+                )
+        );
+    }
+
+    @Test
+    void keepsActiveStateForAStandaloneGreeting() {
         assertEquals(
                 ConversationIntentResolver.Decision.CONTINUATION,
                 resolver.resolve("Bonjour Bandy !", activeState)
@@ -306,7 +143,7 @@ class ConversationIntentResolverTest {
         assertEquals(
                 java.util.Optional.empty(),
                 ConversationIntentResolver.greetingResponse(
-                        "Bonjour, cherche les agentes."
+                        "Bonjour, prépare un rapport de ventes."
                 )
         );
     }
