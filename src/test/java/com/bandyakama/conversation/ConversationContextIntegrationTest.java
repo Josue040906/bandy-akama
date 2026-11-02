@@ -13,6 +13,9 @@ import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 
@@ -43,6 +46,12 @@ class ConversationContextIntegrationTest {
 
     @Autowired
     private DialogueStateRepository dialogueStateRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @MockBean
     private DialogueInterpreter dialogueInterpreter;
@@ -132,6 +141,100 @@ class ConversationContextIntegrationTest {
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
         );
+    }
+
+    @Test
+    void persistsOnlyAllowlistedCriteriaAndSafeReferenceMetadataInTaskSnapshot()
+            throws Exception {
+        UserIdentity identity = new UserIdentity("snapshot-security-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(),
+                identity.ownerId()
+        );
+        String criteriaJson = """
+                {"filters":[
+                  {"field":"service","operator":"EQ","value":"Informatique"},
+                  {"field":"classe","operator":"EQ","value":10},
+                  {"field":"sexe","operator":"EQ","value":"M"},
+                  {"field":"matricule","operator":"EQ","value":"RH12345678"}
+                ]}
+                """.replace("\\n", "");
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenReturn(new ContextInterpretationProposal(
+                        DialogueRelation.NEW_TASK,
+                        null,
+                        "Nouvelle recherche.",
+                        null,
+                        InterpretationConfidence.HIGH,
+                        "Recherche d'agents",
+                        "Recherche d'agents par critères professionnels.",
+                        List.of()
+                ));
+        when(assistant.respond(
+                anyString(),
+                nullable(String.class),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Recherche préparée.",
+                List.of(new ChatResponse.ToolResult(
+                        "get_organization_info",
+                        java.util.Map.of("description", "Service Informatique"),
+                        java.util.Map.of(
+                                "query", "Rakoto RH12345678",
+                                "scope", "SERVICE"
+                        )
+                )),
+                conversation.id(),
+                false,
+                List.of(new ChatResponse.ToolState(
+                        "search_agents",
+                        java.util.Map.of(
+                                "criteriaJson", criteriaJson,
+                                "authorization", "Bearer private-token"
+                        )
+                ))
+        ));
+
+        conversationService.sendMessage(
+                conversation.id(),
+                identity,
+                "Cherche les agents du service informatique.",
+                null,
+                UUID.randomUUID()
+        );
+
+        String stateJson = jdbcTemplate.queryForObject("""
+                SELECT operational_state::text
+                FROM bandy_conversation_task_state
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversation.id()
+        );
+        String referencesJson = jdbcTemplate.queryForObject("""
+                SELECT result_references::text
+                FROM bandy_conversation_task_state
+                WHERE conversation_id = ?
+                """,
+                String.class,
+                conversation.id()
+        );
+        JsonNode state = objectMapper.readTree(stateJson);
+        JsonNode references = objectMapper.readTree(referencesJson);
+
+        assertTrue(stateJson.contains("Informatique"));
+        assertTrue(stateJson.contains("classe"));
+        assertFalse(stateJson.contains("RH12345678"));
+        assertFalse(stateJson.contains("Bearer private-token"));
+        assertFalse(stateJson.contains("\\"sexe\\""));
+        assertEquals(1, references.size());
+        assertTrue(referencesJson.contains("SERVICE"));
+        assertFalse(referencesJson.contains("Rakoto"));
+        assertFalse(referencesJson.contains("RH12345678"));
+        assertFalse(referencesJson.contains("description"));
+        assertFalse(references.get(0).has("result"));
     }
 
     @Test
