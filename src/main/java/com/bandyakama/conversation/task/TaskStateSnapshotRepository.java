@@ -192,17 +192,24 @@ public class TaskStateSnapshotRepository {
     private ArrayNode sanitizeReferences(ArrayNode source) {
         ArrayNode safe = objectMapper.createArrayNode();
         for (JsonNode reference : source) {
-            if (reference == null || !reference.isObject()) {
-                continue;
-            }
             ObjectNode item = objectMapper.createObjectNode();
-            String toolName = reference.path("toolName").asText("");
+            String toolName = reference == null || !reference.isObject()
+                    ? "" : reference.path("toolName").asText("");
             item.put("toolName", toolName);
             item.set(
                     "arguments",
-                    sanitizer.sanitizeArguments(toolName, reference.path("arguments"))
+                    sanitizer.sanitizeArguments(
+                            toolName,
+                            reference == null || !reference.isObject()
+                                    ? objectMapper.createObjectNode()
+                                    : reference.path("arguments")
+                    )
             );
-            item.put("capturedAt", reference.path("capturedAt").asText(""));
+            item.put(
+                    "capturedAt",
+                    reference == null || !reference.isObject()
+                            ? "" : reference.path("capturedAt").asText("")
+            );
             safe.add(item);
         }
         return safe;
