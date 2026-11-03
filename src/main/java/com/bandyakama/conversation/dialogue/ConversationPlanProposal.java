@@ -132,8 +132,23 @@ public record ConversationPlanProposal(
             String summary,
             EntityReference parent,
             List<EntityReference> dependsOn,
-            List<ProposedDialogueReference> referenceMentions
+            List<ProposedDialogueReference> referenceMentions,
+            String clarificationId
     ) {
+        public Operation(
+                String operationId,
+                OperationType type,
+                String targetObjectiveId,
+                String goal,
+                String summary,
+                EntityReference parent,
+                List<EntityReference> dependsOn,
+                List<ProposedDialogueReference> referenceMentions
+        ) {
+            this(operationId, type, targetObjectiveId, goal, summary, parent,
+                    dependsOn, referenceMentions, null);
+        }
+
         public Operation {
             operationId = requireText(operationId, "operationId");
             type = Objects.requireNonNull(type, "type must not be null.");
@@ -154,6 +169,16 @@ public record ConversationPlanProposal(
             }
             if (summary != null && summary.isBlank()) {
                 throw new IllegalArgumentException("summary must be null or non-blank.");
+            }
+            if (clarificationId != null && clarificationId.isBlank()) {
+                throw new IllegalArgumentException(
+                        "clarificationId must be null or non-blank."
+                );
+            }
+            if (type != OperationType.ANSWER_CLARIFICATION && clarificationId != null) {
+                throw new IllegalArgumentException(
+                        "clarificationId is only valid for ANSWER_CLARIFICATION."
+                );
             }
 
             switch (type) {
