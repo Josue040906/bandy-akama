@@ -282,159 +282,15 @@ public class ConversationService {
                             turnContext.conversationSummary()
                     )
             );
-            if (contextResolution.isPlanBased()) {
-                return processPlanTurn(
-                        conversationId, requestId, request, message, authorization,
-                        tokenConsumer, contextResolution
+            if (!contextResolution.isPlanBased()) {
+                throw new IllegalStateException(
+                        "Le moteur conversationnel doit fournir un plan validé."
                 );
             }
-            relation = contextResolution.decision().relation();
-            if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
-                ChatResponse clarification = new ChatResponse(
-                        contextResolution.decision().clarificationQuestion(),
-                        java.util.List.of(),
-                        conversationId
-                );
-                ContextResolution resolvedClarification = contextResolution;
-                measured(
-                        requestId,
-                        "response_persistence",
-                        () -> completionService.complete(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                clarification,
-                                java.util.Optional.of(resolvedClarification.proposedState()),
-                                java.util.Optional.ofNullable(
-                                        resolvedClarification.proposedState().activeObjectiveId()
-                                ),
-                                null
-                        )
-                );
-                return clarification;
-            }
-
-            resetState = taskStateManager.resetsOperationalState(relation);
-            JsonNode resumedStateOverride = null;
-            TaskStateSnapshotRepository.Snapshot resumedSnapshot = null;
-            if (relation == DialogueRelation.TOPIC_RESUMPTION
-                    && taskStateSnapshotRepository != null) {
-                java.util.Optional<TaskStateSnapshotRepository.Snapshot> loadedSnapshot =
-                        taskStateSnapshotRepository.load(
-                                conversationId,
-                                contextResolution.decision().targetObjectiveId()
-                        );
-                resumedSnapshot = loadedSnapshot.orElse(null);
-                resumedStateOverride = loadedSnapshot
-                        .map(TaskStateSnapshotRepository.Snapshot::operationalState)
-                        .orElse(null);
-            }
-            stateForRequest = relation == DialogueRelation.TOPIC_RESUMPTION
-                    ? taskStateManager.forDialogueRelation(relation, resumedStateOverride)
-                    : taskStateManager.forDialogueRelation(relation, request.activeState());
-            if (relation == DialogueRelation.SOCIAL_TURN
-                    || relation == DialogueRelation.NEW_TOPIC_REQUEST
-                    || relation == DialogueRelation.TASK_COMPLETION) {
-                String text = switch (relation) {
-                    case SOCIAL_TURN -> greetingText(message);
-                    case NEW_TOPIC_REQUEST -> "Bien sûr. Quelle est votre nouvelle question ?";
-                    case TASK_COMPLETION -> "D'accord, cet objectif est maintenant marqué comme terminé. "
-                            + "Vous pouvez commencer un nouvel objectif ou reprendre un objectif suspendu.";
-                    default -> throw new IllegalStateException(
-                            "Unexpected dialogue control relation: " + relation
-                    );
-                };
-                ChatResponse controlResponse = new ChatResponse(
-                        text, java.util.List.of(), conversationId
-                ).withConversationStateReset(resetState);
-                measured(
-                        requestId,
-                        "response_persistence",
-                        () -> completionService.complete(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                controlResponse,
-                                java.util.Optional.of(contextResolution.proposedState()),
-                                java.util.Optional.ofNullable(
-                                        contextResolution.proposedState().activeObjectiveId()
-                                ),
-                                null
-                        )
-                );
-                return controlResponse;
-            }
-            decisionInstruction = " — Décision de dialogue de Bandy : "
-                    + relation.name()
-                    + ". Raison : "
-                    + contextResolution.decision().rationale()
-                    + ". Utilise l'historique et les objectifs fournis comme contexte, "
-                    + "mais ne réutilise aucun résultat opérationnel si l'état transmis "
-                    + "est absent."
-                    + (relation == DialogueRelation.TOPIC_RESUMPTION
-                    ? " Les critères restaurés proviennent d'une sauvegarde d'objectif. "
-                            + "Les anciens résultats ne sont volontairement pas transmis "
-                            + "car leur fraîcheur n'est pas vérifiée. Relance les outils "
-                            + "nécessaires avant d'affirmer un résultat."
-                            + staleResultRefreshHints(resumedSnapshot)
-                    : "");
-
-            JsonNode operationalState = stateForRequest;
-            boolean includeResultReferences = operationalState != null
-                    && relation != DialogueRelation.TOPIC_RESUMPTION;
-            String classifiedContext = measured(
-                    requestId,
-                    "context_preparation",
-                    () -> repository.contextForModelRequest(
-                            conversationId,
-                            requestId,
-                            operationalState,
-                            includeResultReferences
-                    )
-            ) + decisionInstruction;
-            java.util.Optional<com.bandyakama.conversation.dialogue.DialogueState>
-                    proposedDialogueState = java.util.Optional.of(
-                            contextResolution.proposedState()
-                    );
-            ChatResponse response = measured(
-                    requestId,
-                    "assistant_turn",
-                    () -> tokenConsumer == null
-                            ? assistant.respond(
-                                    message,
-                                    authorization,
-                                    classifiedContext,
-                                    requestId,
-                                    stateForRequest
-                            )
-                            : assistant.respond(
-                                    message,
-                                    authorization,
-                                    classifiedContext,
-                                    requestId,
-                                    stateForRequest,
-                                    tokenConsumer
-                            )
+            return processPlanTurn(
+                    conversationId, requestId, request, message, authorization,
+                    tokenConsumer, contextResolution
             );
-            ChatResponse completedResponse = response.withConversationId(conversationId)
-                    .withConversationStateReset(resetState);
-            measured(
-                    requestId,
-                    "response_persistence",
-                    () -> completionService.complete(
-                            conversationId,
-                            requestId,
-                            request.claimId(),
-                            completedResponse,
-                            proposedDialogueState,
-                            java.util.Optional.ofNullable(
-                                    contextResolution.proposedState().activeObjectiveId()
-                            ),
-                            relation == DialogueRelation.TOPIC_RESUMPTION
-                                    ? stateForRequest : null
-                    )
-            );
-            return completedResponse;
         } catch (RuntimeException failure) {
             boolean budgetExpired = RequestBudget.current()
                     .map(RequestBudget::isExpired)
@@ -714,16 +570,6 @@ public class ConversationService {
                     .append(", statut=STALE");
         }
         return hints.toString();
-    }
-
-    private String greetingText(String message) {
-        String normalized = java.text.Normalizer.normalize(
-                message.toLowerCase(java.util.Locale.ROOT),
-                java.text.Normalizer.Form.NFD
-        ).replaceAll("\\p{M}+", "").strip();
-        return normalized.startsWith("salama") || normalized.startsWith("manao ahoana")
-                ? "Salama ! Inona no azoko anampiana anao ?"
-                : "Bonjour ! Comment puis-je vous aider ?";
     }
 
     private <T> T measured(
