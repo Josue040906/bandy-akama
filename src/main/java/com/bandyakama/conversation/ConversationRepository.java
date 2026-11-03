@@ -828,16 +828,12 @@ public class ConversationRepository {
                 UPDATE bandy_conversation_memory
                 SET summary = ?, active_state = CAST(? AS JSONB),
                     result_references = CAST(? AS JSONB),
-                    dialogue_state = CAST(? AS JSONB),
                     summarized_through_sequence = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE conversation_id = ?
                 """,
                 summary,
                 state,
                 toJson(references),
-                recoveredDialogueState == null
-                        ? toJson(com.bandyakama.conversation.dialogue.DialogueState.empty())
-                        : toJson(recoveredDialogueState),
                 summarizedThrough,
                 conversationId
         );
@@ -1229,12 +1225,16 @@ public class ConversationRepository {
                 UPDATE bandy_conversation_memory
                 SET summary = ?, active_state = CAST(? AS JSONB),
                     result_references = CAST(? AS JSONB),
+                    dialogue_state = CAST(? AS JSONB),
                     summarized_through_sequence = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE conversation_id = ?
                 """,
                 summary,
                 state,
                 toJson(references),
+                recoveredDialogueState == null
+                        ? toJson(com.bandyakama.conversation.dialogue.DialogueState.empty())
+                        : toJson(recoveredDialogueState),
                 summarizedThrough,
                 conversationId
         );
