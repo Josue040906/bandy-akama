@@ -49,15 +49,92 @@ class DialogueModelTest {
     }
 
     @Test
-    void rejectsMoreThanOneActiveObjective() {
+    void allowsSeveralConcurrentActiveObjectivesAndKeepsOneConversationalFocus() {
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "objective-1",
+                List.of(
+                        objective("objective-1", DialogueObjectiveStatus.ACTIVE, null),
+                        objective("objective-2", DialogueObjectiveStatus.ACTIVE, null)
+                ),
+                null
+        );
+
+        assertEquals("objective-1", state.activeObjectiveId());
+        assertEquals(2, state.objectives().stream()
+                .filter(objective -> objective.status() == DialogueObjectiveStatus.ACTIVE)
+                .count());
+    }
+
+    @Test
+    void rejectsUnknownExecutionDependencies() {
+        DialogueObjective dependent = objective(
+                "dependent", DialogueObjectiveStatus.BLOCKED, null, List.of("missing")
+        );
+
         assertThrows(IllegalArgumentException.class, () ->
                 new DialogueState(
                         DialogueState.CURRENT_SCHEMA_VERSION,
-                        "objective-1",
-                        List.of(
-                                objective("objective-1", DialogueObjectiveStatus.ACTIVE, null),
-                                objective("objective-2", DialogueObjectiveStatus.ACTIVE, null)
-                        ),
+                        null,
+                        List.of(dependent),
+                        null
+                )
+        );
+    }
+
+    @Test
+    void rejectsExecutionDependencyCycles() {
+        DialogueObjective first = objective(
+                "first", DialogueObjectiveStatus.BLOCKED, null, List.of("second")
+        );
+        DialogueObjective second = objective(
+                "second", DialogueObjectiveStatus.BLOCKED, null, List.of("first")
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                new DialogueState(
+                        DialogueState.CURRENT_SCHEMA_VERSION,
+                        null,
+                        List.of(first, second),
+                        null
+                )
+        );
+    }
+
+    @Test
+    void preventsActivationBeforeExecutionPrerequisitesAreCompleted() {
+        DialogueObjective prerequisite = objective(
+                "prerequisite", DialogueObjectiveStatus.ACTIVE, null
+        );
+        DialogueObjective dependent = objective(
+                "dependent", DialogueObjectiveStatus.ACTIVE, null,
+                List.of("prerequisite")
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                new DialogueState(
+                        DialogueState.CURRENT_SCHEMA_VERSION,
+                        "dependent",
+                        List.of(prerequisite, dependent),
+                        null
+                )
+        );
+    }
+
+    @Test
+    void rejectsCyclesInObjectiveHierarchy() {
+        DialogueObjective first = objective(
+                "first", DialogueObjectiveStatus.BLOCKED, "second"
+        );
+        DialogueObjective second = objective(
+                "second", DialogueObjectiveStatus.BLOCKED, "first"
+        );
+
+        assertThrows(IllegalArgumentException.class, () ->
+                new DialogueState(
+                        DialogueState.CURRENT_SCHEMA_VERSION,
+                        null,
+                        List.of(first, second),
                         null
                 )
         );
@@ -195,6 +272,25 @@ class DialogueModelTest {
                 null
         );
         assertEquals("objective-older", resumed.targetObjectiveId());
+    }
+
+    private DialogueObjective objective(
+            String id,
+            DialogueObjectiveStatus status,
+            String parentId,
+            List<String> dependencies
+    ) {
+        return new DialogueObjective(
+                id,
+                "Comparer plusieurs éléments",
+                "L'utilisateur souhaite comparer des options.",
+                status,
+                parentId,
+                CREATED_AT,
+                CREATED_AT,
+                List.of(),
+                dependencies
+        );
     }
 
     private DialogueObjective objective(
