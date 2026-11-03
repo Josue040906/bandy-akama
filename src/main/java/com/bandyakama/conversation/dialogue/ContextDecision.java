@@ -11,6 +11,8 @@ import java.util.Objects;
  * @param rationale concise explanation suitable for diagnostics and tests
  * @param clarificationQuestion question to ask when the relation is ambiguous
  */
+/** @deprecated Superseded by validated multi-operation conversation plans. */
+@Deprecated(forRemoval = true)
 public record ContextDecision(
         DialogueRelation relation,
         String targetObjectiveId,
