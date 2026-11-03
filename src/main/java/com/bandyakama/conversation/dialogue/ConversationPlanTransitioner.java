@@ -67,19 +67,9 @@ public class ConversationPlanTransitioner {
                     );
                     objectives.put(id, created);
                     if (ready) {
-                        // An independent objective takes focus; the previous
-                        // active objective is suspended, not left active in parallel.
-                        if (operation.type()
-                                == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
-                                && focus != null && !focus.equals(id)) {
-                            DialogueObjective previous = objectives.get(focus);
-                            if (previous != null
-                                    && previous.status() == DialogueObjectiveStatus.ACTIVE) {
-                                objectives.put(focus, withStatus(
-                                        previous, DialogueObjectiveStatus.SUSPENDED, now
-                                ));
-                            }
-                        }
+                        // Creating an independent objective changes focus but
+                        // does not implicitly suspend another active objective.
+                        // Suspension is an explicit NEW_TOPIC_REQUEST operation.
                         focus = id;
                     }
                 }
@@ -99,9 +89,13 @@ public class ConversationPlanTransitioner {
                             nextStatus, references, now);
                     objectives.put(target.id(), updated);
                     if (nextStatus == DialogueObjectiveStatus.ACTIVE) {
-                        // Resuming an older objective transfers focus away from
-                        // the current one; never leave two ACTIVE objectives.
-                        if (focus != null && !focus.equals(target.id())) {
+                        // A standalone resume transfers the active focus. In a
+                        // multi-operation plan, other explicitly updated objectives
+                        // remain active; focus is a pointer, not a global mutex.
+                        if (plan.orderedOperations().size() == 1
+                                && operation.type()
+                                == ConversationPlanProposal.OperationType.RESUME_OBJECTIVE
+                                && focus != null && !focus.equals(target.id())) {
                             DialogueObjective previous = objectives.get(focus);
                             if (previous != null
                                     && previous.status() == DialogueObjectiveStatus.ACTIVE) {
