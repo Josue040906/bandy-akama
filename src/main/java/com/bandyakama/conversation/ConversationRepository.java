@@ -1212,6 +1212,10 @@ public class ConversationRepository {
 
             ObjectNode reference = objectMapper.createObjectNode();
             reference.put("toolName", name);
+            String objectiveId = metadata.path("objectiveId").asText("");
+            if (!objectiveId.isBlank()) {
+                reference.put("objectiveId", objectiveId);
+            }
             reference.set("arguments", arguments);
             try {
                 reference.set("result", objectMapper.readTree(message.content()));
