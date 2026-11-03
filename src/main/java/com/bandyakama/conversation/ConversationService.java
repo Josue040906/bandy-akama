@@ -510,6 +510,7 @@ public class ConversationService {
                             // explicitly continues the same objective. Focus identifiers
                             // alone are not a reliable proxy after state reconstruction.
                             continuesPreviousFocus && !restoreFocusSnapshot
+                                    && initialObjectiveStates.size() <= 1
                     )
             ) + planInstruction
                     + (clarificationText.isBlank() ? ""
