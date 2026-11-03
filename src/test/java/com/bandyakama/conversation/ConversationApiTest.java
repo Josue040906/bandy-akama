@@ -120,8 +120,13 @@ class ConversationApiTest {
                     );
                     if (greeting) {
                         relation = DialogueRelation.SOCIAL_TURN;
+                        // Non-task turns must not carry objective summary data.
+                        summary = null;
                     } else if (newTopic) {
                         relation = DialogueRelation.NEW_TOPIC_REQUEST;
+                        // The plan contract keeps topic-switch intent separate
+                        // from objective creation or continuation data.
+                        summary = null;
                     } else if (input.dialogueState().pendingClarification() != null
                             && !independent) {
                         relation = DialogueRelation.USER_CLARIFICATION;
