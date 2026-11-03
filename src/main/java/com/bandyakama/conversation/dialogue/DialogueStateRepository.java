@@ -109,5 +109,31 @@ public class DialogueStateRepository {
                     "Impossible de persister l’état de dialogue : mémoire absente."
             );
         }
+
+        /*
+         * Keep a recovery copy beside the completed assistant turn. The
+         * conversation memory row is a rebuildable projection and may be
+         * recreated; the append-only message history is the durable source.
+         * This update joins the surrounding completion transaction.
+         */
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_message
+                SET metadata = jsonb_set(
+                        COALESCE(metadata, '{}'::jsonb),
+                        '{dialogueState}',
+                        CAST(? AS JSONB),
+                        TRUE
+                )
+                WHERE id = (
+                    SELECT id
+                    FROM bandy_conversation_message
+                    WHERE conversation_id = ? AND role = 'ASSISTANT'
+                    ORDER BY sequence_number DESC
+                    LIMIT 1
+                )
+                """,
+                serialized,
+                conversationId
+        );
     }
 }
