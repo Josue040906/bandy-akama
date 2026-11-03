@@ -14,6 +14,34 @@ class DialogueStateSerializationTest {
             new ObjectMapper().findAndRegisterModules();
 
     @Test
+    void roundTripsIndependentDependenciesAndBlockedStatus() throws Exception {
+        Instant createdAt = Instant.parse("2026-11-03T06:00:00Z");
+        DialogueObjective prerequisite = new DialogueObjective(
+                "prerequisite", "Collecter les données", "Données requises.",
+                DialogueObjectiveStatus.ACTIVE, null, createdAt, createdAt,
+                List.of(), List.of()
+        );
+        DialogueObjective dependent = new DialogueObjective(
+                "dependent", "Rédiger la synthèse", "En attente des données.",
+                DialogueObjectiveStatus.BLOCKED, "prerequisite", createdAt, createdAt,
+                List.of(), List.of("prerequisite")
+        );
+        DialogueState expected = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "prerequisite",
+                List.of(prerequisite, dependent),
+                null
+        );
+
+        String serialized = objectMapper.writeValueAsString(expected);
+        DialogueState restored = objectMapper.readValue(
+                serialized, DialogueState.class
+        );
+
+        assertEquals(expected, restored);
+    }
+
+    @Test
     void readsLegacySnapshotsWithoutExecutionDependencyFields() throws Exception {
         String legacyJson = """
                 {
