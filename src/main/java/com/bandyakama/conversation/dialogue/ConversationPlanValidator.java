@@ -76,18 +76,22 @@ public class ConversationPlanValidator {
                                 pending.targetObjectiveId(), operation.targetObjectiveId()
                         )
         );
-        boolean onlyNonMutatingOrAnswer = proposal.operations().stream().allMatch(operation ->
+        boolean allowedWithoutAnswer = proposal.operations().stream().allMatch(operation ->
                 operation.type()
                         == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION
+                        || operation.type()
+                        == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
+                        || operation.type()
+                        == ConversationPlanProposal.OperationType.COMPLETE_OBJECTIVE
                         || operation.type()
                         == ConversationPlanProposal.OperationType.SOCIAL_TURN
                         || operation.type()
                         == ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST
         );
-        if (!answersPending && !onlyNonMutatingOrAnswer) {
+        if (!answersPending && (!allowedWithoutAnswer || !proposal.clarifications().isEmpty())) {
             throw invalid(
                     "Une clarification est en attente : le plan doit la résoudre "
-                            + "ou rester sans mutation d'objectif."
+                            + "avant d'introduire une nouvelle ambiguïté ou une modification liée."
             );
         }
     }
@@ -163,12 +167,19 @@ public class ConversationPlanValidator {
                         "ANSWER_CLARIFICATION doit cibler la clarification actuellement en attente."
                 );
             }
-            if (operation.targetObjectiveId() != null
-                    && !existing.containsKey(operation.targetObjectiveId())) {
-                throw invalid(
-                        "ANSWER_CLARIFICATION cible un objectif inexistant : "
-                                + operation.targetObjectiveId()
-                );
+            if (operation.targetObjectiveId() != null) {
+                DialogueObjective target = existing.get(operation.targetObjectiveId());
+                if (target == null) {
+                    throw invalid(
+                            "ANSWER_CLARIFICATION cible un objectif inexistant : "
+                                    + operation.targetObjectiveId()
+                    );
+                }
+                if (target.status() == DialogueObjectiveStatus.COMPLETED) {
+                    throw invalid(
+                            "Une clarification ne peut pas être résolue sur un objectif terminé."
+                    );
+                }
             }
             return;
         }
