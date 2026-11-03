@@ -1,6 +1,7 @@
 package com.bandyakama.conversation.dialogue;
 
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.HashMap;
 import java.util.List;
@@ -14,7 +15,11 @@ import java.util.Objects;
  * conversational focus, not a global lock. Clarifications are independent
  * unresolved questions and are retained until individually resolved.</p>
  */
-@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY,\n        getterVisibility = JsonAutoDetect.Visibility.NONE,\n        isGetterVisibility = JsonAutoDetect.Visibility.NONE)\npublic final class DialogueState {
+@JsonDeserialize(using = DialogueStateDeserializer.class)
+@JsonAutoDetect(fieldVisibility = JsonAutoDetect.Visibility.ANY,
+        getterVisibility = JsonAutoDetect.Visibility.NONE,
+        isGetterVisibility = JsonAutoDetect.Visibility.NONE)
+public final class DialogueState {
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
     private final int schemaVersion;
