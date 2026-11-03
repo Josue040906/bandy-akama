@@ -226,10 +226,22 @@ final class TaskStateSnapshotSanitizer {
         if (value.contains("@")) {
             return true;
         }
+        if (isIsoDate(value)) {
+            return false;
+        }
         String digits = value.replaceAll("\\D", "");
         if (digits.length() >= 8 && digits.length() <= 15) {
             return true;
         }
         return value.matches("(?i)^(?:matricule|cin|cni|nif)\\s*[:#-]?\\s*.+$");
+    }
+
+    private boolean isIsoDate(String value) {
+        try {
+            java.time.LocalDate.parse(value);
+            return true;
+        } catch (java.time.format.DateTimeParseException ignored) {
+            return false;
+        }
     }
 }
