@@ -1,6 +1,5 @@
 package com.bandyakama.conversation.dialogue;
 
-import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -13,7 +12,7 @@ import java.util.UUID;
  * Applies validated dialogue decisions to an immutable state snapshot.
  * It has no persistence or operational-tool-state responsibilities.
  */
-@Component
+@Deprecated(forRemoval = true)
 public class DialogueStateTransitioner {
     private final Clock clock;
 
