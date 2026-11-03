@@ -508,7 +508,7 @@ public class ConversationRepository {
                                 ? "user"
                                 : "assistant",
                         truncate(
-                                resultSet.getString("content"),
+                                redactSummaryIdentifiers(resultSet.getString("content")),
                                 MAX_RECENT_CONTENT_LENGTH
                         )
                 ),
@@ -560,7 +560,7 @@ public class ConversationRepository {
                                                 ? com.bandyakama.conversation.dialogue.DialogueMessage.Role.USER
                                                 : com.bandyakama.conversation.dialogue.DialogueMessage.Role.ASSISTANT,
                                         truncate(
-                                                resultSet.getString("content"),
+                                                redactSummaryIdentifiers(resultSet.getString("content")),
                                                 MAX_RECENT_CONTENT_LENGTH
                                         )
                                 ),
