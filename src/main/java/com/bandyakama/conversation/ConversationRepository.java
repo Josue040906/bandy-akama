@@ -457,7 +457,8 @@ public class ConversationRepository {
                 conversationId,
                 activeState,
                 includeResultReferences,
-                maxContextCharacters
+                maxContextCharacters,
+                null
         );
     }
 
@@ -466,6 +467,18 @@ public class ConversationRepository {
             UUID requestId,
             JsonNode activeState,
             boolean includeResultReferences
+    ) {
+        return contextForModelRequest(
+                conversationId, requestId, activeState, includeResultReferences, null
+        );
+    }
+
+    public String contextForModelRequest(
+            UUID conversationId,
+            UUID requestId,
+            JsonNode activeState,
+            boolean includeResultReferences,
+            String objectiveId
     ) {
         List<ConversationPromptContext.Message> history =
                 historyForRequest(conversationId, requestId);
@@ -483,7 +496,8 @@ public class ConversationRepository {
                 conversationId,
                 activeState,
                 includeResultReferences,
-                contextLimit
+                contextLimit,
+                objectiveId
         );
         return context
                 + ConversationPromptContext.marker()
@@ -872,7 +886,8 @@ public class ConversationRepository {
             UUID conversationId,
             JsonNode activeStateOverride,
             boolean includeResultReferences,
-            int contextCharacterLimit
+            int contextCharacterLimit,
+            String objectiveId
     ) {
         ContextMemory memory = jdbcTemplate.queryForObject("""
                         SELECT summary, result_references::text AS result_references
@@ -888,6 +903,16 @@ public class ConversationRepository {
         JsonNode resultReferences = includeResultReferences
                 ? readStoredJson(memory.resultReferences())
                 : objectMapper.createArrayNode();
+        if (includeResultReferences && objectiveId != null
+                && resultReferences != null && resultReferences.isArray()) {
+            ArrayNode scopedReferences = objectMapper.createArrayNode();
+            for (JsonNode reference : resultReferences) {
+                if (objectiveId.equals(reference.path("objectiveId").asText())) {
+                    scopedReferences.add(reference.deepCopy());
+                }
+            }
+            resultReferences = scopedReferences;
+        }
 
         StringBuilder context = new StringBuilder(
                 "Contexte conversationnel persistant. L’état structuré et les "
