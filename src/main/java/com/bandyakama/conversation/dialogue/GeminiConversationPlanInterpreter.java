@@ -24,7 +24,7 @@ import java.util.List;
  */
 @Component
 public class GeminiConversationPlanInterpreter implements ConversationPlanInterpreter {
-    private static final String SYSTEM_INSTRUCTION = """
+    static final String SYSTEM_INSTRUCTION = """
             Tu es un planificateur sémantique de dialogue. Tu ne réponds pas à
             l'utilisateur et tu n'exécutes aucune action. Tu décomposes le message
             courant en un plan structuré d'opérations conversationnelles génériques.
