@@ -282,6 +282,12 @@ public class ConversationService {
                             turnContext.conversationSummary()
                     )
             );
+            if (contextResolution.isPlanBased()) {
+                return processPlanTurn(
+                        conversationId, requestId, request, message, authorization,
+                        tokenConsumer, contextResolution
+                );
+            }
             relation = contextResolution.decision().relation();
             if (relation == DialogueRelation.NEEDS_CLARIFICATION) {
                 ChatResponse clarification = new ChatResponse(
@@ -460,6 +466,219 @@ public class ConversationService {
                     failure
             );
         }
+    }
+
+    /**
+     * Executes a validated multi-operation plan through the normal assistant
+     * and transactional completion pipeline. The plan is authoritative for
+     * objective transitions; the assistant receives every operation and the
+     * complete objective graph as context.
+     */
+    private ChatResponse processPlanTurn(
+            UUID conversationId,
+            UUID requestId,
+            ConversationRepository.RequestStart request,
+            String message,
+            String authorization,
+            Consumer<String> tokenConsumer,
+            ContextResolution resolution
+    ) {
+        com.bandyakama.conversation.dialogue.ValidatedConversationPlan plan =
+                java.util.Objects.requireNonNull(resolution.plan());
+        com.bandyakama.conversation.dialogue.DialogueState original =
+                java.util.Objects.requireNonNull(resolution.originalState());
+        com.bandyakama.conversation.dialogue.DialogueState proposed =
+                resolution.proposedState();
+        String previousFocus = original.activeObjectiveId();
+        String nextFocus = proposed.activeObjectiveId();
+        boolean focusChanged = !java.util.Objects.equals(previousFocus, nextFocus);
+
+        TaskStateSnapshotRepository.Snapshot resumedSnapshot = null;
+        JsonNode resumedStateOverride = null;
+        boolean resumingFocus = plan.orderedOperations().stream().anyMatch(operation ->
+                operation.type()
+                        == com.bandyakama.conversation.dialogue.ConversationPlanProposal
+                        .OperationType.RESUME_OBJECTIVE
+                        && java.util.Objects.equals(operation.targetObjectiveId(), nextFocus)
+        );
+        if (resumingFocus && taskStateSnapshotRepository != null) {
+            resumedSnapshot = taskStateSnapshotRepository.load(conversationId, nextFocus)
+                    .orElse(null);
+            resumedStateOverride = resumedSnapshot == null
+                    ? null : resumedSnapshot.operationalState();
+        }
+
+        JsonNode stateForRequest;
+        if (resumingFocus) {
+            stateForRequest = taskStateManager.forDialogueRelation(
+                    DialogueRelation.TOPIC_RESUMPTION, resumedStateOverride
+            );
+        } else if (!focusChanged) {
+            stateForRequest = request.activeState() == null
+                    ? null : request.activeState().deepCopy();
+        } else {
+            stateForRequest = null;
+        }
+
+        boolean resetState = focusChanged;
+        String planInstruction = buildPlanInstruction(plan, proposed)
+                + (resumingFocus
+                ? "\nObjectif repris : restaure uniquement ses critères sauvegardés. "
+                        + "Les références de résultats sont périmées : relance les outils "
+                        + "nécessaires avant toute affirmation factuelle."
+                        + staleResultRefreshHints(resumedSnapshot)
+                : "")
+                + "\nÉtat opérationnel transmis : "
+                + (stateForRequest == null ? "aucun" : "état de l'objectif focal uniquement")
+                + ". Ne mélange jamais les données opérationnelles de deux objectifs.";
+
+        boolean hasAssistantWork = plan.orderedOperations().stream().anyMatch(operation ->
+                switch (operation.type()) {
+                    case CREATE_OBJECTIVE, CREATE_SUBTASK, CONTINUE_OBJECTIVE,
+                            RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION ->
+                            true;
+                    case COMPLETE_OBJECTIVE, SOCIAL_TURN, NEW_TOPIC_REQUEST -> false;
+                }
+        );
+
+        String clarificationText = plan.source().clarifications().stream()
+                .map(com.bandyakama.conversation.dialogue.ConversationPlanProposal.Clarification
+                        ::question)
+                .collect(java.util.stream.Collectors.joining("\n"));
+
+        ChatResponse response;
+        if (!hasAssistantWork && !clarificationText.isBlank()) {
+            response = new ChatResponse(clarificationText, java.util.List.of(), conversationId);
+        } else if (!hasAssistantWork) {
+            String controlText = plan.orderedOperations().stream()
+                    .map(operation -> switch (operation.type()) {
+                        case NEW_TOPIC_REQUEST ->
+                                "Bien sûr. Quel sujet souhaitez-vous aborder ?";
+                        case COMPLETE_OBJECTIVE ->
+                                "L'objectif concerné est maintenant terminé.";
+                        case SOCIAL_TURN -> "";
+                        default -> "";
+                    })
+                    .filter(text -> !text.isBlank())
+                    .collect(java.util.stream.Collectors.joining("\n"));
+            response = new ChatResponse(
+                    controlText.isBlank()
+                            ? "Bien sûr, je vous écoute."
+                            : controlText,
+                    java.util.List.of(),
+                    conversationId
+            );
+        } else {
+            String classifiedContext = measured(
+                    requestId,
+                    "context_preparation",
+                    () -> repository.contextForModelRequest(
+                            conversationId,
+                            requestId,
+                            stateForRequest,
+                            stateForRequest != null && !resumingFocus
+                    )
+            ) + planInstruction
+                    + (clarificationText.isBlank() ? ""
+                    : "\nClarifications encore nécessaires à demander à l'utilisateur :\n"
+                            + clarificationText);
+            JsonNode operationalState = stateForRequest;
+            response = measured(
+                    requestId,
+                    "assistant_turn",
+                    () -> tokenConsumer == null
+                            ? assistant.respond(
+                                    message, authorization, classifiedContext,
+                                    requestId, operationalState
+                            )
+                            : assistant.respond(
+                                    message, authorization, classifiedContext,
+                                    requestId, operationalState, tokenConsumer
+                            )
+            ).withConversationId(conversationId);
+        }
+
+        ChatResponse completed = response.withConversationId(conversationId)
+                .withConversationStateReset(resetState);
+        java.util.Optional<String> previousObjectiveToSnapshot =
+                focusChanged && previousFocus != null
+                        ? java.util.Optional.of(previousFocus)
+                        : java.util.Optional.empty();
+        JsonNode previousOperationalState = previousObjectiveToSnapshot.isPresent()
+                ? request.activeState() : null;
+
+        measured(
+                requestId,
+                "response_persistence",
+                () -> completionService.complete(
+                        conversationId,
+                        requestId,
+                        request.claimId(),
+                        completed,
+                        java.util.Optional.of(proposed),
+                        java.util.Optional.ofNullable(nextFocus),
+                        resumingFocus ? stateForRequest : null,
+                        previousObjectiveToSnapshot,
+                        previousOperationalState
+                )
+        );
+        return completed;
+    }
+
+    private String buildPlanInstruction(
+            com.bandyakama.conversation.dialogue.ValidatedConversationPlan plan,
+            com.bandyakama.conversation.dialogue.DialogueState state
+    ) {
+        StringBuilder context = new StringBuilder(
+                "\nPlan conversationnel validé par le backend (source sémantique : Gemini)."
+                        + "\nApplique les intentions distinctes sans les réduire à une décision unique."
+        );
+        context.append("\nOpérations validées :");
+        for (var operation : plan.orderedOperations()) {
+            context.append("\n- id=").append(operation.operationId())
+                    .append("; type=").append(operation.type())
+                    .append("; cible=").append(
+                            operation.targetObjectiveId() == null
+                                    ? "nouvel objectif" : operation.targetObjectiveId()
+                    );
+            if (operation.goal() != null) {
+                context.append("; objectif=").append(operation.goal());
+            }
+            if (operation.summary() != null) {
+                context.append("; contexte=").append(operation.summary());
+            }
+            if (operation.clarificationId() != null) {
+                context.append("; clarification=").append(operation.clarificationId());
+            }
+        }
+        context.append("\nÉtat des objectifs après transition :");
+        for (var objective : state.objectives()) {
+            context.append("\n- id=").append(objective.id())
+                    .append("; statut=").append(objective.status())
+                    .append("; objectif=").append(objective.goal())
+                    .append("; résumé=").append(objective.summary());
+            if (objective.parentObjectiveId() != null) {
+                context.append("; parent=").append(objective.parentObjectiveId());
+            }
+            if (!objective.dependsOnObjectiveIds().isEmpty()) {
+                context.append("; dépendances=").append(objective.dependsOnObjectiveIds());
+            }
+            if (java.util.Objects.equals(state.activeObjectiveId(), objective.id())) {
+                context.append("; objectif focal");
+            }
+        }
+        context.append("\nClarifications conservées en attente :");
+        if (state.pendingClarifications().isEmpty()) {
+            context.append(" aucune");
+        } else {
+            for (var clarification : state.pendingClarifications()) {
+                context.append("\n- id=").append(clarification.clarificationId())
+                        .append("; question=").append(clarification.question())
+                        .append("; cible=").append(clarification.targetObjectiveId());
+            }
+        }
+        context.append("\nRaison du plan : ").append(plan.source().rationale());
+        return context.toString();
     }
 
     private String staleResultRefreshHints(
