@@ -40,6 +40,16 @@ public record ContextResolution(
                     "A resolution cannot mix the legacy decision and plan contracts."
             );
         }
+        if (plan != null && originalState == null) {
+            throw new IllegalArgumentException(
+                    "A plan-based resolution must retain its original dialogue state."
+            );
+        }
+        if (plan == null && originalState != null) {
+            throw new IllegalArgumentException(
+                    "Only a plan-based resolution may retain an original dialogue state."
+            );
+        }
         if (decision != null) {
             validateLegacyDecision(decision, proposedState);
         }
