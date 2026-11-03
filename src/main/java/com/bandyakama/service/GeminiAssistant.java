@@ -1082,13 +1082,6 @@ public class GeminiAssistant {
                 "__objectiveId",
                 Schema.builder()
                         .type("STRING")
-                        .description("Identifiant exact de l’objectif conversationnel auquel cet appel appartient. Obligatoire lorsqu’un tour contient plusieurs objectifs indépendants.")
-                        .build()
-        );
-        properties.put(
-                "__objectiveId",
-                Schema.builder()
-                        .type("STRING")
                         .description("Identifiant exact de l’objectif conversationnel actif auquel cet appel appartient.")
                         .build()
         );
