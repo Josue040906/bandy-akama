@@ -89,8 +89,9 @@ class ConversationServicePlanExecutionTest {
         );
         when(dialogueManager.prepareTurn(any(), anyString(), anyLong(), any(), anyString()))
                 .thenReturn(resolution);
-        when(assistant.respond(anyString(), nullable(String.class), anyString(), any(), any()))
-                .thenReturn(new ChatResponse("Je vais traiter les deux objectifs.", List.of()));
+        when(assistant.respond(
+                anyString(), nullable(String.class), anyString(), any(), any(), any(), anyMap()
+        )).thenReturn(new ChatResponse("Je vais traiter les deux objectifs.", List.of()));
 
         ConversationService service = new ConversationService(
                 repository,
@@ -113,10 +114,15 @@ class ConversationServicePlanExecutionTest {
 
         assertEquals("Je vais traiter les deux objectifs.", response.message());
         ArgumentCaptor<String> assistantContext = ArgumentCaptor.forClass(String.class);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<java.util.Map<String, JsonNode>> objectiveStates =
+                ArgumentCaptor.forClass(java.util.Map.class);
         verify(assistant).respond(
                 anyString(), nullable(String.class), assistantContext.capture(), eq(requestId),
-                isNull()
+                isNull(), isNull(), objectiveStates.capture()
         );
+        assertEquals(2, objectiveStates.getValue().size());
+        assertEquals(true, assistantContext.getValue().contains("__objectiveId="));
         assertEquals(true, assistantContext.getValue().contains("Préparer un rapport financier"));
         assertEquals(true, assistantContext.getValue().contains("Organiser un voyage"));
         assertEquals(true, assistantContext.getValue().contains("CREATE_OBJECTIVE"));
@@ -129,7 +135,12 @@ class ConversationServicePlanExecutionTest {
                 eq(Optional.of(proposed.activeObjectiveId())),
                 isNull(),
                 eq(Optional.empty()),
-                isNull()
+                isNull(),
+                objectiveStates.getValue().entrySet().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                java.util.Map.Entry::getKey,
+                                entry -> entry.getValue()
+                        ))
         );
     }
 }
