@@ -9,12 +9,12 @@ import java.util.Objects;
  * Plan-based resolutions carry the validated multi-operation plan and its
  * proposed immutable state. Neither form persists state.</p>
  */
-public final class ContextResolution {
-    private final ContextDecision decision;
-    private final InterpretationConfidence confidence;
-    private final DialogueState proposedState;
-    private final ValidatedConversationPlan plan;
-
+public record ContextResolution(
+        ContextDecision decision,
+        InterpretationConfidence confidence,
+        DialogueState proposedState,
+        ValidatedConversationPlan plan
+) {
     /** Compatibility constructor for the legacy mono-decision path. */
     public ContextResolution(
             ContextDecision decision,
@@ -24,18 +24,11 @@ public final class ContextResolution {
         this(decision, confidence, proposedState, null);
     }
 
-    private ContextResolution(
-            ContextDecision decision,
-            InterpretationConfidence confidence,
-            DialogueState proposedState,
-            ValidatedConversationPlan plan
-    ) {
-        this.decision = decision;
-        this.confidence = Objects.requireNonNull(confidence, "confidence must not be null.");
-        this.proposedState = Objects.requireNonNull(
+    public ContextResolution {
+        confidence = Objects.requireNonNull(confidence, "confidence must not be null.");
+        proposedState = Objects.requireNonNull(
                 proposedState, "proposedState must not be null."
         );
-        this.plan = plan;
         if (decision == null && plan == null) {
             throw new IllegalArgumentException(
                     "A context resolution must carry a decision or a validated plan."
@@ -61,6 +54,7 @@ public final class ContextResolution {
         );
     }
 
+    @Override
     public ContextDecision decision() {
         if (decision == null) {
             throw new IllegalStateException(
@@ -70,23 +64,11 @@ public final class ContextResolution {
         return decision;
     }
 
-    public InterpretationConfidence confidence() {
-        return confidence;
-    }
-
-    public DialogueState proposedState() {
-        return proposedState;
-    }
-
-    public ValidatedConversationPlan plan() {
-        return plan;
-    }
-
     public boolean isPlanBased() {
         return plan != null;
     }
 
-    private void validateLegacyDecision(ContextDecision decision, DialogueState state) {
+    private static void validateLegacyDecision(ContextDecision decision, DialogueState state) {
         if (decision.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             PendingClarification pending = state.pendingClarification();
             if (pending == null
