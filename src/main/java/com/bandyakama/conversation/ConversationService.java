@@ -557,8 +557,8 @@ public class ConversationService {
             return "";
         }
         return value
-                .replaceAll("(?i)\\\\b[\\\\w.+-]+@[\\\\w.-]+\\\\.[a-z]{2,}\\\\b", "[email]")
-                .replaceAll("(?:\\\\+?\\\\d[\\\\d\\\\s().-]{6,}\\\\d)", "[numero]")
+                .replaceAll("(?i)\\b[\\w.+-]+@[\\\\w.-]+\\.[a-z]{2,}\\\\b", "[email]")
+                .replaceAll("(?:\\+?\\d[\\\\d\\s().-]{6,}\\\\d)", "[numero]")
                 .replaceAll("(?i)\\\\b(?=[A-Z0-9-]{6,}\\\\b)(?=[A-Z0-9-]*\\\\d)[A-Z0-9-]+\\\\b", "[identifiant]");
     }
     private String staleResultRefreshHints(
