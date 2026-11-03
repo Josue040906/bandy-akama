@@ -828,12 +828,16 @@ public class ConversationRepository {
                 UPDATE bandy_conversation_memory
                 SET summary = ?, active_state = CAST(? AS JSONB),
                     result_references = CAST(? AS JSONB),
+                    dialogue_state = CAST(? AS JSONB),
                     summarized_through_sequence = ?, updated_at = CURRENT_TIMESTAMP
                 WHERE conversation_id = ?
                 """,
                 summary,
                 state,
                 toJson(references),
+                recoveredDialogueState == null
+                        ? toJson(com.bandyakama.conversation.dialogue.DialogueState.empty())
+                        : toJson(recoveredDialogueState),
                 summarizedThrough,
                 conversationId
         );
@@ -1192,6 +1196,21 @@ public class ConversationRepository {
                 references.remove(0);
             }
         }
+
+        /*
+         * Dialogue state is a rebuildable projection too. Recover the latest
+         * successful snapshot from the append-only assistant history before
+         * rebuilding memory; otherwise deleting the memory row silently
+         * discards active objectives and pending clarifications.
+         */
+        JsonNode recoveredDialogueState = history.stream()
+                .filter(message -> "ASSISTANT".equals(message.role()))
+                .filter(message -> message.metadata().hasNonNull("dialogueState"))
+                .max(java.util.Comparator.comparingLong(
+                        HistoricalMessage::sequenceNumber
+                ))
+                .map(message -> message.metadata().path("dialogueState"))
+                .orElse(null);
 
         long summarizedThrough = summaryCutoff(conversationId);
         String summary = "";
