@@ -1,7 +1,6 @@
 package com.bandyakama.conversation.dialogue;
 
 import java.util.List;
-import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -38,9 +37,8 @@ public class DialogueStateManager {
     /**
      * Prepares a validated dialogue-state transition for one user message.
      *
-     * @return the engine's decision and proposed state; the caller must only
-     *         persist proposedState after the assistant request completes
-     *         successfully, within that completion transaction
+     * @return the engine's validated plan and proposed state; the caller
+     *         persists the proposal only after the turn completes successfully
      */
     public ContextResolution prepareTurn(
             UUID conversationId,
@@ -52,9 +50,6 @@ public class DialogueStateManager {
         Objects.requireNonNull(conversationId, "conversationId must not be null.");
 
         DialogueState currentState = stateRepository.load(conversationId);
-        if (currentState.objectives().isEmpty()) {
-            currentState = recoverActiveObjective(history, conversationSummary);
-        }
         ContextEngineInput input = new ContextEngineInput(
                 currentMessage,
                 currentMessageSequenceNumber,
@@ -65,62 +60,4 @@ public class DialogueStateManager {
         return contextEngine.resolve(input);
     }
 
-    /**
-     * Rehydrates a minimal active objective when the dialogue-state row was
-     * lost but durable message history survived. The latest user message is
-     * the safest available anchor; the interpreter decides whether the
-     * incoming turn continues it or starts an independent objective.
-     */
-    private DialogueState recoverActiveObjective(
-            List<DialogueMessage> history,
-            String conversationSummary
-    ) {
-        DialogueMessage latestUserMessage = history.stream()
-                .filter(message -> message.role() == DialogueMessage.Role.USER)
-                .filter(message -> !isControlMessage(message.content()))
-                .reduce((first, second) -> second)
-                .orElse(null);
-        if (latestUserMessage == null) {
-            return DialogueState.empty();
-        }
-
-        Instant recoveredAt = Instant.EPOCH;
-        DialogueObjective recovered = new DialogueObjective(
-                "recovered-" + latestUserMessage.sequenceNumber(),
-                latestUserMessage.content(),
-                conversationSummary.isBlank()
-                        ? latestUserMessage.content()
-                        : conversationSummary,
-                DialogueObjectiveStatus.ACTIVE,
-                null,
-                recoveredAt,
-                recoveredAt,
-                List.of()
-        );
-        return new DialogueState(
-                DialogueState.CURRENT_SCHEMA_VERSION,
-                recovered.id(),
-                List.of(recovered),
-                null
-        );
-    }
-
-    private boolean isControlMessage(String message) {
-        String normalized = java.text.Normalizer.normalize(
-                message.toLowerCase(java.util.Locale.ROOT),
-                java.text.Normalizer.Form.NFD
-        ).replaceAll("\\p{M}+", "")
-                .replaceAll("\\s+([?!.])", "$1")
-                .replaceAll("\\s+", " ").strip();
-        return normalized.matches(
-                "^(bonjour|bonsoir|salut|coucou|hello|hi|hey|salama|manao ahoana)"
-                        + "( bandy( akama)?| assistant)?[.!?]*$"
-        ) || normalized.matches(
-                "^(je veux |je souhaite |je voudrais )?(poser )?(une )?"
-                        + "(nouvelle question|nouvelle recherche)[.!?]*$"
-                        + "|^(changeons de sujet|passons a autre chose|"
-                        + "passons a un autre sujet|parlons d['’]un autre sujet|"
-                        + "rien a voir)[.!?]*$"
-        );
-    }
 }
