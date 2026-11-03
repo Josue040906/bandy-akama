@@ -1,6 +1,5 @@
 package com.bandyakama.conversation.dialogue;
 
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
@@ -22,13 +21,12 @@ public record PendingClarification(
             String reason,
             Instant createdAt
     ) {
-        this(stableId(targetObjectiveId, question, reason, createdAt),
-                targetObjectiveId, question, reason, createdAt);
+        this(null, targetObjectiveId, question, reason, createdAt);
     }
 
     public PendingClarification {
         if (clarificationId == null || clarificationId.isBlank()) {
-            clarificationId = stableId(targetObjectiveId, question, reason, createdAt);
+            clarificationId = UUID.randomUUID().toString();
         }
         question = requireText(question, "question");
         reason = requireText(reason, "reason");
@@ -38,16 +36,6 @@ public record PendingClarification(
                     "targetObjectiveId must be null or non-blank."
             );
         }
-    }
-
-    private static String stableId(
-            String targetObjectiveId, String question, String reason, Instant createdAt
-    ) {
-        String seed = String.valueOf(targetObjectiveId) + "\n"
-                + String.valueOf(question) + "\n"
-                + String.valueOf(reason) + "\n"
-                + String.valueOf(createdAt);
-        return UUID.nameUUIDFromBytes(seed.getBytes(StandardCharsets.UTF_8)).toString();
     }
 
     private static String requireText(String value, String field) {
