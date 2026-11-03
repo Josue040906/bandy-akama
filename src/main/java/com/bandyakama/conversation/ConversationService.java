@@ -506,11 +506,10 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             stateForRequest,
-                            // Reuse historical results only when the validated plan
-                            // explicitly continues the same objective. Focus identifiers
-                            // alone are not a reliable proxy after state reconstruction.
+                            // Reuse only results explicitly tagged for this objective.
                             continuesPreviousFocus && !restoreFocusSnapshot
-                                    && initialObjectiveStates.size() <= 1
+                                    && initialObjectiveStates.size() <= 1,
+                            nextFocus
                     )
             ) + planInstruction
                     + (clarificationText.isBlank() ? ""
