@@ -10,6 +10,8 @@ import java.util.Objects;
  * be validated against the supplied dialogue state before any transition is
  * applied.</p>
  */
+/** @deprecated Superseded by ConversationPlanProposal. */
+@Deprecated(forRemoval = true)
 public record ContextInterpretationProposal(
         DialogueRelation relation,
         String targetObjectiveId,
