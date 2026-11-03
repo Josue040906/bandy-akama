@@ -1,6 +1,5 @@
 package com.bandyakama.conversation.dialogue;
 
-import org.springframework.stereotype.Component;
 
 import java.util.Objects;
 
@@ -8,7 +7,7 @@ import java.util.Objects;
  * Validates semantic proposals against the authoritative dialogue snapshot.
  * Model confidence is advisory and never bypasses structural validation.
  */
-@Component
+@Deprecated(forRemoval = true)
 public class ContextDecisionValidator {
 
     public ContextDecision validate(
