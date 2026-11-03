@@ -455,8 +455,8 @@ public class ConversationService {
                 .filter(objective -> objective.status()
                         == com.bandyakama.conversation.dialogue.DialogueObjectiveStatus.ACTIVE)
                 .map(objective -> "- __objectiveId="
-                        + objective.id() + " : " + objective.goal()
-                        + " ; contexte=" + objective.summary())
+                        + objective.id() + " : " + sanitizePlanText(objective.goal())
+                        + " ; contexte=" + sanitizePlanText(objective.summary()))
                 .collect(java.util.stream.Collectors.joining("\n"));
         if (!objectiveRouting.isBlank()) {
             planInstruction += "\nROUTAGE OBLIGATOIRE DES APPELS D’OUTILS\n"
