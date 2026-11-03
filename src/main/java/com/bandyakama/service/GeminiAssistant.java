@@ -509,7 +509,8 @@ public class GeminiAssistant {
                     List.copyOf(executedResults),
                     null,
                     false,
-                    List.copyOf(toolStates)
+                    List.copyOf(toolStates),
+                    objectiveStates
             );
         }
 
@@ -562,7 +563,8 @@ public class GeminiAssistant {
                 List.copyOf(executedResults),
                 null,
                 false,
-                List.copyOf(toolStates)
+                List.copyOf(toolStates),
+                objectiveStates
         );
     }
 
