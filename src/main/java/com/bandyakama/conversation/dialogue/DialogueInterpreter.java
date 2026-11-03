@@ -7,6 +7,8 @@ package com.bandyakama.conversation.dialogue;
  * <p>Implementations may use a language model, but their output is untrusted
  * and must always pass through backend validation.</p>
  */
+/** @deprecated Use ConversationPlanInterpreter for all dialogue interpretation. */
+@Deprecated(forRemoval = true)
 public interface DialogueInterpreter {
 
     ContextInterpretationProposal interpret(ContextEngineInput input);
