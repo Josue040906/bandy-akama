@@ -40,8 +40,10 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
             - RESUME_OBJECTIVE : reprendre un objectif suspendu existant.
             - CORRECT_OBJECTIVE : corriger le but d'un objectif existant.
             - COMPLETE_OBJECTIVE : terminer explicitement un objectif actif.
-            - ANSWER_CLARIFICATION : répondre à une clarification en attente pour
-              l'objectif ciblé.
+            - ANSWER_CLARIFICATION : répondre à une clarification en attente précise.
+              Recopie son clarificationId exact depuis pendingClarifications.
+              Ne déduis jamais cet identifiant de l'objectif : plusieurs questions
+              peuvent concerner le même objectif.
             - SOCIAL_TURN : échange social sans mutation d'objectif.
             - NEW_TOPIC_REQUEST : demande de changer de sujet sans préciser encore
               le nouveau sujet.
@@ -84,7 +86,9 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
             rationale, confidence, operations, clarifications.
             Chaque opération contient :
             operationId, type, targetObjectiveId, goal, summary, parent,
-            dependsOn, referenceMentions.
+            dependsOn, referenceMentions, clarificationId.
+            clarificationId est null sauf pour ANSWER_CLARIFICATION ; dans ce cas,
+            il doit reprendre l'identifiant exact de la question à résoudre.
             parent est null ou {scope,id}. dependsOn est un tableau de {scope,id}.
             referenceMentions est un tableau de {label,kind}.
             Chaque clarification contient clarificationId, target, question,
