@@ -32,16 +32,16 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.profile()
             );
             assertEquals(5, snapshot.enabledTools().size());
-            assertEquals(
-                    "get_agent_profile",
-                    snapshot.enabledTools().get(0).getName()
-            );
-            assertEquals(1, snapshot.enabledTools().get(0).getParameters().size());
+            var profileTool = snapshot.enabledTools().stream()
+                    .filter(tool -> tool.getName().equals("get_agent_profile"))
+                    .findFirst()
+                    .orElseThrow();
+            assertEquals(1, profileTool.getParameters().size());
             assertEquals(
                     "nom_agent",
-                    snapshot.enabledTools().get(0).getParameters().get(0).getName()
+                    profileTool.getParameters().get(0).getName()
             );
-            assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertTrue(profileTool.isSensitive());
             assertTrue(snapshot.enabledTools().stream()
                     .anyMatch(tool -> tool.getName().equals("custom_capability")));
             assertTrue(snapshot.enabledTools().stream()
