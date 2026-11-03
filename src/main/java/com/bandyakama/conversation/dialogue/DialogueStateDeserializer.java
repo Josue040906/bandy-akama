@@ -63,7 +63,7 @@ public final class DialogueStateDeserializer extends StdDeserializer<DialogueSta
             clarifications = List.of();
         }
 
-        return new DialogueState(
+        return DialogueState.withPendingClarifications(
                 schemaVersion,
                 activeObjectiveId,
                 Arrays.asList(objectiveArray),
