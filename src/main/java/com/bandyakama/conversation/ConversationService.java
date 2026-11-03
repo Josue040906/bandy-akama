@@ -539,9 +539,9 @@ public class ConversationService {
         boolean hasAssistantWork = plan.orderedOperations().stream().anyMatch(operation ->
                 switch (operation.type()) {
                     case CREATE_OBJECTIVE, CREATE_SUBTASK, CONTINUE_OBJECTIVE,
-                            RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION ->
-                            true;
-                    case COMPLETE_OBJECTIVE, SOCIAL_TURN, NEW_TOPIC_REQUEST -> false;
+                            RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION,
+                            SOCIAL_TURN -> true;
+                    case COMPLETE_OBJECTIVE, NEW_TOPIC_REQUEST -> false;
                 }
         );
 
