@@ -113,7 +113,12 @@ public class TaskStateManager {
     public List<ChatResponse.ToolState> updatesFor(ChatResponse response) {
         Objects.requireNonNull(response, "response must not be null.");
         if (!response.toolStates().isEmpty()) {
-            return response.toolStates();
+            // Objective-scoped updates are persisted to their own snapshots by
+            // ConversationCompletionService. Folding them into the legacy
+            // conversation-wide state would reintroduce cross-objective bleed.
+            return response.toolStates().stream()
+                    .filter(toolState -> toolState.objectiveId() == null)
+                    .toList();
         }
         return response.toolResults().stream()
                 .map(result -> new ChatResponse.ToolState(
