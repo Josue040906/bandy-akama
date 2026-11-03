@@ -54,7 +54,6 @@ public record ContextResolution(
         );
     }
 
-    @Override
     public ContextDecision decision() {
         if (decision == null) {
             throw new IllegalStateException(
