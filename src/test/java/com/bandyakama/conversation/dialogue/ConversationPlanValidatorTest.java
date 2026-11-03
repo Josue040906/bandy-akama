@@ -79,6 +79,20 @@ class ConversationPlanValidatorTest {
     }
 
     @Test
+    void rejectsDependenciesThatPointToNonTaskOperations() {
+        var social = new ConversationPlanProposal.Operation(
+                "social", ConversationPlanProposal.OperationType.SOCIAL_TURN,
+                null, null, null, null, List.of(), List.of()
+        );
+        var task = create("task", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                "Une tâche", null, List.of(proposed("social")));
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(DialogueState.empty()), plan(List.of(social, task), List.of())
+        ));
+    }
+
+    @Test
     void rejectsExistingHierarchyCyclesEvenWhenPlanDoesNotCreateThem() {
         DialogueObjective first = objective("first", DialogueObjectiveStatus.SUSPENDED, "second");
         DialogueObjective second = objective("second", DialogueObjectiveStatus.SUSPENDED, "first");
