@@ -126,6 +126,17 @@ public class ConversationPlanValidator {
                                 "Une clarification ne peut pas cibler un objectif terminé."
                         );
                     }
+                } else {
+                    ConversationPlanProposal.Operation targetOperation =
+                            proposed.get(target.id());
+                    if (targetOperation.type()
+                            == ConversationPlanProposal.OperationType.SOCIAL_TURN
+                            || targetOperation.type()
+                            == ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST) {
+                        throw invalid(
+                                "Une clarification ne peut pas cibler une opération sans objectif."
+                        );
+                    }
                 }
             }
         }
