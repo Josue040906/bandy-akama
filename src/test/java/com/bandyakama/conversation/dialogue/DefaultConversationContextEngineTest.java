@@ -40,6 +40,7 @@ class DefaultConversationContextEngineTest {
         ContextResolution resolution = engine.resolve(input("Bonjour Bandy !", state));
 
         assertEquals(true, resolution.isPlanBased());
+        assertEquals(state, resolution.originalState());
         assertEquals(state, resolution.proposedState());
         assertEquals(proposal, resolution.plan().source());
         verify(interpreter).interpret(org.mockito.ArgumentMatchers.any());
