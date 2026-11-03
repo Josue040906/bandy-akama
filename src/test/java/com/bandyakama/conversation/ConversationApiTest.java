@@ -2,6 +2,7 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.ContextEngineInput;
+import com.bandyakama.conversation.dialogue.ConversationPlanInterpreter;
 import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
@@ -16,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -68,7 +68,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "bandy.conversations.context.recent-messages=10"
 })
 @AutoConfigureMockMvc
-@Import(LegacyDialoguePlanTestConfiguration.class)
 class ConversationApiTest {
     private static final String SECRET =
             "0123456789abcdef0123456789abcdef";
@@ -91,6 +90,10 @@ class ConversationApiTest {
     /** API tests must not require a live Gemini credential. */
     @MockBean
     private DialogueInterpreter dialogueInterpreter;
+
+    /** Replace the actual engine dependency: tests never instantiate Gemini planning. */
+    @MockBean
+    private ConversationPlanInterpreter planInterpreter;
 
     @BeforeEach
     void configureDeterministicDialogueInterpreter() {
@@ -141,6 +144,13 @@ class ConversationApiTest {
                             "Interprétation déterministe du test d'intégration.",
                             null, InterpretationConfidence.HIGH, goal, summary,
                             java.util.List.of()
+                    );
+                });
+        when(planInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    return LegacyDialoguePlanTestConfiguration.adapt(
+                            input, dialogueInterpreter.interpret(input)
                     );
                 });
     }
