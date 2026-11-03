@@ -287,9 +287,11 @@ public class GeminiAssistant {
                 tool.getName(),
                 tool
         ));
+        boolean requireObjectiveRouting = initialObjectiveStates != null
+                && initialObjectiveStates.size() > 1;
         GenerateContentConfig config = generationConfig(
                 systemInstruction,
-                toGeminiTool(registeredTools),
+                toGeminiTool(registeredTools, requireObjectiveRouting),
                 serviceTier,
                 thinkingLevel,
                 maxOutputTokens
@@ -1039,20 +1041,28 @@ public class GeminiAssistant {
         return Optional.empty();
     }
 
-    private Tool toGeminiTool(List<ToolDefinition> definitions) {
+    private Tool toGeminiTool(
+            List<ToolDefinition> definitions,
+            boolean requireObjectiveRouting
+    ) {
         List<FunctionDeclaration> declarations = new ArrayList<>(definitions.stream()
                 .map(definition -> FunctionDeclaration.builder()
                         .name(definition.getName())
                         .description(definition.getDescription()
                                 + "\nQuand l’utiliser : "
                                 + definition.getWhenToUse())
-                        .parameters(toGeminiSchema(definition.getParameters()))
+                        .parameters(toGeminiSchema(
+                                definition.getParameters(), requireObjectiveRouting
+                        ))
                         .build())
                 .toList());
         return Tool.builder().functionDeclarations(declarations).build();
     }
 
-    private Schema toGeminiSchema(List<ToolParameter> parameters) {
+    private Schema toGeminiSchema(
+            List<ToolParameter> parameters,
+            boolean requireObjectiveRouting
+    ) {
         Map<String, Schema> properties = new HashMap<>();
         List<String> required = new ArrayList<>();
         for (ToolParameter parameter : parameters) {
@@ -1085,6 +1095,9 @@ public class GeminiAssistant {
         Schema.Builder schema = Schema.builder()
                 .type("OBJECT")
                 .properties(properties);
+        if (requireObjectiveRouting) {
+            required.add("__objectiveId");
+        }
         if (!required.isEmpty()) {
             schema.required(required);
         }
