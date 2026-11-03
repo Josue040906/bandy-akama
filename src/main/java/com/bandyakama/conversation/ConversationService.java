@@ -417,6 +417,50 @@ public class ConversationService {
                 + (stateForRequest == null ? "aucun" : "état de l'objectif focal uniquement")
                 + ". Ne mélange jamais les données opérationnelles de deux objectifs.";
 
+        java.util.Map<String, JsonNode> initialObjectiveStates =
+                new java.util.LinkedHashMap<>();
+        for (com.bandyakama.conversation.dialogue.DialogueObjective objective
+                : proposed.objectives()) {
+            if (objective.status()
+                    != com.bandyakama.conversation.dialogue.DialogueObjectiveStatus.ACTIVE) {
+                continue;
+            }
+            JsonNode objectiveState;
+            if (java.util.Objects.equals(objective.id(), nextFocus)) {
+                objectiveState = stateForRequest;
+            } else {
+                TaskStateSnapshotRepository.Snapshot snapshot =
+                        taskStateSnapshotRepository == null
+                                ? null
+                                : taskStateSnapshotRepository.load(
+                                        conversationId, objective.id()
+                                ).orElse(null);
+                objectiveState = snapshot == null
+                        ? null : snapshot.operationalState();
+            }
+            initialObjectiveStates.put(
+                    objective.id(),
+                    objectiveState == null
+                            ? com.fasterxml.jackson.databind.node.JsonNodeFactory.instance
+                                    .objectNode()
+                            : objectiveState.deepCopy()
+            );
+        }
+        String objectiveRouting = proposed.objectives().stream()
+                .filter(objective -> objective.status()
+                        == com.bandyakama.conversation.dialogue.DialogueObjectiveStatus.ACTIVE)
+                .map(objective -> "- __objectiveId="
+                        + objective.id() + " : " + objective.goal()
+                        + " ; contexte=" + objective.summary())
+                .collect(java.util.stream.Collectors.joining("\n"));
+        if (!objectiveRouting.isBlank()) {
+            planInstruction += "\nROUTAGE OBLIGATOIRE DES APPELS D’OUTILS\n"
+                    + "Chaque appel doit renseigner le paramètre interne __objectiveId "
+                    + "avec l’identifiant exact de l’objectif auquel il contribue. "
+                    + "Ne réutilise jamais les critères d’un autre objectif.\n"
+                    + objectiveRouting;
+        }
+
         boolean hasAssistantWork = plan.orderedOperations().stream().anyMatch(operation ->
                 switch (operation.type()) {
                     case CREATE_OBJECTIVE, CREATE_SUBTASK, CONTINUE_OBJECTIVE,
@@ -478,11 +522,13 @@ public class ConversationService {
                     () -> tokenConsumer == null
                             ? assistant.respond(
                                     message, authorization, classifiedContext,
-                                    requestId, operationalState
+                                    requestId, operationalState, null,
+                                    initialObjectiveStates
                             )
                             : assistant.respond(
                                     message, authorization, classifiedContext,
-                                    requestId, operationalState, tokenConsumer
+                                    requestId, operationalState, tokenConsumer,
+                                    initialObjectiveStates
                             )
             ).withConversationId(conversationId);
         }
@@ -506,9 +552,14 @@ public class ConversationService {
                         completed,
                         java.util.Optional.of(proposed),
                         java.util.Optional.ofNullable(nextFocus),
-                        restoreFocusSnapshot ? stateForRequest : null,
+                        nextFocus == null
+                                ? null
+                                : response.objectiveStates().getOrDefault(
+                                        nextFocus, stateForRequest
+                                ),
                         previousObjectiveToSnapshot,
-                        previousOperationalState
+                        previousOperationalState,
+                        response.objectiveStates()
                 )
         );
         return completed;
