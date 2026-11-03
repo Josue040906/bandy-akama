@@ -4,6 +4,7 @@ import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
 import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
+import com.bandyakama.conversation.task.TaskStateManager;
 import com.fasterxml.jackson.databind.JsonNode;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -26,12 +27,14 @@ public class ConversationCompletionService {
     private final ConversationRepository conversationRepository;
     private final DialogueStateRepository dialogueStateRepository;
     private final TaskStateSnapshotRepository taskStateSnapshotRepository;
+    private final TaskStateManager taskStateManager;
 
     @Autowired
     public ConversationCompletionService(
             ConversationRepository conversationRepository,
             DialogueStateRepository dialogueStateRepository,
-            TaskStateSnapshotRepository taskStateSnapshotRepository
+            TaskStateSnapshotRepository taskStateSnapshotRepository,
+            TaskStateManager taskStateManager
     ) {
         this.conversationRepository = Objects.requireNonNull(
                 conversationRepository,
@@ -45,6 +48,9 @@ public class ConversationCompletionService {
                 taskStateSnapshotRepository,
                 "taskStateSnapshotRepository must not be null."
         );
+        this.taskStateManager = Objects.requireNonNull(
+                taskStateManager, "taskStateManager must not be null."
+        );
     }
 
     /** Compatibility constructor for isolated unit tests. */
@@ -55,6 +61,7 @@ public class ConversationCompletionService {
         this.conversationRepository = Objects.requireNonNull(conversationRepository);
         this.dialogueStateRepository = Objects.requireNonNull(dialogueStateRepository);
         this.taskStateSnapshotRepository = null;
+        this.taskStateManager = null;
     }
 
     /**
@@ -158,9 +165,36 @@ public class ConversationCompletionService {
             );
         }
 
+        java.util.Map<String, JsonNode> safeObjectiveStates =
+                new java.util.LinkedHashMap<>();
+        if (objectiveStates != null) {
+            objectiveStates.forEach((objectiveId, state) -> {
+                if (objectiveId == null || objectiveId.isBlank()
+                        || state == null || !state.isObject()) {
+                    return;
+                }
+                java.util.List<ChatResponse.ToolState> scopedUpdates =
+                        response.toolStates().stream()
+                                .filter(toolState -> objectiveId.equals(
+                                        toolState.objectiveId()
+                                ))
+                                .toList();
+                JsonNode effectiveState = taskStateManager == null
+                        ? state
+                        : taskStateManager.applyToolUpdates(
+                                state, scopedUpdates, false
+                        );
+                safeObjectiveStates.put(objectiveId, effectiveState);
+            });
+        }
+
         // Both repositories use REQUIRED transactions. Their writes therefore
         // join this boundary and cannot commit independently of one another.
-        if (resumedStateOverride == null) {
+        JsonNode activeStateOverride = activeObjectiveId
+                .map(safeObjectiveStates::get)
+                .filter(Objects::nonNull)
+                .orElse(resumedStateOverride);
+        if (activeStateOverride == null) {
             conversationRepository.completeRequest(
                     conversationId,
                     idempotencyKey,
@@ -173,23 +207,18 @@ public class ConversationCompletionService {
                     idempotencyKey,
                     claimId,
                     response,
-                    resumedStateOverride
+                    activeStateOverride
             );
         }
         proposedDialogueState.ifPresent(state ->
                 dialogueStateRepository.save(conversationId, state)
         );
         if (taskStateSnapshotRepository != null) {
-            java.util.Map<String, JsonNode> safeObjectiveStates =
-                    objectiveStates == null ? java.util.Map.of() : objectiveStates;
-            safeObjectiveStates.forEach((objectiveId, state) -> {
-                if (objectiveId != null && !objectiveId.isBlank()
-                        && state != null && state.isObject()) {
+            safeObjectiveStates.forEach((objectiveId, state) ->
                     taskStateSnapshotRepository.capture(
                             conversationId, objectiveId, state
-                    );
-                }
-            });
+                    )
+            );
             activeObjectiveId
                     .filter(id -> !id.isBlank())
                     .filter(id -> !safeObjectiveStates.containsKey(id))
