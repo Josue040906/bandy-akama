@@ -69,9 +69,16 @@ public record DialogueState(
                 );
             }
             for (String dependencyId : objective.dependsOnObjectiveIds()) {
-                if (!byId.containsKey(dependencyId)) {
+                DialogueObjective prerequisite = byId.get(dependencyId);
+                if (prerequisite == null) {
                     throw new IllegalArgumentException(
                             "An execution dependency must reference a known objective."
+                    );
+                }
+                if (objective.status() == DialogueObjectiveStatus.ACTIVE
+                        && prerequisite.status() != DialogueObjectiveStatus.COMPLETED) {
+                    throw new IllegalArgumentException(
+                            "An ACTIVE objective requires all execution prerequisites to be COMPLETED."
                     );
                 }
             }
