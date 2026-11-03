@@ -399,9 +399,24 @@ public class GeminiAssistant {
                 Object objectiveValue = arguments.remove("__objectiveId");
                 String objectiveId = objectiveValue instanceof String value
                         && !value.isBlank() ? value : null;
+                if (objectiveStates.size() == 1 && objectiveId == null) {
+                    objectiveId = objectiveStates.keySet().iterator().next();
+                }
+                if (objectiveStates.size() > 1
+                        && (objectiveId == null || !objectiveStates.containsKey(objectiveId))) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_GATEWAY,
+                            "L’appel d’outil ne précise pas un objectif actif valide."
+                    );
+                }
+                if (objectiveId != null && !objectiveStates.containsKey(objectiveId)) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_GATEWAY,
+                            "L’appel d’outil cible un objectif inconnu ou inactif."
+                    );
+                }
                 JsonNode stateForTool = objectiveId == null
-                        ? (objectiveStates.isEmpty() ? activeState : null)
-                        : objectiveStates.get(objectiveId);
+                        ? activeState : objectiveStates.get(objectiveId);
                 Map<String, Object> effectiveArguments =
                         stateMerger.mergeToolArguments(
                                 stateForTool,
@@ -1014,6 +1029,13 @@ public class GeminiAssistant {
                 Schema.builder()
                         .type("STRING")
                         .description("Identifiant exact de l’objectif conversationnel auquel cet appel appartient. Obligatoire lorsqu’un tour contient plusieurs objectifs indépendants.")
+                        .build()
+        );
+        properties.put(
+                "__objectiveId",
+                Schema.builder()
+                        .type("STRING")
+                        .description("Identifiant exact de l’objectif conversationnel actif auquel cet appel appartient.")
                         .build()
         );
         Schema.Builder schema = Schema.builder()
