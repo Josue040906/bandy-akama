@@ -90,7 +90,9 @@ class ConversationServiceBudgetTest {
                 nullable(String.class),
                 anyString(),
                 any(),
-                any()
+                any(),
+                any(),
+                anyMap()
         )).thenAnswer(invocation -> {
             Thread.sleep(250);
             return new ChatResponse("late response", java.util.List.of());
