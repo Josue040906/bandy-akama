@@ -41,6 +41,7 @@ import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,6 +49,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -949,7 +951,9 @@ public class GeminiAssistant {
                     definition,
                     arguments,
                     authorization,
-                    requestId == null ? null : requestId.toString()
+                    toolInvocationIdempotencyKey(
+                            requestId, name, objectiveId, arguments
+                    )
             );
             invocationCache.put(name, cacheArguments, result);
             return new ToolExecutionResult(
@@ -984,6 +988,26 @@ public class GeminiAssistant {
                     exception
             );
         }
+    }
+
+    private String toolInvocationIdempotencyKey(
+            UUID requestId,
+            String toolName,
+            String objectiveId,
+            Map<String, Object> arguments
+    ) {
+        if (requestId == null) {
+            return null;
+        }
+        String canonicalArguments = objectMapper.valueToTree(
+                new TreeMap<>(arguments)
+        ).toString();
+        String scope = objectiveId == null ? "unscoped" : objectiveId;
+        String invocation = requestId + "|" + toolName + "|" + scope
+                + "|" + canonicalArguments;
+        return UUID.nameUUIDFromBytes(
+                invocation.getBytes(StandardCharsets.UTF_8)
+        ).toString();
     }
 
     private boolean isSensitiveReadTool(String name) {
