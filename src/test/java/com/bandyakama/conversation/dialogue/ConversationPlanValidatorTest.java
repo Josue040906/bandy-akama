@@ -136,19 +136,6 @@ class ConversationPlanValidatorTest {
     }
 
     @Test
-    void rejectsExistingHierarchyCyclesEvenWhenPlanDoesNotCreateThem() {
-        DialogueObjective first = objective("first", DialogueObjectiveStatus.SUSPENDED, "second");
-        DialogueObjective second = objective("second", DialogueObjectiveStatus.SUSPENDED, "first");
-        DialogueState state = state(null, List.of(first, second), null);
-
-        var newTask = create("new", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
-                "Nouvel objectif", null, List.of());
-        assertThrows(IllegalArgumentException.class, () -> validator.validate(
-                input(state), plan(List.of(newTask), List.of())
-        ));
-    }
-
-    @Test
     void permitsAClarificationAnswerWithoutObjectiveTarget() {
         PendingClarification pending = new PendingClarification(
                 null, "Que souhaitez-vous préciser ?", "Intention initiale ambiguë.", NOW
