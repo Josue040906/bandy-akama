@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /** Parses and structurally validates the untrusted JSON emitted for a conversation plan. */
 @Component
@@ -23,9 +24,14 @@ public class ConversationPlanJsonParser {
             JsonNode root = objectMapper.reader()
                     .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
                     .readTree(json);
+            validateFields(root, Set.of("rationale", "confidence", "operations", "clarifications"), "plan");
             List<ConversationPlanProposal.Operation> operations = new ArrayList<>();
             JsonNode operationNodes = requiredArray(root, "operations");
             for (JsonNode node : operationNodes) {
+                validateFields(node, Set.of(
+                        "operationId", "type", "targetObjectiveId", "goal", "summary",
+                        "parent", "dependsOn", "referenceMentions", "clarificationId"
+                ), "operation");
                 List<ConversationPlanProposal.EntityReference> dependencies =
                         parseReferences(requiredArray(node, "dependsOn"));
                 List<ProposedDialogueReference> mentions = parseMentions(
@@ -48,6 +54,9 @@ public class ConversationPlanJsonParser {
             List<ConversationPlanProposal.Clarification> clarifications =
                     new ArrayList<>();
             for (JsonNode node : requiredArray(root, "clarifications")) {
+                validateFields(node, Set.of(
+                        "clarificationId", "target", "question", "rationale"
+                ), "clarification");
                 clarifications.add(new ConversationPlanProposal.Clarification(
                         requiredText(node, "clarificationId"),
                         parseOptionalReference(node.get("target")),
@@ -83,6 +92,7 @@ public class ConversationPlanJsonParser {
     private List<ProposedDialogueReference> parseMentions(JsonNode nodes) {
         List<ProposedDialogueReference> mentions = new ArrayList<>();
         for (JsonNode node : nodes) {
+            validateFields(node, Set.of("label", "kind"), "reference mention");
             mentions.add(new ProposedDialogueReference(
                     requiredText(node, "label"),
                     requiredText(node, "kind")
@@ -98,11 +108,25 @@ public class ConversationPlanJsonParser {
     }
 
     private ConversationPlanProposal.EntityReference parseReference(JsonNode node) {
+        validateFields(node, Set.of("scope", "id"), "entity reference");
         return new ConversationPlanProposal.EntityReference(
                 enumValue(ConversationPlanProposal.ReferenceScope.class,
                         requiredText(node, "scope")),
                 requiredText(node, "id")
         );
+    }
+
+    private void validateFields(JsonNode node, Set<String> allowed, String context) {
+        if (node == null || !node.isObject()) {
+            throw new IllegalArgumentException(context + " doit être un objet JSON.");
+        }
+        node.fieldNames().forEachRemaining(field -> {
+            if (!allowed.contains(field)) {
+                throw new IllegalArgumentException(
+                        "Champ inattendu dans " + context + " : " + field
+                );
+            }
+        });
     }
 
     private JsonNode requiredArray(JsonNode node, String field) {
