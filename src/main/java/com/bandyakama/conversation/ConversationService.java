@@ -497,7 +497,7 @@ public class ConversationService {
             com.bandyakama.conversation.dialogue.DialogueState state
     ) {
         StringBuilder context = new StringBuilder(
-                "\nPlan conversationnel validé par le backend (source sémantique : Gemini)."
+                "\nPlan conversationnel validé par le backend."
                         + "\nApplique les intentions distinctes sans les réduire à une décision unique."
         );
         context.append("\nOpérations validées :");
@@ -509,10 +509,10 @@ public class ConversationService {
                                     ? "nouvel objectif" : operation.targetObjectiveId()
                     );
             if (operation.goal() != null) {
-                context.append("; objectif=").append(operation.goal());
+                context.append("; objectif=").append(sanitizePlanText(operation.goal()));
             }
             if (operation.summary() != null) {
-                context.append("; contexte=").append(operation.summary());
+                context.append("; contexte=").append(sanitizePlanText(operation.summary()));
             }
             if (operation.clarificationId() != null) {
                 context.append("; clarification=").append(operation.clarificationId());
@@ -522,8 +522,8 @@ public class ConversationService {
         for (var objective : state.objectives()) {
             context.append("\n- id=").append(objective.id())
                     .append("; statut=").append(objective.status())
-                    .append("; objectif=").append(objective.goal())
-                    .append("; résumé=").append(objective.summary());
+                    .append("; objectif=").append(sanitizePlanText(objective.goal()))
+                    .append("; résumé=").append(sanitizePlanText(objective.summary()));
             if (objective.parentObjectiveId() != null) {
                 context.append("; parent=").append(objective.parentObjectiveId());
             }
@@ -540,14 +540,27 @@ public class ConversationService {
         } else {
             for (var clarification : state.pendingClarifications()) {
                 context.append("\n- id=").append(clarification.clarificationId())
-                        .append("; question=").append(clarification.question())
+                        .append("; question=").append(sanitizePlanText(clarification.question()))
                         .append("; cible=").append(clarification.targetObjectiveId());
             }
         }
-        context.append("\nRaison du plan : ").append(plan.source().rationale());
+        context.append("\nRaison du plan : ").append(sanitizePlanText(plan.source().rationale()));
         return context.toString();
     }
 
+    /**
+     * Redacts identifiers repeated in user-authored objective text before it
+     * is added to the assistant prompt.
+     */
+    private String sanitizePlanText(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value
+                .replaceAll("(?i)\\\\b[\\\\w.+-]+@[\\\\w.-]+\\\\.[a-z]{2,}\\\\b", "[email]")
+                .replaceAll("(?:\\\\+?\\\\d[\\\\d\\\\s().-]{6,}\\\\d)", "[numero]")
+                .replaceAll("(?i)\\\\b(?=[A-Z0-9-]{6,}\\\\b)(?=[A-Z0-9-]*\\\\d)[A-Z0-9-]+\\\\b", "[identifiant]");
+    }
     private String staleResultRefreshHints(
             TaskStateSnapshotRepository.Snapshot snapshot
     ) {
