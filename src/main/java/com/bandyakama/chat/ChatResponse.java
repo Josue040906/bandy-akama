@@ -106,7 +106,7 @@ public record ChatResponse(
             String name,
             Object result,
             Map<String, Object> arguments,
-            @JsonIgnore String objectiveId
+            String objectiveId
     ) {
         public ToolResult(String name, Object result) {
             this(name, result, Map.of(), null);
