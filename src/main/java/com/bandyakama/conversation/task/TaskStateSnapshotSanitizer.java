@@ -4,9 +4,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.util.List;
 import java.util.Locale;
@@ -15,7 +15,7 @@ import java.util.Set;
 /**
  * Applies an explicit, fail-closed allowlist before operational data enters a
  * durable task snapshot. Conversation memory may contain richer data, but a
- * snapshot is only a resumable hint and must not become a second RH data store.
+ * snapshot is only a resumable hint and must not become a second domain data store.
  */
 final class TaskStateSnapshotSanitizer {
     private static final Set<String> SAFE_AGENT_FILTER_FIELDS = Set.of(
@@ -104,8 +104,8 @@ final class TaskStateSnapshotSanitizer {
             return safe;
         }
 
-        // Only tools with a reviewed persistence policy may retain arguments.
-        // Unknown and sensitive identity/profile tools are deliberately empty.
+        // RH-specific capabilities retain their reviewed allowlists. Other
+        // capabilities require a configured, explicitly non-sensitive definition.
         if ("search_agents".equals(toolName)) {
             String resultMode = arguments.path("resultMode").asText("")
                     .trim().toUpperCase(Locale.ROOT);
