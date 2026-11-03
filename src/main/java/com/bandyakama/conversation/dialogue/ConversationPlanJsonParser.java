@@ -1,5 +1,6 @@
 package com.bandyakama.conversation.dialogue;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.stereotype.Component;
@@ -19,7 +20,9 @@ public class ConversationPlanJsonParser {
 
     public ConversationPlanProposal parse(String json) {
         try {
-            JsonNode root = objectMapper.readTree(json);
+            JsonNode root = objectMapper.reader()
+                    .with(DeserializationFeature.FAIL_ON_READING_DUP_TREE_KEY)
+                    .readTree(json);
             List<ConversationPlanProposal.Operation> operations = new ArrayList<>();
             JsonNode operationNodes = requiredArray(root, "operations");
             for (JsonNode node : operationNodes) {
