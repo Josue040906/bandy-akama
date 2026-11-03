@@ -45,8 +45,9 @@ class ConversationServicePlanExecutionTest {
                 .thenReturn(new ConversationRepository.RequestStart(null, claimId, activeState));
         when(repository.dialogueTurnContextForRequest(any(), any()))
                 .thenReturn(new ConversationRepository.DialogueTurnContext(3, List.of(), ""));
-        when(repository.contextForModelRequest(any(), any(), any(), anyBoolean()))
-                .thenReturn("Contexte de conversation.");
+        when(repository.contextForModelRequest(
+                any(), any(), any(), anyBoolean(), nullable(String.class)
+        )).thenReturn("Contexte de conversation.");
 
         var createReport = new ConversationPlanProposal.Operation(
                 "create-report",
