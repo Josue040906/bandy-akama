@@ -103,6 +103,41 @@ class ConversationPlanValidatorTest {
     }
 
     @Test
+    void rejectsConflictingMutationsOfTheSameExistingObjective() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE, null);
+        var continuation = targeted(
+                "continue", ConversationPlanProposal.OperationType.CONTINUE_OBJECTIVE,
+                "active", "Poursuivre."
+        );
+        var correction = new ConversationPlanProposal.Operation(
+                "correct", ConversationPlanProposal.OperationType.CORRECT_OBJECTIVE,
+                "active", "Nouveau but", "Nouveau résumé", null, List.of(), List.of()
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(state("active", List.of(active), null)),
+                plan(List.of(continuation, correction), List.of())
+        ));
+    }
+
+    @Test
+    void rejectsExecutionDependenciesOnNonCreationOperations() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE, null);
+        var continuation = new ConversationPlanProposal.Operation(
+                "continue", ConversationPlanProposal.OperationType.CONTINUE_OBJECTIVE,
+                "active", null, "Poursuivre.", null,
+                List.of(new ConversationPlanProposal.EntityReference(
+                        ConversationPlanProposal.ReferenceScope.EXISTING_OBJECTIVE, "active"
+                )), List.of()
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(state("active", List.of(active), null)),
+                plan(List.of(continuation), List.of())
+        ));
+    }
+
+    @Test
     void rejectsParentCyclesAndDependencyCycles() {
         var firstChild = create("first", ConversationPlanProposal.OperationType.CREATE_SUBTASK,
                 "Première", proposed("second"), List.of());
