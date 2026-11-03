@@ -60,6 +60,49 @@ class ConversationPlanValidatorTest {
     }
 
     @Test
+    void acceptsContinuationOfAnActiveObjectiveThatIsNotTheCurrentFocus() {
+        DialogueObjective focused = objective(
+                "focused", DialogueObjectiveStatus.ACTIVE, null
+        );
+        DialogueObjective otherActive = objective(
+                "other-active", DialogueObjectiveStatus.ACTIVE, null
+        );
+        var continuation = targeted(
+                "continue-other", ConversationPlanProposal.OperationType.CONTINUE_OBJECTIVE,
+                "other-active", "Poursuivre cet objectif."
+        );
+
+        var result = validator.validate(
+                input(state("focused", List.of(focused, otherActive), null)),
+                plan(List.of(continuation), List.of())
+        );
+
+        assertEquals("continue-other",
+                result.orderedOperations().get(0).operationId());
+    }
+
+    @Test
+    void allowsActivationWhenAllExecutionPrerequisitesAreCompleted() {
+        DialogueObjective completed = objective(
+                "completed", DialogueObjectiveStatus.COMPLETED, null
+        );
+        DialogueObjective active = new DialogueObjective(
+                "active", "Continuer", "Prêt à démarrer.",
+                DialogueObjectiveStatus.ACTIVE, null, NOW, NOW, List.of(),
+                List.of("completed")
+        );
+        DialogueState state = state("active", List.of(completed, active), null);
+        var continuation = targeted(
+                "continue-active", ConversationPlanProposal.OperationType.CONTINUE_OBJECTIVE,
+                "active", "Suite."
+        );
+
+        assertEquals(1, validator.validate(
+                input(state), plan(List.of(continuation), List.of())
+        ).orderedOperations().size());
+    }
+
+    @Test
     void rejectsParentCyclesAndDependencyCycles() {
         var firstChild = create("first", ConversationPlanProposal.OperationType.CREATE_SUBTASK,
                 "Première", proposed("second"), List.of());
