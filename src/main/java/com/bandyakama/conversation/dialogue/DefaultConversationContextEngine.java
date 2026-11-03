@@ -30,6 +30,6 @@ public class DefaultConversationContextEngine implements ConversationContextEngi
         ConversationPlanProposal proposal = interpreter.interpret(input);
         ValidatedConversationPlan validated = validator.validate(input, proposal);
         DialogueState proposedState = transitioner.transition(input, validated);
-        return ContextResolution.fromPlan(validated, proposedState);
+        return ContextResolution.fromPlan(validated, input.dialogueState(), proposedState);
     }
 }
