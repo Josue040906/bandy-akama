@@ -107,6 +107,19 @@ public class ConversationPlanValidator {
             validateReference(operation.parent(), operation, existing, proposed, true);
             for (ConversationPlanProposal.EntityReference dependency : operation.dependsOn()) {
                 validateReference(dependency, operation, existing, proposed, false);
+                if (dependency.scope()
+                        == ConversationPlanProposal.ReferenceScope.PROPOSED_OPERATION) {
+                    ConversationPlanProposal.Operation prerequisite =
+                            proposed.get(dependency.id());
+                    if (prerequisite.type()
+                            != ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
+                            && prerequisite.type()
+                            != ConversationPlanProposal.OperationType.CREATE_SUBTASK) {
+                        throw invalid(
+                                "Une dépendance proposée doit désigner une tâche créée dans ce plan."
+                        );
+                    }
+                }
             }
             for (ConversationPlanProposal.EntityReference reference :
                     operation.dependsOn()) {
