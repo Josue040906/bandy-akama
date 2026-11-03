@@ -166,7 +166,9 @@ class ConversationContextIntegrationTest {
                 nullable(String.class),
                 anyString(),
                 any(UUID.class),
-                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+                nullable(com.fasterxml.jackson.databind.JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 
@@ -304,7 +306,9 @@ class ConversationContextIntegrationTest {
                 nullable(String.class),
                 anyString(),
                 any(UUID.class),
-                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+                nullable(com.fasterxml.jackson.databind.JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 
@@ -417,7 +421,9 @@ class ConversationContextIntegrationTest {
                 nullable(String.class),
                 anyString(),
                 any(UUID.class),
-                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+                nullable(com.fasterxml.jackson.databind.JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 
@@ -589,7 +595,9 @@ class ConversationContextIntegrationTest {
                 nullable(String.class),
                 anyString(),
                 any(UUID.class),
-                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+                nullable(com.fasterxml.jackson.databind.JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 
@@ -631,7 +639,9 @@ class ConversationContextIntegrationTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(com.fasterxml.jackson.databind.JsonNode.class)
+                nullable(com.fasterxml.jackson.databind.JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 }
