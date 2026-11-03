@@ -114,6 +114,7 @@ class TaskStateSnapshotRepositoryTest {
             );
             when(resultSet.getString("result_references")).thenReturn("""
                     [{"toolName":"get_organization_info",
+                      "objectiveId":"objective-safe-references",
                       "capturedAt":"2026-11-02T20:00:00Z",
                       "arguments":{"query":"Rakoto RH12345678","scope":"SERVICE"},
                       "result":{"description":"private payload","matricule":"RH12345678"}}]
