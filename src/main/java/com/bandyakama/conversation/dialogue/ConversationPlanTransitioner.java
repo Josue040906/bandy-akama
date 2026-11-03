@@ -66,7 +66,22 @@ public class ConversationPlanTransitioner {
                             dependencies
                     );
                     objectives.put(id, created);
-                    if (ready) focus = id;
+                    if (ready) {
+                        // An independent objective takes focus; the previous
+                        // active objective is suspended, not left active in parallel.
+                        if (operation.type()
+                                == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
+                                && focus != null && !focus.equals(id)) {
+                            DialogueObjective previous = objectives.get(focus);
+                            if (previous != null
+                                    && previous.status() == DialogueObjectiveStatus.ACTIVE) {
+                                objectives.put(focus, withStatus(
+                                        previous, DialogueObjectiveStatus.SUSPENDED, now
+                                ));
+                            }
+                        }
+                        focus = id;
+                    }
                 }
                 case CONTINUE_OBJECTIVE, RESUME_OBJECTIVE, CORRECT_OBJECTIVE -> {
                     DialogueObjective target = requireObjective(objectives, operation.targetObjectiveId());
