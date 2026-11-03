@@ -6,7 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;\nimport static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;\nimport static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DialogueStateSerializationTest {
 
@@ -66,6 +67,63 @@ class DialogueStateSerializationTest {
         );
 
         assertEquals(List.of(), restored.objectives().get(0).dependsOnObjectiveIds());
+    }
+
+    @Test
+    void readsLegacySinglePendingClarificationSnapshot() throws Exception {
+        String legacyJson = """
+                {
+                  "schemaVersion": 1,
+                  "activeObjectiveId": "objective-1",
+                  "objectives": [{
+                    "id": "objective-1",
+                    "goal": "Préparer un rapport",
+                    "summary": "Rapport de ventes",
+                    "status": "ACTIVE",
+                    "parentObjectiveId": null,
+                    "createdAt": "2026-11-02T10:15:30Z",
+                    "updatedAt": "2026-11-02T10:15:30Z",
+                    "references": [],
+                    "dependsOnObjectiveIds": []
+                  }],
+                  "pendingClarification": {
+                    "targetObjectiveId": "objective-1",
+                    "question": "Quelle période ?",
+                    "reason": "La période manque.",
+                    "createdAt": "2026-11-02T10:16:00Z"
+                  }
+                }
+                """;
+
+        DialogueState restored = objectMapper.readValue(legacyJson, DialogueState.class);
+
+        assertEquals(1, restored.pendingClarifications().size());
+        assertEquals("Quelle période ?", restored.pendingClarification().question());
+    }
+
+    @Test
+    void roundTripsMultiplePendingClarifications() throws Exception {
+        Instant createdAt = Instant.parse("2026-11-03T06:00:00Z");
+        PendingClarification first = new PendingClarification(
+                null, "Quel sujet ?", "Le sujet est ambigu.", createdAt
+        );
+        PendingClarification second = new PendingClarification(
+                null, "Quel format ?", "Le format est ambigu.", createdAt.plusSeconds(1)
+        );
+        DialogueState expected = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                null,
+                List.of(),
+                List.of(first, second)
+        );
+
+        String serialized = objectMapper.writeValueAsString(expected);
+        DialogueState restored = objectMapper.readValue(serialized, DialogueState.class);
+
+        assertEquals(expected, restored);
+        assertEquals(2, restored.pendingClarifications().size());
+        assertTrue(serialized.contains("pendingClarifications"));
+        assertTrue(!serialized.contains("\\"pendingClarification\\":"));
     }
 
     @Test
