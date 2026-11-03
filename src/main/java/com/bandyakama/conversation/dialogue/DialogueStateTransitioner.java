@@ -182,7 +182,8 @@ public class DialogueStateTransitioner {
                 target.parentObjectiveId(),
                 target.createdAt(),
                 now.isBefore(target.createdAt()) ? target.createdAt() : now,
-                references
+                references,
+                target.dependsOnObjectiveIds()
         );
     }
 
@@ -242,7 +243,8 @@ public class DialogueStateTransitioner {
                 now.isBefore(objective.createdAt())
                         ? objective.createdAt()
                         : now,
-                objective.references()
+                objective.references(),
+                objective.dependsOnObjectiveIds()
         );
     }
 }
