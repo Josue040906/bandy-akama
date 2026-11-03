@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;\nimport static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DialogueStateSerializationTest {
 
@@ -123,7 +123,7 @@ class DialogueStateSerializationTest {
         assertEquals(expected, restored);
         assertEquals(2, restored.pendingClarifications().size());
         assertTrue(serialized.contains("pendingClarifications"));
-        assertTrue(!serialized.contains("\\"pendingClarification\\":"));
+        assertTrue(!serialized.contains("\"pendingClarification\":"));
     }
 
     @Test
