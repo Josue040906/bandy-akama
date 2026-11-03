@@ -136,11 +136,7 @@ class ConversationServicePlanExecutionTest {
                 isNull(),
                 eq(Optional.empty()),
                 isNull(),
-                objectiveStates.getValue().entrySet().stream()
-                        .collect(java.util.stream.Collectors.toMap(
-                                java.util.Map.Entry::getKey,
-                                entry -> entry.getValue()
-                        ))
+                eq(java.util.Map.of())
         );
     }
 }
