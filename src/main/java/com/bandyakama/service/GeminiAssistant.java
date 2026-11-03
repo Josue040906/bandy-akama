@@ -426,6 +426,7 @@ public class GeminiAssistant {
                 ToolExecutionResult execution = executeRegisteredTool(
                         name,
                         effectiveArguments,
+                        objectiveId,
                         authorization,
                         requestId,
                         enabledTools,
@@ -903,6 +904,7 @@ public class GeminiAssistant {
     private ToolExecutionResult executeRegisteredTool(
             String name,
             Map<String, Object> arguments,
+            String objectiveId,
             String authorization,
             UUID requestId,
             Map<String, ToolDefinition> enabledTools,
@@ -915,11 +917,15 @@ public class GeminiAssistant {
                         "Le modèle a demandé un outil non autorisé."
                 ));
 
-        if (invocationCache.contains(name, arguments)) {
+        Map<String, Object> cacheArguments = new HashMap<>(arguments);
+        if (objectiveId != null) {
+            cacheArguments.put("__objectiveId", objectiveId);
+        }
+        if (invocationCache.contains(name, cacheArguments)) {
             metrics.toolCacheHits++;
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
-                    invocationCache.get(name, arguments),
+                    invocationCache.get(name, cacheArguments),
                     definition.isSensitive() || isSensitiveReadTool(name)
             );
         }
@@ -931,7 +937,7 @@ public class GeminiAssistant {
                     authorization,
                     requestId == null ? null : requestId.toString()
             );
-            invocationCache.put(name, arguments, result);
+            invocationCache.put(name, cacheArguments, result);
             return new ToolExecutionResult(
                     result,
                     definition.isSensitive() || isSensitiveReadTool(name)
