@@ -120,6 +120,26 @@ public class ConversationCompletionService {
             Optional<String> previousObjectiveId,
             JsonNode previousOperationalState
     ) {
+        complete(
+                conversationId, idempotencyKey, claimId, response,
+                proposedDialogueState, activeObjectiveId, resumedStateOverride,
+                previousObjectiveId, previousOperationalState, java.util.Map.of()
+        );
+    }
+
+    @Transactional
+    public void complete(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            ChatResponse response,
+            Optional<DialogueState> proposedDialogueState,
+            Optional<String> activeObjectiveId,
+            JsonNode resumedStateOverride,
+            Optional<String> previousObjectiveId,
+            JsonNode previousOperationalState,
+            java.util.Map<String, JsonNode> objectiveStates
+    ) {
         Objects.requireNonNull(conversationId, "conversationId must not be null.");
         Objects.requireNonNull(idempotencyKey, "idempotencyKey must not be null.");
         Objects.requireNonNull(claimId, "claimId must not be null.");
@@ -160,9 +180,20 @@ public class ConversationCompletionService {
                 dialogueStateRepository.save(conversationId, state)
         );
         if (taskStateSnapshotRepository != null) {
-            activeObjectiveId.filter(id -> !id.isBlank()).ifPresent(id ->
-                    taskStateSnapshotRepository.capture(conversationId, id)
-            );
+            java.util.Map<String, JsonNode> safeObjectiveStates =
+                    objectiveStates == null ? java.util.Map.of() : objectiveStates;
+            safeObjectiveStates.forEach((objectiveId, state) -> {
+                if (objectiveId != null && !objectiveId.isBlank()
+                        && state != null && state.isObject()) {
+                    taskStateSnapshotRepository.capture(
+                            conversationId, objectiveId, state
+                    );
+                }
+            });
+            activeObjectiveId
+                    .filter(id -> !id.isBlank())
+                    .filter(id -> !safeObjectiveStates.containsKey(id))
+                    .ifPresent(id -> taskStateSnapshotRepository.capture(conversationId, id));
         }
     }
 }
