@@ -96,7 +96,9 @@ public class ConversationPlanTransitioner {
                 }
                 case ANSWER_CLARIFICATION -> {
                     PendingClarification answered = pending.stream()
-                            .filter(item -> item.clarificationId().equals(operation.clarificationId()))
+                            .filter(item -> operation.clarificationId() == null
+                                    ? pending.size() == 1
+                                    : item.clarificationId().equals(operation.clarificationId()))
                             .findFirst()
                             .orElseThrow(() -> new IllegalArgumentException(
                                     "La clarification à résoudre n'est plus en attente."
@@ -125,7 +127,7 @@ public class ConversationPlanTransitioner {
 
         // A newly created clarification is independent from all existing ones.
         for (ConversationPlanProposal.Clarification clarification : plan.source().clarifications()) {
-            String targetId = resolve(clarification.target(), createdIds);
+            String targetId = resolveClarificationTarget(clarification.target(), plan, createdIds);
             pending.add(new PendingClarification(
                     clarification.clarificationId(), targetId,
                     clarification.question(), clarification.rationale(), now
@@ -154,6 +156,22 @@ public class ConversationPlanTransitioner {
         return reference.scope() == ConversationPlanProposal.ReferenceScope.EXISTING_OBJECTIVE
                 ? reference.id() : Objects.requireNonNull(createdIds.get(reference.id()),
                 "La référence proposée doit désigner une création.");
+    }
+
+    private String resolveClarificationTarget(
+            ConversationPlanProposal.EntityReference reference,
+            ValidatedConversationPlan plan,
+            Map<String, String> createdIds) {
+        if (reference == null) return null;
+        if (reference.scope() == ConversationPlanProposal.ReferenceScope.EXISTING_OBJECTIVE) {
+            return reference.id();
+        }
+        ConversationPlanProposal.Operation operation = plan.orderedOperations().stream()
+                .filter(item -> item.operationId().equals(reference.id()))
+                .findFirst().orElseThrow();
+        return isCreation(operation.type())
+                ? createdIds.get(operation.operationId())
+                : operation.targetObjectiveId();
     }
 
     private DialogueObjective requireObjective(Map<String, DialogueObjective> objectives, String id) {
