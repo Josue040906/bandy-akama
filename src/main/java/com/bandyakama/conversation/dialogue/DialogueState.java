@@ -100,12 +100,9 @@ public record DialogueState(
         Map<String, List<String>> edges = new HashMap<>();
         for (DialogueObjective objective : objectives) {
             String parent = objective.parentObjectiveId();
-            edges.put(objective.id(), hierarchy || parent == null
-                    ? (hierarchy && parent != null ? List.of(parent) : List.of())
+            edges.put(objective.id(), hierarchy
+                    ? (parent == null ? List.of() : List.of(parent))
                     : objective.dependsOnObjectiveIds());
-            if (!hierarchy && objective.dependsOnObjectiveIds().isEmpty()) {
-                edges.put(objective.id(), List.of());
-            }
         }
 
         Map<String, Integer> marks = new HashMap<>();
