@@ -143,6 +143,35 @@ class TaskStateSnapshotRepositoryTest {
     }
 
     @Test
+    void capturesExplicitPreviousObjectiveStateWithoutReadingGlobalMemory() throws Exception {
+        JdbcTemplate jdbc = mock(JdbcTemplate.class);
+        TaskStateSnapshotRepository repository =
+                new TaskStateSnapshotRepository(jdbc, objectMapper);
+        Connection connection = mock(Connection.class);
+        DatabaseMetaData metadata = mock(DatabaseMetaData.class);
+        when(connection.getMetaData()).thenReturn(metadata);
+        when(metadata.getDatabaseProductName()).thenReturn("H2");
+        when(jdbc.execute(any(ConnectionCallback.class))).thenAnswer(invocation -> {
+            ConnectionCallback<?> callback = invocation.getArgument(0);
+            return callback.doInConnection(connection);
+        });
+        when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
+        ObjectNode previousState = objectMapper.createObjectNode()
+                .put("intent", "SEARCH")
+                .put("query", "rapport financier");
+
+        repository.capture(UUID.randomUUID(), "objective-previous", previousState);
+
+        ArgumentCaptor<Object[]> parameters = ArgumentCaptor.forClass(Object[].class);
+        verify(jdbc).update(anyString(), parameters.capture());
+        assertEquals("objective-previous", parameters.getValue()[1]);
+        assertEquals("{\"intent\":\"SEARCH\",\"query\":\"rapport financier\"}",
+                parameters.getValue()[3]);
+        assertEquals("[]", parameters.getValue()[4]);
+        assertEquals("[]", parameters.getValue()[5]);
+    }
+
+    @Test
     void selectsPostgresOnConflictUpsertWhenRunningOnPostgresql() throws Exception {
         JdbcTemplate jdbc = mock(JdbcTemplate.class);
         ObjectMapper mapper = new ObjectMapper();
