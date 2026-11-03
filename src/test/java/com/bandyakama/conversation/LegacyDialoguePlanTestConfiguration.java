@@ -73,7 +73,7 @@ public class LegacyDialoguePlanTestConfiguration {
                 operations.add(operation(
                         input, "answer-clarification",
                         ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
-                        null, null, legacy.objectiveSummary(), null,
+                        legacy.targetObjectiveId(), null, legacy.objectiveSummary(), null,
                         legacy.referenceMentions(), clarificationId
                 ));
             }
