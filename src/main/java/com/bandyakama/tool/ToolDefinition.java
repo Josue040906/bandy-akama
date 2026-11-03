@@ -97,6 +97,12 @@ public class ToolDefinition {
         if (parameters == null) {
             parameters = List.of();
         }
+        if (parameters.stream().anyMatch(parameter ->
+                "__objectiveId".equals(parameter.getName()))) {
+            throw new IllegalArgumentException(
+                    "Le paramètre __objectiveId est réservé au moteur conversationnel."
+            );
+        }
         if (parameters.stream().map(ToolParameter::getName).distinct().count()
                 != parameters.size()) {
             throw new IllegalArgumentException("Les noms des paramètres doivent être uniques.");
