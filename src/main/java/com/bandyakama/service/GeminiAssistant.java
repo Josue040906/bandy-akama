@@ -184,6 +184,21 @@ public class GeminiAssistant {
             JsonNode initialState,
             Consumer<String> tokenConsumer
     ) {
+        return respond(
+                message, authorization, conversationContext, requestId,
+                initialState, tokenConsumer, Map.of()
+        );
+    }
+
+    public ChatResponse respond(
+            String message,
+            String authorization,
+            String conversationContext,
+            UUID requestId,
+            JsonNode initialState,
+            Consumer<String> tokenConsumer,
+            Map<String, JsonNode> initialObjectiveStates
+    ) {
         long startedAt = System.nanoTime();
         TurnMetrics metrics = new TurnMetrics();
         boolean succeeded = false;
@@ -194,6 +209,7 @@ public class GeminiAssistant {
                     conversationContext,
                     requestId,
                     initialState,
+                    initialObjectiveStates,
                     metrics,
                     tokenConsumer
             );
@@ -229,6 +245,7 @@ public class GeminiAssistant {
             String conversationContext,
             UUID requestId,
             JsonNode initialState,
+            Map<String, JsonNode> initialObjectiveStates,
             TurnMetrics metrics,
             Consumer<String> tokenConsumer
     ) {
@@ -346,6 +363,14 @@ public class GeminiAssistant {
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
         JsonNode activeState = initialState;
+        Map<String, JsonNode> objectiveStates = new HashMap<>();
+        if (initialObjectiveStates != null) {
+            initialObjectiveStates.forEach((id, state) -> {
+                if (id != null && !id.isBlank() && state != null) {
+                    objectiveStates.put(id, state.deepCopy());
+                }
+            });
+        }
 
         for (int round = 0; round < maxToolRounds; round++) {
             List<FunctionCall> calls = response.parts().stream()
@@ -358,7 +383,8 @@ public class GeminiAssistant {
                         List.copyOf(executedResults),
                         null,
                         false,
-                        List.copyOf(toolStates)
+                        List.copyOf(toolStates),
+                        objectiveStates
                 );
             }
 
@@ -367,10 +393,18 @@ public class GeminiAssistant {
             List<Part> resultParts = new ArrayList<>();
             for (FunctionCall call : calls) {
                 String name = call.name().orElse("");
-                Map<String, Object> arguments = call.args().orElse(Map.of());
+                Map<String, Object> arguments = new HashMap<>(
+                        call.args().orElse(Map.of())
+                );
+                Object objectiveValue = arguments.remove("__objectiveId");
+                String objectiveId = objectiveValue instanceof String value
+                        && !value.isBlank() ? value : null;
+                JsonNode stateForTool = objectiveId == null
+                        ? (objectiveStates.isEmpty() ? activeState : null)
+                        : objectiveStates.get(objectiveId);
                 Map<String, Object> effectiveArguments =
                         stateMerger.mergeToolArguments(
-                                activeState,
+                                stateForTool,
                                 name,
                                 arguments
                         );
@@ -387,22 +421,30 @@ public class GeminiAssistant {
                 observedResults.add(new ChatResponse.ToolResult(
                         name,
                         result,
-                        effectiveArguments
+                        effectiveArguments,
+                        objectiveId
                 ));
                 toolStates.add(new ChatResponse.ToolState(
                         name,
                         effectiveArguments,
-                        "get_agent_profile".equals(name) ? result : null
+                        "get_agent_profile".equals(name) ? result : null,
+                        objectiveId
                 ));
-                activeState = stateMerger.stateAfterToolCall(
+                JsonNode updatedState = stateMerger.stateAfterToolCall(
                         name,
                         effectiveArguments
                 );
+                if (objectiveId == null) {
+                    activeState = updatedState;
+                } else {
+                    objectiveStates.put(objectiveId, updatedState);
+                }
                 if (!execution.sensitive()) {
                     executedResults.add(new ChatResponse.ToolResult(
                             name,
                             result,
-                            effectiveArguments
+                            effectiveArguments,
+                            objectiveId
                     ));
                 }
 
@@ -967,6 +1009,13 @@ public class GeminiAssistant {
             }
         }
 
+        properties.put(
+                "__objectiveId",
+                Schema.builder()
+                        .type("STRING")
+                        .description("Identifiant exact de l’objectif conversationnel auquel cet appel appartient. Obligatoire lorsqu’un tour contient plusieurs objectifs indépendants.")
+                        .build()
+        );
         Schema.Builder schema = Schema.builder()
                 .type("OBJECT")
                 .properties(properties);
