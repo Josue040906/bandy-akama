@@ -93,6 +93,7 @@ public class ConversationPlanTransitioner {
                     pending.removeIf(item -> target.id().equals(item.targetObjectiveId()));
                     if (Objects.equals(focus, target.id())) focus = null;
                     unblockReadyObjectives(objectives, now);
+                    if (focus == null) focus = mostRecentlyUpdatedActive(objectives);
                 }
                 case ANSWER_CLARIFICATION -> {
                     PendingClarification answered = pending.stream()
