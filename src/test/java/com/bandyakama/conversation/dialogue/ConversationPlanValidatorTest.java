@@ -222,6 +222,106 @@ class ConversationPlanValidatorTest {
         ));
     }
 
+    @Test
+    void resolvesOnlyThePendingClarificationIdentifiedByItsId() {
+        PendingClarification first = new PendingClarification(
+                "clarification-1", null, "Quel sujet ?", "Sujet ambigu.", NOW
+        );
+        PendingClarification second = new PendingClarification(
+                "clarification-2", null, "Quel format ?", "Format ambigu.", NOW.plusSeconds(1)
+        );
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(),
+                List.of(first, second)
+        );
+        var answer = new ConversationPlanProposal.Operation(
+                "answer-format",
+                ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Le format PDF.", null, List.of(), List.of(),
+                "clarification-2"
+        );
+
+        var result = validator.validate(input(state), plan(List.of(answer), List.of()));
+
+        assertEquals("answer-format", result.orderedOperations().get(0).operationId());
+    }
+
+    @Test
+    void requiresClarificationIdWhenSeveralQuestionsArePending() {
+        PendingClarification first = new PendingClarification(
+                "clarification-1", null, "Quel sujet ?", "Sujet ambigu.", NOW
+        );
+        PendingClarification second = new PendingClarification(
+                "clarification-2", null, "Quel format ?", "Format ambigu.", NOW.plusSeconds(1)
+        );
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(),
+                List.of(first, second)
+        );
+        var answerWithoutId = new ConversationPlanProposal.Operation(
+                "answer", ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Le sujet.", null, List.of(), List.of()
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(state), plan(List.of(answerWithoutId), List.of())
+        ));
+    }
+
+    @Test
+    void canResolveSeveralClarificationsIndependentlyInOnePlan() {
+        PendingClarification first = new PendingClarification(
+                "clarification-1", null, "Quel sujet ?", "Sujet ambigu.", NOW
+        );
+        PendingClarification second = new PendingClarification(
+                "clarification-2", null, "Quel format ?", "Format ambigu.", NOW.plusSeconds(1)
+        );
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(),
+                List.of(first, second)
+        );
+        var answerFirst = new ConversationPlanProposal.Operation(
+                "answer-subject", ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Le sujet est le rapport.", null, List.of(), List.of(),
+                "clarification-1"
+        );
+        var answerSecond = new ConversationPlanProposal.Operation(
+                "answer-format", ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Le format est PDF.", null, List.of(), List.of(),
+                "clarification-2"
+        );
+
+        var result = validator.validate(
+                input(state), plan(List.of(answerFirst, answerSecond), List.of())
+        );
+
+        assertEquals(2, result.orderedOperations().size());
+    }
+
+    @Test
+    void rejectsDuplicateAnswersForTheSameClarification() {
+        PendingClarification pending = new PendingClarification(
+                "clarification-1", null, "Quel sujet ?", "Sujet ambigu.", NOW
+        );
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(), List.of(pending)
+        );
+        var first = new ConversationPlanProposal.Operation(
+                "answer-1", ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Premier sujet.", null, List.of(), List.of(),
+                "clarification-1"
+        );
+        var second = new ConversationPlanProposal.Operation(
+                "answer-2", ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION,
+                null, null, "Autre sujet.", null, List.of(), List.of(),
+                "clarification-1"
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(state), plan(List.of(first, second), List.of())
+        ));
+    }
+
     private ContextEngineInput input(DialogueState state) {
         return new ContextEngineInput("Message courant", 3, state, List.of(), "");
     }
