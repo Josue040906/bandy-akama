@@ -489,7 +489,7 @@ public class ConversationService {
     private boolean isGreeting(String message) {
         String normalized = message == null ? "" : message.strip()
                 .toLowerCase(java.util.Locale.ROOT);
-        return normalized.matches("^(bonjour|salut|hello|coucou)(?:\\\\s+.*)?[!?.]*$");
+        return normalized.matches("^(bonjour|salut|hello|coucou)(?:\\s+.*)?[!?.]*$");
     }
 
     private String buildPlanInstruction(
