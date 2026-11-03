@@ -921,7 +921,7 @@ public class ConversationRepository {
         appendContextBlock(
                 context,
                 "Résumé extractif des échanges plus anciens :",
-                memory.summary(),
+                redactSummaryIdentifiers(memory.summary()),
                 contextCharacterLimit,
                 contextCharacterLimit
         );
