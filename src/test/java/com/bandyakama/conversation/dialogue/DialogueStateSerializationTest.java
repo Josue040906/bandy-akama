@@ -110,7 +110,7 @@ class DialogueStateSerializationTest {
         PendingClarification second = new PendingClarification(
                 null, "Quel format ?", "Le format est ambigu.", createdAt.plusSeconds(1)
         );
-        DialogueState expected = new DialogueState(
+        DialogueState expected = DialogueState.withPendingClarifications(
                 DialogueState.CURRENT_SCHEMA_VERSION,
                 null,
                 List.of(),
