@@ -495,13 +495,17 @@ public class ConversationService {
 
         TaskStateSnapshotRepository.Snapshot resumedSnapshot = null;
         JsonNode resumedStateOverride = null;
-        boolean resumingFocus = plan.orderedOperations().stream().anyMatch(operation ->
+        boolean explicitlyResumingFocus = plan.orderedOperations().stream().anyMatch(operation ->
                 operation.type()
                         == com.bandyakama.conversation.dialogue.ConversationPlanProposal
                         .OperationType.RESUME_OBJECTIVE
                         && java.util.Objects.equals(operation.targetObjectiveId(), nextFocus)
         );
-        if (resumingFocus && taskStateSnapshotRepository != null) {
+        boolean restoringExistingFocus = nextFocus != null && focusChanged
+                && original.objectives().stream().anyMatch(objective ->
+                        objective.id().equals(nextFocus));
+        boolean restoreFocusSnapshot = explicitlyResumingFocus || restoringExistingFocus;
+        if (restoreFocusSnapshot && taskStateSnapshotRepository != null) {
             resumedSnapshot = taskStateSnapshotRepository.load(conversationId, nextFocus)
                     .orElse(null);
             resumedStateOverride = resumedSnapshot == null
@@ -509,7 +513,7 @@ public class ConversationService {
         }
 
         JsonNode stateForRequest;
-        if (resumingFocus) {
+        if (restoreFocusSnapshot) {
             stateForRequest = taskStateManager.forDialogueRelation(
                     DialogueRelation.TOPIC_RESUMPTION, resumedStateOverride
             );
@@ -522,7 +526,7 @@ public class ConversationService {
 
         boolean resetState = focusChanged;
         String planInstruction = buildPlanInstruction(plan, proposed)
-                + (resumingFocus
+                + (restoreFocusSnapshot
                 ? "\nObjectif repris : restaure uniquement ses critères sauvegardés. "
                         + "Les références de résultats sont périmées : relance les outils "
                         + "nécessaires avant toute affirmation factuelle."
@@ -576,7 +580,7 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             stateForRequest,
-                            stateForRequest != null && !resumingFocus
+                            stateForRequest != null && !restoreFocusSnapshot
                     )
             ) + planInstruction
                     + (clarificationText.isBlank() ? ""
@@ -617,7 +621,7 @@ public class ConversationService {
                         completed,
                         java.util.Optional.of(proposed),
                         java.util.Optional.ofNullable(nextFocus),
-                        resumingFocus ? stateForRequest : null,
+                        restoreFocusSnapshot ? stateForRequest : null,
                         previousObjectiveToSnapshot,
                         previousOperationalState
                 )
