@@ -68,6 +68,32 @@ class ConversationPlanJsonParserTest {
     }
 
     @Test
+    void parsesExactClarificationIdOnAnswerOperation() {
+        String json = """
+                {
+                  "rationale": "Réponse à une question précise.",
+                  "confidence": "HIGH",
+                  "operations": [{
+                    "operationId": "answer-1",
+                    "type": "ANSWER_CLARIFICATION",
+                    "targetObjectiveId": null,
+                    "goal": null,
+                    "summary": "Le format demandé est PDF.",
+                    "parent": null,
+                    "dependsOn": [],
+                    "referenceMentions": [],
+                    "clarificationId": "pending-42"
+                  }],
+                  "clarifications": []
+                }
+                """;
+
+        ConversationPlanProposal proposal = parser.parse(json);
+
+        assertEquals("pending-42", proposal.operations().get(0).clarificationId());
+    }
+
+    @Test
     void rejectsMalformedOrStructurallyIncompleteJson() {
         assertThrows(IllegalArgumentException.class, () -> parser.parse("{"));
         assertThrows(IllegalArgumentException.class, () -> parser.parse("""
