@@ -43,7 +43,7 @@ public class ConversationPlanValidator {
             }
         }
 
-        validatePendingClarification(input.dialogueState(), proposal);
+        validateClarificationAnswers(input.dialogueState(), proposal);
         validateOperations(input, proposal, existing, proposed);
         validateExistingHierarchy(input.dialogueState(), existing);
         validateProposedGraphs(proposed, existing);
@@ -54,46 +54,54 @@ public class ConversationPlanValidator {
         );
     }
 
-    private void validatePendingClarification(
+    private void validateClarificationAnswers(
             DialogueState state,
             ConversationPlanProposal proposal
     ) {
-        PendingClarification pending = state.pendingClarification();
-        if (pending == null) {
-            for (ConversationPlanProposal.Operation operation : proposal.operations()) {
-                if (operation.type()
-                        == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION) {
-                    throw invalid("Aucune clarification n'est actuellement en attente.");
-                }
+        Set<String> answeredIds = new HashSet<>();
+        for (ConversationPlanProposal.Operation operation : proposal.operations()) {
+            if (operation.type()
+                    != ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION) {
+                continue;
             }
-            return;
+            PendingClarification pending = resolvePendingClarification(state, operation);
+            if (!answeredIds.add(pending.clarificationId())) {
+                throw invalid("Une clarification ne peut être résolue qu'une fois par plan.");
+            }
+            if (!Objects.equals(pending.targetObjectiveId(), operation.targetObjectiveId())) {
+                throw invalid(
+                        "La réponse ne correspond pas à l'objectif de la clarification ciblée."
+                );
+            }
+        }
+    }
+
+    private PendingClarification resolvePendingClarification(
+            DialogueState state,
+            ConversationPlanProposal.Operation operation
+    ) {
+        List<PendingClarification> pending = state.pendingClarifications();
+        if (pending.isEmpty()) {
+            throw invalid("Aucune clarification n'est actuellement en attente.");
         }
 
-        boolean answersPending = proposal.operations().stream().anyMatch(operation ->
-                operation.type()
-                        == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION
-                        && Objects.equals(
-                                pending.targetObjectiveId(), operation.targetObjectiveId()
-                        )
-        );
-        boolean allowedWithoutAnswer = proposal.operations().stream().allMatch(operation ->
-                operation.type()
-                        == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION
-                        || operation.type()
-                        == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
-                        || operation.type()
-                        == ConversationPlanProposal.OperationType.COMPLETE_OBJECTIVE
-                        || operation.type()
-                        == ConversationPlanProposal.OperationType.SOCIAL_TURN
-                        || operation.type()
-                        == ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST
-        );
-        if (!answersPending && (!allowedWithoutAnswer || !proposal.clarifications().isEmpty())) {
-            throw invalid(
-                    "Une clarification est en attente : le plan doit la résoudre "
-                            + "avant d'introduire une nouvelle ambiguïté ou une modification liée."
-            );
+        String requestedId = operation.clarificationId();
+        if (requestedId == null) {
+            if (pending.size() != 1) {
+                throw invalid(
+                        "ANSWER_CLARIFICATION doit fournir clarificationId lorsque "
+                                + "plusieurs clarifications sont en attente."
+                );
+            }
+            return pending.get(0);
         }
+
+        return pending.stream()
+                .filter(item -> item.clarificationId().equals(requestedId))
+                .findFirst()
+                .orElseThrow(() -> invalid(
+                        "La clarification ciblée est inconnue ou n'est plus en attente."
+                ));
     }
 
     private void validateOperations(
@@ -173,11 +181,11 @@ public class ConversationPlanValidator {
         }
 
         if (type == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION) {
-            PendingClarification pending = state.pendingClarification();
-            if (pending == null || !Objects.equals(
+            PendingClarification pending = resolvePendingClarification(state, operation);
+            if (!Objects.equals(
                     pending.targetObjectiveId(), operation.targetObjectiveId())) {
                 throw invalid(
-                        "ANSWER_CLARIFICATION doit cibler la clarification actuellement en attente."
+                        "ANSWER_CLARIFICATION doit cibler l'objectif de la clarification."
                 );
             }
             if (operation.targetObjectiveId() != null) {
