@@ -100,7 +100,8 @@ final class TaskStateSnapshotSanitizer {
             ToolDefinition definition
     ) {
         ObjectNode safe = objectMapper.createObjectNode();
-        if (arguments == null || !arguments.isObject()) {
+        if (arguments == null || !arguments.isObject()
+                || (definition != null && definition.isSensitive())) {
             return safe;
         }
 
