@@ -98,8 +98,22 @@ public class ConversationPlanTransitioner {
                     DialogueObjective updated = copy(target, goal, operation.summary(),
                             nextStatus, references, now);
                     objectives.put(target.id(), updated);
-                    if (nextStatus == DialogueObjectiveStatus.ACTIVE) focus = target.id();
-                    else if (Objects.equals(focus, target.id())) focus = null;
+                    if (nextStatus == DialogueObjectiveStatus.ACTIVE) {
+                        // Resuming an older objective transfers focus away from
+                        // the current one; never leave two ACTIVE objectives.
+                        if (focus != null && !focus.equals(target.id())) {
+                            DialogueObjective previous = objectives.get(focus);
+                            if (previous != null
+                                    && previous.status() == DialogueObjectiveStatus.ACTIVE) {
+                                objectives.put(focus, withStatus(
+                                        previous, DialogueObjectiveStatus.SUSPENDED, now
+                                ));
+                            }
+                        }
+                        focus = target.id();
+                    } else if (Objects.equals(focus, target.id())) {
+                        focus = null;
+                    }
                 }
                 case COMPLETE_OBJECTIVE -> {
                     DialogueObjective target = requireObjective(objectives, operation.targetObjectiveId());
