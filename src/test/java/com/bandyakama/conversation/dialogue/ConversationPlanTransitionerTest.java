@@ -61,6 +61,34 @@ class ConversationPlanTransitionerTest {
     }
 
     @Test
+    void appliesCorrectionAndResumptionToSeparateObjectivesInOneAtomicPlan() {
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
+        DialogueObjective suspended = objective("suspended", DialogueObjectiveStatus.SUSPENDED);
+        DialogueState initial = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, "active",
+                List.of(active, suspended), (PendingClarification) null
+        );
+        var correction = new ConversationPlanProposal.Operation(
+                "correct-active", ConversationPlanProposal.OperationType.CORRECT_OBJECTIVE,
+                "active", "Préparer un rapport financier", "Le rapport porte sur l'exercice 2026.",
+                null, List.of(), List.of()
+        );
+        var resume = new ConversationPlanProposal.Operation(
+                "resume-suspended", ConversationPlanProposal.OperationType.RESUME_OBJECTIVE,
+                "suspended", null, "Reprise de la préparation du voyage.",
+                null, List.of(), List.of()
+        );
+
+        DialogueState result = apply(input(initial), plan(List.of(correction, resume), List.of()));
+
+        assertEquals("Préparer un rapport financier", byId(result, "active").goal());
+        assertEquals(DialogueObjectiveStatus.ACTIVE, byId(result, "active").status());
+        assertEquals("Reprise de la préparation du voyage.", byId(result, "suspended").summary());
+        assertEquals(DialogueObjectiveStatus.ACTIVE, byId(result, "suspended").status());
+        assertEquals("suspended", result.activeObjectiveId());
+    }
+
+    @Test
     void answeringOneClarificationPreservesEveryOtherPendingQuestion() {
         PendingClarification first = new PendingClarification(
                 "clarify-topic", null, "Quel sujet ?", "Sujet ambigu.", NOW
@@ -139,6 +167,11 @@ class ConversationPlanTransitionerTest {
 
     private ContextEngineInput input(DialogueState state) {
         return new ContextEngineInput("Message de test", 4, state, List.of(), "");
+    }
+
+    private DialogueObjective byId(DialogueState state, String id) {
+        return state.objectives().stream().filter(item -> item.id().equals(id))
+                .findFirst().orElseThrow();
     }
 
     private DialogueObjective byGoal(DialogueState state, String goal) {
