@@ -107,12 +107,22 @@ class ConversationApiTest {
                     String target = null;
                     String goal = null;
                     String summary = input.currentMessage();
+                    boolean greeting = message.matches(
+                            "^(bonjour|salut|hello|coucou)(?:\\s+.*)?[!?.]*$"
+                    );
+                    boolean newTopic = message.matches(
+                            "^(?:une\\s+)?nouvelle\\s+question\\b.*"
+                    );
                     boolean independent = message.matches(
                             "^(?:maintenant\\s+)?(?:cherche|recherche|trouve|liste|"
                                     + "explique|decris|presente|nouvelle\\s+question|"
                                     + "combien|qui|pourquoi)\\b.*"
                     );
-                    if (input.dialogueState().pendingClarification() != null
+                    if (greeting) {
+                        relation = DialogueRelation.SOCIAL_TURN;
+                    } else if (newTopic) {
+                        relation = DialogueRelation.NEW_TOPIC_REQUEST;
+                    } else if (input.dialogueState().pendingClarification() != null
                             && !independent) {
                         relation = DialogueRelation.USER_CLARIFICATION;
                         target = input.dialogueState().pendingClarification()
@@ -524,7 +534,7 @@ class ConversationApiTest {
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
         assertTrue(academicContext.contains("réutilise-les pour les suivis"));
-        assertTrue(academicContext.contains("CONTINUATION"));
+        assertTrue(academicContext.contains("CONTINUE_OBJECTIVE"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
@@ -907,7 +917,7 @@ class ConversationApiTest {
         );
         assertNull(states.getAllValues().get(0));
         assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NEW_TASK"));
+        assertTrue(contexts.getAllValues().get(1).contains("CREATE_OBJECTIVE"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
