@@ -9,16 +9,21 @@ import com.google.genai.types.ThinkingLevel;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
 import com.bandyakama.tool.ToolDefinition;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
 import java.net.SocketTimeoutException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GeminiAssistantOrchestrationTest {
     @Test
@@ -67,6 +72,39 @@ class GeminiAssistantOrchestrationTest {
         assertTrue(GeminiAssistant.selectAllowedTools(
                 List.of(disabledTool)
         ).isEmpty());
+    }
+
+    @Test
+    void routesToolCallsToAnActiveObjectiveAndRejectsAmbiguousOrUnknownTargets() {
+        ObjectMapper mapper = new ObjectMapper();
+        Map<String, JsonNode> active = Map.of(
+                "objective-report", mapper.createObjectNode(),
+                "objective-trip", mapper.createObjectNode()
+        );
+
+        assertEquals(
+                "objective-trip",
+                GeminiAssistant.resolveObjectiveId("objective-trip", active)
+        );
+        assertEquals(
+                "objective-report",
+                GeminiAssistant.resolveObjectiveId(
+                        null, Map.of("objective-report", mapper.createObjectNode())
+                )
+        );
+        assertNull(GeminiAssistant.resolveObjectiveId(null, Map.of()));
+
+        ResponseStatusException missing = assertThrows(
+                ResponseStatusException.class,
+                () -> GeminiAssistant.resolveObjectiveId(null, active)
+        );
+        assertEquals(502, missing.getStatusCode().value());
+
+        ResponseStatusException unknown = assertThrows(
+                ResponseStatusException.class,
+                () -> GeminiAssistant.resolveObjectiveId("objective-unknown", active)
+        );
+        assertEquals(502, unknown.getStatusCode().value());
     }
 
     @Test
