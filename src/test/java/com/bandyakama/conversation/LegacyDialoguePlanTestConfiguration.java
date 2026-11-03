@@ -8,9 +8,6 @@ import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.conversation.dialogue.PendingClarification;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Primary;
 
 import java.util.List;
 
@@ -22,18 +19,11 @@ import java.util.List;
  * exists only in tests and ensures that the real context engine, validator
  * and transitioner are still exercised without a Gemini credential.</p>
  */
-@TestConfiguration(proxyBeanMethods = false)
-public class LegacyDialoguePlanTestConfiguration {
+public final class LegacyDialoguePlanTestConfiguration {
 
-    @Bean
-    @Primary
-    ConversationPlanInterpreter deterministicPlanInterpreter(
-            DialogueInterpreter legacyInterpreter
-    ) {
-        return input -> adapt(input, legacyInterpreter.interpret(input));
-    }
+    private LegacyDialoguePlanTestConfiguration() { }
 
-    private ConversationPlanProposal adapt(
+    public static ConversationPlanProposal adapt(
             ContextEngineInput input,
             ContextInterpretationProposal legacy
     ) {
@@ -108,7 +98,7 @@ public class LegacyDialoguePlanTestConfiguration {
         );
     }
 
-    private PendingClarification findPending(ContextEngineInput input, String targetObjectiveId) {
+    private static PendingClarification findPending(ContextEngineInput input, String targetObjectiveId) {
         return input.dialogueState().pendingClarifications().stream()
                 .filter(item -> targetObjectiveId == null
                         || targetObjectiveId.equals(item.targetObjectiveId()))
@@ -116,7 +106,7 @@ public class LegacyDialoguePlanTestConfiguration {
                 .orElse(null);
     }
 
-    private ConversationPlanProposal.Operation operation(
+    private static ConversationPlanProposal.Operation operation(
             ContextEngineInput input,
             String suffix,
             ConversationPlanProposal.OperationType type,
