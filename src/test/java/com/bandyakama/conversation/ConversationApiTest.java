@@ -260,7 +260,8 @@ class ConversationApiTest {
                 anyString(),
                 nullable(UUID.class),
                 nullable(JsonNode.class),
-                any(Consumer.class)
+                any(Consumer.class),
+                anyMap()
         );
 
         UUID conversationId = createConversation("42");
@@ -456,7 +457,9 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
     }
 
@@ -538,7 +541,9 @@ class ConversationApiTest {
                 anyString(),
                 contexts.capture(),
                 any(UUID.class),
-                states.capture()
+                states.capture(),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
 
         String academicContext = contexts.getAllValues().get(2);
@@ -678,7 +683,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String followUpContext = context.getAllValues().get(1);
         assertTrue(followUpContext.contains("Direction générale"));
@@ -735,7 +742,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String independentFollowUpContext = context.getAllValues().get(2);
         assertTrue(independentFollowUpContext.contains(
@@ -796,7 +805,9 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
         assertFalse(
@@ -858,7 +869,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String finalContext = context.getAllValues().get(2);
         String stateBlock = finalContext.substring(
@@ -933,7 +946,9 @@ class ConversationApiTest {
                 anyString(),
                 contexts.capture(),
                 any(UUID.class),
-                states.capture()
+                states.capture(),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         assertNull(states.getAllValues().get(0));
         assertNull(states.getAllValues().get(1));
@@ -984,7 +999,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String rebuiltContext = context.getAllValues().get(1);
         assertTrue(rebuiltContext.contains("Personnel"));
@@ -1045,7 +1062,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String rebuiltContext = context.getAllValues().get(6);
 
@@ -1289,7 +1308,9 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
         );
         String finalContext = context.getAllValues().get(10);
         assertTrue(finalContext
