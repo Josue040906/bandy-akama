@@ -2,6 +2,10 @@ package com.bandyakama.conversation.task;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolParameter;
+
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -60,6 +64,43 @@ class TaskStateSnapshotSanitizerTest {
 
         assertEquals("SERVICE", safe.path("scope").asText());
         assertFalse(safe.has("query"));
+    }
+
+    @Test
+    void persistsDeclaredScalarArgumentsForConfiguredNonSensitiveCapabilities() throws Exception {
+        ToolDefinition capability = new ToolDefinition(
+                "search_travel",
+                "Searches travel options.",
+                "GET",
+                "https://example.test/travel",
+                List.of(
+                        new ToolParameter("destination", "string", "Destination", true),
+                        new ToolParameter("departureDate", "string", "Departure date", false)
+                )
+        );
+        capability.setWhenToUse("When the user asks to find travel options.");
+        JsonNode arguments = mapper.readTree("""
+                {
+                  "destination":"Paris",
+                  "departureDate":"2026-12-01",
+                  "phone":"261340000000",
+                  "unregistered":"must-not-persist"
+                }
+                """);
+
+        JsonNode safe = sanitizer.sanitizeArguments(
+                "search_travel", arguments, capability
+        );
+
+        assertEquals("Paris", safe.path("destination").asText());
+        assertEquals("2026-12-01", safe.path("departureDate").asText());
+        assertFalse(safe.has("phone"));
+        assertFalse(safe.has("unregistered"));
+
+        capability.setSensitive(true);
+        assertTrue(sanitizer.sanitizeArguments(
+                "search_travel", arguments, capability
+        ).isEmpty());
     }
 
     @Test
