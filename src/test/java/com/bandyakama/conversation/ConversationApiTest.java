@@ -43,6 +43,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.reset;
@@ -414,7 +415,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(new ChatResponse(
                 "Quatre agents correspondent.",
                 List.of(new ChatResponse.ToolResult(
                         "searchEmployees",
@@ -467,7 +470,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Je n’ai pas trouvé cet agent.",
                         List.of(new ChatResponse.ToolResult(
@@ -620,7 +625,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Quatre agentes trouvées.",
                         List.of(new ChatResponse.ToolResult(
@@ -695,7 +702,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "J’ai trouvé l’agent.",
                         List.of(new ChatResponse.ToolResult(
@@ -752,7 +761,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "J’ai trouvé l’agent.",
                         List.of(new ChatResponse.ToolResult(
@@ -803,7 +814,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Femmes du Service du Personnel.",
                         List.of(new ChatResponse.ToolResult(
@@ -869,7 +882,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Recherche dans la Direction générale.",
                         List.of(new ChatResponse.ToolResult(
@@ -939,7 +954,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Agent trouvé.",
                         List.of(new ChatResponse.ToolResult(
@@ -983,7 +1000,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse(
                         "Un ancien agent a été trouvé.",
                         List.of(new ChatResponse.ToolResult(
@@ -1051,7 +1070,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenThrow(new IllegalStateException("provider unavailable"))
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenThrow(new IllegalStateException("provider unavailable"))
                 .thenReturn(new ChatResponse("Réponse disponible.", List.of()));
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
@@ -1089,7 +1110,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenThrow(new ResponseStatusException(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenThrow(new ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_GATEWAY,
                 "Backend indisponible."
         ));
@@ -1121,7 +1144,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenAnswer(invocation -> {
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenAnswer(invocation -> {
             assistantStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("Timed out waiting for the test.");
@@ -1174,7 +1199,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenAnswer(invocation -> {
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenAnswer(invocation -> {
             bothRequestsStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("Timed out waiting for the test.");
@@ -1240,7 +1267,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenAnswer(invocation -> new ChatResponse(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenAnswer(invocation -> new ChatResponse(
                 "Réponse " + invocation.getArgument(0),
                 List.of()
         ));
@@ -1308,7 +1337,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(new ChatResponse(
                 "J’ai trouvé un agent.",
                 List.of(new ChatResponse.ToolResult(
                         "searchEmployees",
@@ -1399,7 +1430,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(new ChatResponse(
                 "Votre profil est chargé.",
                 List.of(new ChatResponse.ToolResult(
                         "getMyProfile",
@@ -1485,7 +1518,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
         send(conversationId, "42", "Question conservée.");
 
         mockMvc.perform(delete(
@@ -1562,7 +1597,9 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse("Bonjour.", List.of()));
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(new ChatResponse("Bonjour.", List.of()));
 
         MvcResult chatResult = mockMvc.perform(post("/api/chat")
                         .header("Authorization", bearerToken("42"))
