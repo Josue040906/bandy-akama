@@ -145,6 +145,39 @@ class ConversationPlanValidatorTest {
         ));
     }
 
+    @Test
+    void preservesClearOperationsWhenAnotherIntentNeedsClarification() {
+        var clear = create("clear", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                "Préparer un résumé", null, List.of());
+        var clarification = new ConversationPlanProposal.Clarification(
+                "clarify-1", null, "Quel document souhaitez-vous comparer ?",
+                "La référence au document est ambiguë."
+        );
+
+        var result = validator.validate(
+                input(DialogueState.empty()), plan(List.of(clear), List.of(clarification))
+        );
+
+        assertEquals(1, result.orderedOperations().size());
+        assertEquals(1, result.source().clarifications().size());
+    }
+
+    @Test
+    void rejectsClarificationTargetingNonObjectiveControlOperation() {
+        var social = new ConversationPlanProposal.Operation(
+                "social", ConversationPlanProposal.OperationType.SOCIAL_TURN,
+                null, null, null, null, List.of(), List.of()
+        );
+        var clarification = new ConversationPlanProposal.Clarification(
+                "clarify-social", proposed("social"),
+                "Que voulez-vous dire ?", "La cible n'est pas un objectif."
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(DialogueState.empty()), plan(List.of(social), List.of(clarification))
+        ));
+    }
+
     private ContextEngineInput input(DialogueState state) {
         return new ContextEngineInput("Message courant", 3, state, List.of(), "");
     }
