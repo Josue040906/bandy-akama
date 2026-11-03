@@ -397,7 +397,6 @@ public class ConversationService {
                     case CREATE_OBJECTIVE, CREATE_SUBTASK, CONTINUE_OBJECTIVE,
                             RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION -> true;
                     case SOCIAL_TURN, COMPLETE_OBJECTIVE, NEW_TOPIC_REQUEST -> false;
-                    case COMPLETE_OBJECTIVE, NEW_TOPIC_REQUEST -> false;
                 }
         );
 
