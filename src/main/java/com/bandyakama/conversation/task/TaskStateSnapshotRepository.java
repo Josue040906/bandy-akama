@@ -161,11 +161,17 @@ public class TaskStateSnapshotRepository {
             throw new IllegalStateException("Operational memory is malformed.");
         }
 
+        ArrayNode objectiveReferences = objectMapper.createArrayNode();
+        for (JsonNode reference : parsedReferences) {
+            if (objectiveId.equals(reference.path("objectiveId").asText())) {
+                objectiveReferences.add(reference.deepCopy());
+            }
+        }
         persistSnapshot(
                 conversationId,
                 objectiveId,
                 sanitizeOperationalState(parsedState),
-                (ArrayNode) parsedReferences
+                objectiveReferences
         );
     }
 
@@ -184,6 +190,10 @@ public class TaskStateSnapshotRepository {
             ObjectNode safeReference = objectMapper.createObjectNode();
             String toolName = reference.path("toolName").asText("");
             safeReference.put("toolName", toolName);
+            String referenceObjectiveId = reference.path("objectiveId").asText("");
+            if (!referenceObjectiveId.isBlank()) {
+                safeReference.put("objectiveId", referenceObjectiveId);
+            }
             safeReference.set(
                     "arguments",
                     sanitizeArguments(toolName, reference.path("arguments"))
@@ -193,6 +203,9 @@ public class TaskStateSnapshotRepository {
             references.add(safeReference);
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("toolName", toolName);
+            if (!referenceObjectiveId.isBlank()) {
+                metadata.put("objectiveId", referenceObjectiveId);
+            }
             metadata.put("capturedAt", capturedAt.isBlank() ? "UNKNOWN" : capturedAt);
             metadata.put("status", "STALE");
             metadata.put(
@@ -267,6 +280,11 @@ public class TaskStateSnapshotRepository {
             String toolName = reference == null || !reference.isObject()
                     ? "" : reference.path("toolName").asText("");
             item.put("toolName", toolName);
+            String objectiveId = reference == null || !reference.isObject()
+                    ? "" : reference.path("objectiveId").asText("");
+            if (!objectiveId.isBlank()) {
+                item.put("objectiveId", objectiveId);
+            }
             item.set(
                     "arguments",
                     sanitizeArguments(
