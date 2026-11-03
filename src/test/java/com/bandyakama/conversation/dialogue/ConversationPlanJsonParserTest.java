@@ -102,6 +102,30 @@ class ConversationPlanJsonParserTest {
     }
 
     @Test
+    void rejectsDuplicateJsonKeysInsteadOfSilentlyKeepingTheLastValue() {
+        String duplicateKey = """
+                {
+                  "rationale":"première interprétation",
+                  "rationale":"seconde interprétation",
+                  "confidence":"HIGH",
+                  "operations":[{
+                    "operationId":"task",
+                    "type":"CREATE_OBJECTIVE",
+                    "targetObjectiveId":null,
+                    "goal":"Préparer un rapport",
+                    "summary":"Rapport annuel",
+                    "parent":null,
+                    "dependsOn":[],
+                    "referenceMentions":[]
+                  }],
+                  "clarifications":[]
+                }
+                """;
+
+        assertThrows(IllegalArgumentException.class, () -> parser.parse(duplicateKey));
+    }
+
+    @Test
     void rejectsUnknownEnumsAndWrongFieldTypes() {
         String unknownEnum = """
                 {
