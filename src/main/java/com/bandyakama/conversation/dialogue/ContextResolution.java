@@ -99,13 +99,13 @@ public final class ContextResolution {
         } else if (decision.relation() == DialogueRelation.SOCIAL_TURN) {
             // Social turns preserve all objectives and pending clarifications.
         } else if (decision.relation() == DialogueRelation.NEW_TOPIC_REQUEST) {
-            if (state.pendingClarification() != null || state.activeObjectiveId() != null) {
+            if (!state.pendingClarifications().isEmpty() || state.activeObjectiveId() != null) {
                 throw new IllegalArgumentException(
                         "A legacy new-topic request must leave no active objective or clarification."
                 );
             }
         } else if (decision.relation() == DialogueRelation.TASK_COMPLETION) {
-            if (state.activeObjectiveId() != null || state.pendingClarification() != null) {
+            if (state.activeObjectiveId() != null || !state.pendingClarifications().isEmpty()) {
                 throw new IllegalArgumentException(
                         "A legacy completed task must leave no active objective or clarification."
                 );
@@ -120,10 +120,27 @@ public final class ContextResolution {
                         "TASK_COMPLETION must mark its target as COMPLETED."
                 );
             }
-        } else if (state.pendingClarification() != null) {
-            throw new IllegalArgumentException(
-                    "A resolved legacy decision must not leave a pending clarification."
-            );
+        } else {
+            if (!state.pendingClarifications().isEmpty()) {
+                throw new IllegalArgumentException(
+                        "A resolved legacy decision must not leave a pending clarification."
+                );
+            }
+            if (decision.relation() == DialogueRelation.NEW_TASK) {
+                if (state.activeObjectiveId() == null) {
+                    throw new IllegalArgumentException(
+                            "A new task must produce an active objective."
+                    );
+                }
+            } else {
+                boolean targetExists = state.objectives().stream()
+                        .anyMatch(item -> item.id().equals(decision.targetObjectiveId()));
+                if (!targetExists) {
+                    throw new IllegalArgumentException(
+                            "The decision target must exist in the proposed state."
+                    );
+                }
+            }
         }
     }
 }
