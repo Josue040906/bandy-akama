@@ -385,6 +385,26 @@ public class ConversationService {
             stateForRequest = null;
         }
 
+        boolean continuesPreviousFocus = previousFocus != null
+                && plan.orderedOperations().stream().anyMatch(operation ->
+                        operation.type()
+                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
+                                .OperationType.CONTINUE_OBJECTIVE
+                                && java.util.Objects.equals(
+                                        operation.targetObjectiveId(), previousFocus
+                                )
+                )
+                && plan.orderedOperations().stream().noneMatch(operation ->
+                        operation.type()
+                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
+                                .OperationType.CREATE_OBJECTIVE
+                                || operation.type()
+                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
+                                .OperationType.NEW_TOPIC_REQUEST
+                                || operation.type()
+                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
+                                .OperationType.RESUME_OBJECTIVE
+                );
         boolean resetState = focusChanged;
         String planInstruction = buildPlanInstruction(plan, proposed)
                 + (restoreFocusSnapshot
@@ -442,10 +462,10 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             stateForRequest,
-                            // Result references belong to the focused objective,
-                            // not to the presence of its operational-state JSON.
-                            // They must remain available after memory reconstruction.
-                            !focusChanged && !restoreFocusSnapshot
+                            // Reuse historical results only when the validated plan
+                            // explicitly continues the same objective. Focus identifiers
+                            // alone are not a reliable proxy after state reconstruction.
+                            continuesPreviousFocus && !restoreFocusSnapshot
                     )
             ) + planInstruction
                     + (clarificationText.isBlank() ? ""
