@@ -53,6 +53,18 @@ public class ConversationCompletionService {
         );
     }
 
+    /** Compatibility constructor for isolated persistence tests. */
+    public ConversationCompletionService(
+            ConversationRepository conversationRepository,
+            DialogueStateRepository dialogueStateRepository,
+            TaskStateSnapshotRepository taskStateSnapshotRepository
+    ) {
+        this.conversationRepository = Objects.requireNonNull(conversationRepository);
+        this.dialogueStateRepository = Objects.requireNonNull(dialogueStateRepository);
+        this.taskStateSnapshotRepository = Objects.requireNonNull(taskStateSnapshotRepository);
+        this.taskStateManager = null;
+    }
+
     /** Compatibility constructor for isolated unit tests. */
     public ConversationCompletionService(
             ConversationRepository conversationRepository,
