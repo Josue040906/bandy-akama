@@ -158,6 +158,40 @@ class TaskStateManagerTest {
     }
 
     @Test
+    void doesNotFoldObjectiveScopedToolUpdatesIntoSharedConversationMemory() {
+        ChatResponse response = new ChatResponse(
+                "ok",
+                List.of(),
+                null,
+                false,
+                List.of(
+                        new ChatResponse.ToolState(
+                                "search_records",
+                                Map.of("query", "finance"),
+                                null,
+                                "objective-finance"
+                        ),
+                        new ChatResponse.ToolState(
+                                "search_travel",
+                                Map.of("destination", "Paris"),
+                                null,
+                                "objective-travel"
+                        ),
+                        new ChatResponse.ToolState(
+                                "legacy_lookup",
+                                Map.of("query", "shared")
+                        )
+                )
+        );
+
+        List<ChatResponse.ToolState> updates = manager.updatesFor(response);
+
+        assertEquals(1, updates.size());
+        assertEquals("legacy_lookup", updates.get(0).name());
+        assertNull(updates.get(0).objectiveId());
+    }
+
+    @Test
     void reconstructsHistoricalToolStateAndParsesCriteriaJson() {
         ObjectNode arguments = objectMapper.createObjectNode();
         arguments.put("criteriaJson", "{\"service\":\"finance\"}");
