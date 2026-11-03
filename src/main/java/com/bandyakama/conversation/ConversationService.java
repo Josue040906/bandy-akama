@@ -16,6 +16,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.function.Supplier;
 import java.util.function.Consumer;
@@ -23,6 +25,8 @@ import java.util.UUID;
 
 @Service
 public class ConversationService {
+    private static final Logger log = LoggerFactory.getLogger(ConversationService.class);
+
     private final ConversationRepository repository;
     private final GeminiAssistant assistant;
     private final DialogueStateManager dialogueStateManager;
@@ -292,6 +296,7 @@ public class ConversationService {
                     tokenConsumer, contextResolution
             );
         } catch (RuntimeException failure) {
+            log.error("Conversation turn failed [requestId={}]", requestId, failure);
             boolean budgetExpired = RequestBudget.current()
                     .map(RequestBudget::isExpired)
                     .orElse(false);
