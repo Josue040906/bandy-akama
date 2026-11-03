@@ -509,7 +509,7 @@ class ConversationContextIntegrationTest {
                             state.activeObjectiveId(),
                             state.pendingClarification().targetObjectiveId()
                     );
-                    assertTrue(input.currentMessage().contains("les ventes régionales"));
+                    assertEquals("Je parle des ventes régionales.", input.currentMessage());
                     return new ContextInterpretationProposal(
                             DialogueRelation.USER_CLARIFICATION,
                             state.pendingClarification().targetObjectiveId(),
