@@ -14,7 +14,6 @@ import com.google.genai.types.HttpOptions;
 import com.google.genai.types.HttpRetryOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
@@ -28,7 +27,6 @@ import java.util.Locale;
  * orchestration. Its generation configuration contains no tool declarations,
  * so interpretation cannot execute business operations.</p>
  */
-@Component
 public class GeminiDialogueInterpreter implements DialogueInterpreter {
     private static final String SYSTEM_INSTRUCTION = """
             Tu es un interpréteur de dialogue. Tu ne réponds PAS à l'utilisateur.
