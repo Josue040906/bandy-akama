@@ -95,7 +95,48 @@ public class ConversationCompletionService {
                 proposedDialogueState,
                 "proposedDialogueState must not be null."
         );
+        complete(
+                conversationId, idempotencyKey, claimId, response,
+                proposedDialogueState, activeObjectiveId, resumedStateOverride,
+                Optional.empty(), null
+        );
+    }
+
+    /**
+     * Completes a plan-based turn while preserving the operational state of
+     * the objective being left and capturing the newly focused objective.
+     * All snapshots, memory, response, dialogue state and claim updates share
+     * the same REQUIRED transaction.
+     */
+    @Transactional
+    public void complete(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            ChatResponse response,
+            Optional<DialogueState> proposedDialogueState,
+            Optional<String> activeObjectiveId,
+            JsonNode resumedStateOverride,
+            Optional<String> previousObjectiveId,
+            JsonNode previousOperationalState
+    ) {
+        Objects.requireNonNull(conversationId, "conversationId must not be null.");
+        Objects.requireNonNull(idempotencyKey, "idempotencyKey must not be null.");
+        Objects.requireNonNull(claimId, "claimId must not be null.");
+        Objects.requireNonNull(response, "response must not be null.");
+        Objects.requireNonNull(proposedDialogueState, "proposedDialogueState must not be null.");
         Objects.requireNonNull(activeObjectiveId, "activeObjectiveId must not be null.");
+        Objects.requireNonNull(previousObjectiveId, "previousObjectiveId must not be null.");
+
+        // Persist the state being left before completeRequest changes the
+        // conversation's operational memory. This write is still uncommitted.
+        if (taskStateSnapshotRepository != null && previousOperationalState != null) {
+            previousObjectiveId.filter(id -> !id.isBlank()).ifPresent(id ->
+                    taskStateSnapshotRepository.capture(
+                            conversationId, id, previousOperationalState
+                    )
+            );
+        }
 
         // Both repositories use REQUIRED transactions. Their writes therefore
         // join this boundary and cannot commit independently of one another.
