@@ -31,7 +31,7 @@ class AssistantConfigurationRepositoryTest {
                     new AssistantProfile("Assistant", "Reusable", "Instructions"),
                     snapshot.profile()
             );
-            assertEquals(3, snapshot.enabledTools().size());
+            assertEquals(5, snapshot.enabledTools().size());
             assertEquals(
                     "get_agent_profile",
                     snapshot.enabledTools().get(0).getName()
@@ -42,14 +42,16 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertTrue(snapshot.enabledTools().stream()
+                    .anyMatch(tool -> tool.getName().equals("custom_capability")));
+            assertTrue(snapshot.enabledTools().stream()
+                    .anyMatch(tool -> tool.getName().equals("legacy_lookup")));
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
             );
             jdbcTemplate.update(
-                    "UPDATE bandy_tool SET enabled = FALSE "
-                            + "WHERE name IN ('get_agent_profile', "
-                            + "'search_agents', 'get_organization_info')"
+                    "UPDATE bandy_tool SET enabled = FALSE"
             );
 
             statementsBeforeSnapshot = jdbcTemplate.queryCount();
@@ -135,8 +137,12 @@ class AssistantConfigurationRepositoryTest {
                  'POST', 'http://localhost/search', TRUE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
                  'GET', 'http://localhost/organization', TRUE, FALSE),
-                ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, TRUE)
+                ('legacy_lookup', 'Legacy lookup', 'Configured legacy capability', 'GET',
+                 'http://localhost/legacy', TRUE, TRUE),
+                ('custom_capability', 'Custom capability', 'Configured custom capability', 'GET',
+                 'http://localhost/custom', TRUE, FALSE),
+                ('disabled_capability', 'Disabled capability', 'Must not be loaded', 'GET',
+                 'http://localhost/disabled', FALSE, FALSE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
@@ -153,6 +159,10 @@ class AssistantConfigurationRepositoryTest {
                 ('get_organization_info', 'scope', 'string', 'Scope',
                  'query', FALSE, 2),
                 ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
+                 'query', TRUE, 1),
+                ('custom_capability', 'input', 'string', 'Custom input',
+                 'query', TRUE, 1),
+                ('disabled_capability', 'input', 'string', 'Disabled input',
                  'query', TRUE, 1)
                 """);
     }
