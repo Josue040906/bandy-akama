@@ -1,5 +1,7 @@
 package com.bandyakama.conversation.dialogue;
 
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -9,27 +11,27 @@ import java.util.Objects;
  * Versioned, domain-neutral state of the dialogue.
  *
  * <p>Several objectives may be active concurrently. activeObjectiveId is the
- * conversational focus, not a global lock: it identifies the objective most
- * relevant to the current turn. Parent hierarchy and execution dependencies
- * are independent graphs.</p>
- *
- * @param schemaVersion version of this serialized dialogue-state contract
- * @param activeObjectiveId conversationally focused objective, if any
- * @param objectives known objectives and subtasks in every lifecycle state
- * @param pendingClarification unresolved clarification, if any
+ * conversational focus, not a global lock. Clarifications are independent
+ * unresolved questions and are retained until individually resolved.</p>
  */
+@JsonDeserialize(using = DialogueStateDeserializer.class)
 public record DialogueState(
         int schemaVersion,
         String activeObjectiveId,
         List<DialogueObjective> objectives,
-        PendingClarification pendingClarification
+        List<PendingClarification> pendingClarifications
 ) {
-    /**
-     * The new fields are additive JSON properties. Keeping version 1 allows
-     * snapshots written before dependsOnObjectiveIds existed to deserialize:
-     * DialogueObjective normalizes a missing dependency list to empty.
-     */
     public static final int CURRENT_SCHEMA_VERSION = 1;
+
+    public DialogueState(
+            int schemaVersion,
+            String activeObjectiveId,
+            List<DialogueObjective> objectives,
+            PendingClarification pendingClarification
+    ) {
+        this(schemaVersion, activeObjectiveId, objectives,
+                pendingClarification == null ? List.of() : List.of(pendingClarification));
+    }
 
     public DialogueState {
         if (schemaVersion != CURRENT_SCHEMA_VERSION) {
@@ -40,6 +42,9 @@ public record DialogueState(
         objectives = List.copyOf(
                 Objects.requireNonNull(objectives, "objectives must not be null.")
         );
+        pendingClarifications = List.copyOf(Objects.requireNonNull(
+                pendingClarifications, "pendingClarifications must not be null."
+        ));
 
         Map<String, DialogueObjective> byId = new HashMap<>();
         for (DialogueObjective objective : objectives) {
@@ -84,17 +89,29 @@ public record DialogueState(
         rejectCycles(objectives, true);
         rejectCycles(objectives, false);
 
-        if (pendingClarification != null
-                && pendingClarification.targetObjectiveId() != null
-                && !byId.containsKey(pendingClarification.targetObjectiveId())) {
-            throw new IllegalArgumentException(
-                    "The clarification target must reference a known objective."
+        for (PendingClarification clarification : pendingClarifications) {
+            Objects.requireNonNull(
+                    clarification, "pendingClarifications must not contain null."
             );
+            if (clarification.targetObjectiveId() != null
+                    && !byId.containsKey(clarification.targetObjectiveId())) {
+                throw new IllegalArgumentException(
+                        "The clarification target must reference a known objective."
+                );
+            }
         }
     }
 
+    /**
+     * Compatibility accessor for legacy single-clarification consumers.
+     * New multi-intention code must use pendingClarifications().
+     */
+    public PendingClarification pendingClarification() {
+        return pendingClarifications.isEmpty() ? null : pendingClarifications.get(0);
+    }
+
     public static DialogueState empty() {
-        return new DialogueState(CURRENT_SCHEMA_VERSION, null, List.of(), null);
+        return new DialogueState(CURRENT_SCHEMA_VERSION, null, List.of(), List.of());
     }
 
     private static void rejectCycles(
