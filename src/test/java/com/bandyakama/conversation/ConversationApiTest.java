@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
@@ -67,6 +68,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "bandy.conversations.context.recent-messages=10"
 })
 @AutoConfigureMockMvc
+@Import(LegacyDialoguePlanTestConfiguration.class)
 class ConversationApiTest {
     private static final String SECRET =
             "0123456789abcdef0123456789abcdef";
