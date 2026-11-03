@@ -37,7 +37,8 @@ public class ConversationPlanJsonParser {
                         optionalText(node, "summary"),
                         parseOptionalReference(node.get("parent")),
                         dependencies,
-                        mentions
+                        mentions,
+                        optionalText(node, "clarificationId")
                 ));
             }
 
