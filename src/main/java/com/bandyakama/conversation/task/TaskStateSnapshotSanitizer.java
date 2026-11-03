@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolParameter;
 
 import java.util.Locale;
 import java.util.Set;
@@ -42,6 +44,10 @@ final class TaskStateSnapshotSanitizer {
     }
 
     ObjectNode sanitizeOperationalState(JsonNode state) {
+        return sanitizeOperationalState(state, null);
+    }
+
+    ObjectNode sanitizeOperationalState(JsonNode state, ToolDefinition definition) {
         ObjectNode safe = objectMapper.createObjectNode();
         if (state == null || !state.isObject()) {
             return safe;
@@ -60,7 +66,8 @@ final class TaskStateSnapshotSanitizer {
 
         ObjectNode safeArguments = sanitizeArguments(
                 toolName,
-                state.path("arguments")
+                state.path("arguments"),
+                definition
         );
         if (!safeArguments.isEmpty()) {
             safe.set("arguments", safeArguments);
@@ -83,6 +90,14 @@ final class TaskStateSnapshotSanitizer {
     }
 
     ObjectNode sanitizeArguments(String toolName, JsonNode arguments) {
+        return sanitizeArguments(toolName, arguments, null);
+    }
+
+    ObjectNode sanitizeArguments(
+            String toolName,
+            JsonNode arguments,
+            ToolDefinition definition
+    ) {
         ObjectNode safe = objectMapper.createObjectNode();
         if (arguments == null || !arguments.isObject()) {
             return safe;
@@ -117,6 +132,25 @@ final class TaskStateSnapshotSanitizer {
                     .trim().toUpperCase(Locale.ROOT);
             if (SAFE_ORGANIZATION_SCOPES.contains(scope)) {
                 safe.put("scope", scope);
+            }
+        } else if (definition != null && !definition.isSensitive()) {
+            // Generic non-sensitive capabilities may retain only declared,
+            // scalar parameters. Unknown, nested and identifier-like values
+            // remain excluded from durable snapshots.
+            for (ToolParameter parameter : definition.getParameters()) {
+                JsonNode value = arguments.path(parameter.getName());
+                if (value == null || value.isMissingNode() || value.isNull()
+                        || !value.isValueNode()) {
+                    continue;
+                }
+                if (value.isTextual()) {
+                    String text = value.textValue().trim();
+                    if (text.isBlank() || text.length() > 256
+                            || looksLikeDirectIdentifier(text)) {
+                        continue;
+                    }
+                }
+                safe.set(parameter.getName(), value.deepCopy());
             }
         }
         return safe;
