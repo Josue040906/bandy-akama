@@ -157,15 +157,15 @@ class TaskStateSnapshotRepositoryTest {
         });
         when(jdbc.update(anyString(), any(Object[].class))).thenReturn(1);
         ObjectNode previousState = objectMapper.createObjectNode()
-                .put("intent", "SEARCH")
-                .put("query", "rapport financier");
+                .put("toolName", "search_agents")
+                .put("intent", "TOOL_CALL");
 
         repository.capture(UUID.randomUUID(), "objective-previous", previousState);
 
         ArgumentCaptor<Object[]> parameters = ArgumentCaptor.forClass(Object[].class);
         verify(jdbc).update(anyString(), parameters.capture());
         assertEquals("objective-previous", parameters.getValue()[1]);
-        assertEquals("{\"intent\":\"SEARCH\",\"query\":\"rapport financier\"}",
+        assertEquals("{\"toolName\":\"search_agents\",\"intent\":\"TOOL_CALL\"}",
                 parameters.getValue()[3]);
         assertEquals("[]", parameters.getValue()[4]);
         assertEquals("[]", parameters.getValue()[5]);
