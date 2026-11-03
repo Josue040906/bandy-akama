@@ -7,63 +7,102 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verify;
 
 class DefaultConversationContextEngineTest {
-    private final DialogueInterpreter interpreter = mock(DialogueInterpreter.class);
+    private final ConversationPlanInterpreter interpreter =
+            mock(ConversationPlanInterpreter.class);
     private final DefaultConversationContextEngine engine =
             new DefaultConversationContextEngine(
                     interpreter,
-                    new ContextDecisionValidator(),
-                    new DialogueStateTransitioner()
+                    new ConversationPlanValidator(),
+                    new ConversationPlanTransitioner()
             );
 
     @Test
-    void greetingPreservesActiveObjectiveAndPendingClarificationWithoutCallingModel() {
+    void greetingUsesTheSemanticPlannerAndPreservesTheCompleteState() {
         Instant now = Instant.parse("2026-11-02T08:00:00Z");
-        DialogueObjective active = new DialogueObjective(
-                "active", "Objectif actif", "Résumé", DialogueObjectiveStatus.ACTIVE,
-                null, now, now, List.of()
-        );
+        DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE, now);
         PendingClarification pending = new PendingClarification(
-                "active", "Quel élément ?", "Référence ambiguë.", now
+                "clarification-1", "active", "Quel élément ?", "Référence ambiguë.", now
         );
-        DialogueState state = new DialogueState(
-                DialogueState.CURRENT_SCHEMA_VERSION, "active", List.of(active), pending
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, "active",
+                List.of(active), List.of(pending)
         );
+        ConversationPlanProposal proposal = plan(List.of(operation(
+                "social", ConversationPlanProposal.OperationType.SOCIAL_TURN,
+                null, null, null, null
+        )), List.of());
+        org.mockito.Mockito.when(interpreter.interpret(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(proposal);
 
-        ContextResolution resolution = engine.resolve(new ContextEngineInput(
-                "Bonjour Bandy !", 2, state, List.of(), ""
-        ));
+        ContextResolution resolution = engine.resolve(input("Bonjour Bandy !", state));
 
-        assertEquals(DialogueRelation.SOCIAL_TURN, resolution.decision().relation());
+        assertEquals(true, resolution.isPlanBased());
         assertEquals(state, resolution.proposedState());
-        verifyNoInteractions(interpreter);
+        assertEquals(proposal, resolution.plan().source());
+        verify(interpreter).interpret(org.mockito.ArgumentMatchers.any());
     }
 
     @Test
-    void explicitNewQuestionSuspendsOldObjectiveAndClearsPendingClarification() {
+    void newTopicRequestSuspendsOnlyFocusedObjectiveAndRetainsPendingClarification() {
         Instant now = Instant.parse("2026-11-02T08:00:00Z");
-        DialogueObjective active = new DialogueObjective(
-                "active", "Ancien objectif", "Résumé", DialogueObjectiveStatus.ACTIVE,
-                null, now, now, List.of()
-        );
+        DialogueObjective focused = objective("focused", DialogueObjectiveStatus.ACTIVE, now);
+        DialogueObjective other = objective("other", DialogueObjectiveStatus.ACTIVE, now);
         PendingClarification pending = new PendingClarification(
-                "active", "Quel élément ?", "Référence ambiguë.", now
+                "clarification-1", "focused", "Quel élément ?", "Référence ambiguë.", now
         );
-        DialogueState state = new DialogueState(
-                DialogueState.CURRENT_SCHEMA_VERSION, "active", List.of(active), pending
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION, "focused",
+                List.of(focused, other), List.of(pending)
         );
+        ConversationPlanProposal proposal = plan(List.of(operation(
+                "new-topic", ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST,
+                null, null, null, null
+        )), List.of());
+        org.mockito.Mockito.when(interpreter.interpret(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(proposal);
 
-        ContextResolution resolution = engine.resolve(new ContextEngineInput(
-                "Je veux poser une nouvelle question.", 2, state, List.of(), ""
-        ));
+        ContextResolution resolution = engine.resolve(input("Changeons de sujet.", state));
 
-        assertEquals(DialogueRelation.NEW_TOPIC_REQUEST, resolution.decision().relation());
         assertEquals(null, resolution.proposedState().activeObjectiveId());
         assertEquals(DialogueObjectiveStatus.SUSPENDED,
-                resolution.proposedState().objectives().get(0).status());
-        assertEquals(null, resolution.proposedState().pendingClarification());
-        verifyNoInteractions(interpreter);
+                find(resolution.proposedState(), "focused").status());
+        assertEquals(DialogueObjectiveStatus.ACTIVE,
+                find(resolution.proposedState(), "other").status());
+        assertEquals(List.of(pending), resolution.proposedState().pendingClarifications());
+    }
+
+    private ContextEngineInput input(String message, DialogueState state) {
+        return new ContextEngineInput(message, 2, state, List.of(), "");
+    }
+
+    private DialogueObjective find(DialogueState state, String id) {
+        return state.objectives().stream().filter(item -> item.id().equals(id))
+                .findFirst().orElseThrow();
+    }
+
+    private DialogueObjective objective(String id, DialogueObjectiveStatus status, Instant now) {
+        return new DialogueObjective(id, "Objectif " + id, "Résumé", status,
+                null, now, now, List.of());
+    }
+
+    private ConversationPlanProposal.Operation operation(
+            String id, ConversationPlanProposal.OperationType type,
+            String target, String goal, String summary,
+            ConversationPlanProposal.EntityReference parent) {
+        return new ConversationPlanProposal.Operation(
+                id, type, target, goal, summary, parent, List.of(), List.of()
+        );
+    }
+
+    private ConversationPlanProposal plan(
+            List<ConversationPlanProposal.Operation> operations,
+            List<ConversationPlanProposal.Clarification> clarifications) {
+        return new ConversationPlanProposal(
+                "Plan sémantique de test", InterpretationConfidence.HIGH,
+                operations, clarifications
+        );
     }
 }
