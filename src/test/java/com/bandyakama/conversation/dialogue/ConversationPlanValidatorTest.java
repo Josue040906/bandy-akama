@@ -105,7 +105,7 @@ class ConversationPlanValidatorTest {
                 input(state(null, List.of(), pending)), plan(List.of(answer), List.of())
         );
 
-        assertEquals("answer", result.orderedOperations().getFirst().operationId());
+        assertEquals("answer", result.orderedOperations().get(0).operationId());
     }
 
     @Test
