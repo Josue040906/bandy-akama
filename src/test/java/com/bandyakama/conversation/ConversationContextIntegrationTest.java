@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.annotation.Import;
 
 import java.util.List;
 import java.util.UUID;
@@ -40,6 +41,7 @@ import static org.mockito.Mockito.when;
         "bandy.conversations.context.recent-messages=10",
         "bandy.conversations.dialogue.enabled=true"
 })
+@Import(LegacyDialoguePlanTestConfiguration.class)
 class ConversationContextIntegrationTest {
 
     @Autowired
