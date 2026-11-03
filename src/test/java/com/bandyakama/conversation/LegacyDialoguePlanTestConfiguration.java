@@ -31,11 +31,26 @@ public final class LegacyDialoguePlanTestConfiguration {
         var clarifications = new java.util.ArrayList<ConversationPlanProposal.Clarification>();
 
         switch (legacy.relation()) {
-            case NEW_TASK -> operations.add(operation(
-                    input, "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
-                    null, legacy.objectiveGoal(), legacy.objectiveSummary(),
-                    null, legacy.referenceMentions(), null
-            ));
+            case NEW_TASK -> {
+                // The legacy test fixture uses "Maintenant, ..." as an explicit
+                // topic switch. Model that as two plan operations rather than
+                // making CREATE_OBJECTIVE implicitly suspend an existing task.
+                String message = input.currentMessage().strip()
+                        .toLowerCase(java.util.Locale.ROOT);
+                if (input.dialogueState().activeObjectiveId() != null
+                        && message.matches("^maintenant\\\\b.*")) {
+                    operations.add(operation(
+                            input, "switch-topic",
+                            ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST,
+                            null, null, null, null, List.of(), null
+                    ));
+                }
+                operations.add(operation(
+                        input, "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                        null, legacy.objectiveGoal(), legacy.objectiveSummary(),
+                        null, legacy.referenceMentions(), null
+                ));
+            }
             case CONTINUATION -> operations.add(operation(
                     input, "continue", ConversationPlanProposal.OperationType.CONTINUE_OBJECTIVE,
                     legacy.targetObjectiveId(), null, legacy.objectiveSummary(),
