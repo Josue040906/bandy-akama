@@ -613,6 +613,9 @@ public class ConversationRepository {
             String content = toJson(toolResult.result());
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("name", toolResult.name());
+            if (toolResult.objectiveId() != null) {
+                metadata.put("objectiveId", toolResult.objectiveId());
+            }
             metadata.set("arguments", objectMapper.valueToTree(toolResult.arguments()));
             insertMessage(
                     conversationId,
@@ -793,6 +796,9 @@ public class ConversationRepository {
         for (ChatResponse.ToolResult toolResult : persistentToolResults) {
             ObjectNode reference = objectMapper.createObjectNode();
             reference.put("toolName", toolResult.name());
+            if (toolResult.objectiveId() != null) {
+                reference.put("objectiveId", toolResult.objectiveId());
+            }
             reference.put("capturedAt", Instant.now().toString());
             reference.set("arguments", objectMapper.valueToTree(toolResult.arguments()));
             reference.set("result", objectMapper.valueToTree(toolResult.result()));
