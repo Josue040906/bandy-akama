@@ -419,7 +419,10 @@ public class ConversationPlanValidator {
         Map<String, Set<String>> prerequisites = new LinkedHashMap<>();
         Map<String, Set<String>> dependents = new LinkedHashMap<>();
         Map<String, Integer> inDegree = new LinkedHashMap<>();
+        Map<String, Integer> sourceOrder = new HashMap<>();
+        int sourceIndex = 0;
         for (String id : proposed.keySet()) {
+            sourceOrder.put(id, sourceIndex++);
             prerequisites.put(id, new HashSet<>());
             dependents.put(id, new HashSet<>());
             inDegree.put(id, 0);
@@ -447,7 +450,6 @@ public class ConversationPlanValidator {
         inDegree.entrySet().stream()
                 .filter(entry -> entry.getValue() == 0)
                 .map(Map.Entry::getKey)
-                .sorted(Comparator.naturalOrder())
                 .forEach(ready::addLast);
 
         List<ConversationPlanProposal.Operation> ordered = new ArrayList<>();
@@ -461,7 +463,9 @@ public class ConversationPlanValidator {
                     newlyReady.add(dependent);
                 }
             }
-            newlyReady.stream().sorted().forEach(ready::addLast);
+            newlyReady.stream()
+                    .sorted(Comparator.comparingInt(sourceOrder::get))
+                    .forEach(ready::addLast);
         }
 
         if (ordered.size() != proposed.size()) {
