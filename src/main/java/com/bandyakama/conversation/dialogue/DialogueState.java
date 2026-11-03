@@ -35,15 +35,26 @@ public final class DialogueState {
             PendingClarification pendingClarification
     ) {
         this(schemaVersion, activeObjectiveId, objectives,
-                pendingClarification == null ? List.of() : List.of(pendingClarification));
+                pendingClarification == null ? List.of() : List.of(pendingClarification), true);
     }
 
-    /** Constructor for the multi-clarification state contract. */
-    public DialogueState(
+    public static DialogueState withPendingClarifications(
             int schemaVersion,
             String activeObjectiveId,
             List<DialogueObjective> objectives,
             List<PendingClarification> pendingClarifications
+    ) {
+        return new DialogueState(
+                schemaVersion, activeObjectiveId, objectives, pendingClarifications, true
+        );
+    }
+
+    private DialogueState(
+            int schemaVersion,
+            String activeObjectiveId,
+            List<DialogueObjective> objectives,
+            List<PendingClarification> pendingClarifications,
+            boolean multiClarificationContract
     ) {
         if (schemaVersion != CURRENT_SCHEMA_VERSION) {
             throw new IllegalArgumentException(
@@ -126,7 +137,7 @@ public final class DialogueState {
     }
 
     public static DialogueState empty() {
-        return new DialogueState(CURRENT_SCHEMA_VERSION, null, List.of(), List.of());
+        return withPendingClarifications(CURRENT_SCHEMA_VERSION, null, List.of(), List.of());
     }
 
     private static void rejectCycles(
