@@ -413,9 +413,8 @@ public class ConversationService {
                         + "nécessaires avant toute affirmation factuelle."
                         + staleResultRefreshHints(resumedSnapshot)
                 : "")
-                + "\nÉtat opérationnel transmis : "
-                + (stateForRequest == null ? "aucun" : "état de l'objectif focal uniquement")
-                + ". Ne mélange jamais les données opérationnelles de deux objectifs.";
+                + "\nLes états opérationnels sont isolés par objectif actif. "
+                + "N’utilise jamais l’état d’un objectif pour renseigner un autre.";
 
         java.util.Map<String, JsonNode> initialObjectiveStates =
                 new java.util.LinkedHashMap<>();
