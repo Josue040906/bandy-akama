@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.core.RowMapper;
 
+import java.sql.ResultSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -40,9 +42,23 @@ class DialogueStateRepositoryTest {
     @Test
     void savesACompleteDialogueSnapshotAsJsonb() throws Exception {
         UUID conversationId = UUID.randomUUID();
+        UUID assistantMessageId = UUID.randomUUID();
         DialogueState state = DialogueState.empty();
         String expectedJson = objectMapper.writeValueAsString(state);
         when(jdbcTemplate.update(anyString(), any(), eq(conversationId)))
+                .thenReturn(1);
+        when(jdbcTemplate.query(
+                anyString(),
+                any(RowMapper.class),
+                eq(conversationId)
+        )).thenAnswer(invocation -> {
+            RowMapper<?> rowMapper = invocation.getArgument(1);
+            ResultSet resultSet = mock(ResultSet.class);
+            when(resultSet.getObject("id", UUID.class)).thenReturn(assistantMessageId);
+            when(resultSet.getString("metadata")).thenReturn("{}");
+            return List.of(rowMapper.mapRow(resultSet, 0));
+        });
+        when(jdbcTemplate.update(anyString(), any(), eq(assistantMessageId)))
                 .thenReturn(1);
 
         repository.save(conversationId, state);
@@ -51,6 +67,11 @@ class DialogueStateRepositoryTest {
                 org.mockito.ArgumentMatchers.contains("dialogue_state"),
                 eq(expectedJson),
                 eq(conversationId)
+        );
+        verify(jdbcTemplate).update(
+                org.mockito.ArgumentMatchers.contains("metadata"),
+                any(),
+                eq(assistantMessageId)
         );
     }
 
