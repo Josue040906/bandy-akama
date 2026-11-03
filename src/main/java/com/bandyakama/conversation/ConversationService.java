@@ -428,6 +428,12 @@ public class ConversationService {
             JsonNode objectiveState;
             if (java.util.Objects.equals(objective.id(), nextFocus)) {
                 objectiveState = stateForRequest;
+            } else if (focusChanged
+                    && java.util.Objects.equals(objective.id(), previousFocus)
+                    && request.activeState() != null) {
+                // The previous focus may remain ACTIVE in a multi-operation
+                // plan. Its live memory is newer than its last durable snapshot.
+                objectiveState = request.activeState();
             } else {
                 TaskStateSnapshotRepository.Snapshot snapshot =
                         taskStateSnapshotRepository == null
