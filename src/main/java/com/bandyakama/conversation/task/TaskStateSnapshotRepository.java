@@ -1,10 +1,13 @@
 package com.bandyakama.conversation.task;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolRegistry;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.ConnectionCallback;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -29,14 +32,29 @@ public class TaskStateSnapshotRepository {
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
     private final TaskStateSnapshotSanitizer sanitizer;
+    private final ToolRegistry toolRegistry;
     private volatile Boolean postgresDatabase;
 
+    @Autowired
+    public TaskStateSnapshotRepository(
+            JdbcTemplate jdbcTemplate,
+            ObjectMapper objectMapper,
+            ToolRegistry toolRegistry
+    ) {
+        this.jdbcTemplate = jdbcTemplate;
+        this.objectMapper = objectMapper;
+        this.toolRegistry = toolRegistry;
+        this.sanitizer = new TaskStateSnapshotSanitizer(objectMapper);
+    }
+
+    /** Compatibility constructor for isolated persistence tests. */
     public TaskStateSnapshotRepository(
             JdbcTemplate jdbcTemplate,
             ObjectMapper objectMapper
     ) {
         this.jdbcTemplate = jdbcTemplate;
         this.objectMapper = objectMapper;
+        this.toolRegistry = null;
         this.sanitizer = new TaskStateSnapshotSanitizer(objectMapper);
     }
 
@@ -76,7 +94,7 @@ public class TaskStateSnapshotRepository {
                 return Optional.empty();
             }
             // Sanitize again on read to protect legacy/manual rows.
-            ObjectNode safeState = sanitizer.sanitizeOperationalState(state);
+            ObjectNode safeState = sanitizeOperationalState(state);
             ArrayNode safeReferences = sanitizeReferences((ArrayNode) references);
             return Optional.of(new Snapshot(
                     safeState,
@@ -106,7 +124,7 @@ public class TaskStateSnapshotRepository {
         persistSnapshot(
                 conversationId,
                 objectiveId,
-                sanitizer.sanitizeOperationalState(operationalState),
+                sanitizeOperationalState(operationalState),
                 objectMapper.createArrayNode()
         );
     }
@@ -168,7 +186,7 @@ public class TaskStateSnapshotRepository {
             safeReference.put("toolName", toolName);
             safeReference.set(
                     "arguments",
-                    sanitizer.sanitizeArguments(toolName, reference.path("arguments"))
+                    sanitizeArguments(toolName, reference.path("arguments"))
             );
             String capturedAt = reference.path("capturedAt").asText("");
             safeReference.put("capturedAt", capturedAt);
@@ -217,6 +235,29 @@ public class TaskStateSnapshotRepository {
                 writeJson(references),
                 writeJson(freshness)
         );
+    }
+
+    private ObjectNode sanitizeOperationalState(JsonNode state) {
+        String toolName = state == null ? "" : state.path("toolName").asText("");
+        return sanitizer.sanitizeOperationalState(
+                state,
+                findToolDefinition(toolName)
+        );
+    }
+
+    private ObjectNode sanitizeArguments(String toolName, JsonNode arguments) {
+        return sanitizer.sanitizeArguments(
+                toolName,
+                arguments,
+                findToolDefinition(toolName)
+        );
+    }
+
+    private ToolDefinition findToolDefinition(String toolName) {
+        if (toolRegistry == null || toolName == null || toolName.isBlank()) {
+            return null;
+        }
+        return toolRegistry.findByName(toolName).orElse(null);
     }
 
     private ArrayNode sanitizeReferences(ArrayNode source) {
