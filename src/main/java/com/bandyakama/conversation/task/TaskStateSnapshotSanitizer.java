@@ -149,6 +149,7 @@ final class TaskStateSnapshotSanitizer {
                 if (value.isTextual()) {
                     String text = value.textValue().trim();
                     if (text.isBlank() || text.length() > 256
+                            || text.startsWith("{") || text.startsWith("[")
                             || looksLikeDirectIdentifier(text)) {
                         continue;
                     }
