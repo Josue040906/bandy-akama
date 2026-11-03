@@ -93,6 +93,25 @@ public class TaskStateSnapshotRepository {
     }
 
     /**
+     * Captures an explicit pre-transition state for the objective being left.
+     * Historical result references are intentionally omitted: they are not
+     * needed to restore criteria and must never be treated as fresh results.
+     */
+    @Transactional
+    public void capture(UUID conversationId, String objectiveId, JsonNode operationalState) {
+        if (conversationId == null || objectiveId == null || objectiveId.isBlank()
+                || operationalState == null || !operationalState.isObject()) {
+            return;
+        }
+        persistSnapshot(
+                conversationId,
+                objectiveId,
+                sanitizer.sanitizeOperationalState(operationalState),
+                objectMapper.createArrayNode()
+        );
+    }
+
+    /**
      * Captures the successfully committed active memory for an objective.
      * The caller invokes this inside the same completion transaction.
      */
@@ -124,7 +143,20 @@ public class TaskStateSnapshotRepository {
             throw new IllegalStateException("Operational memory is malformed.");
         }
 
-        ObjectNode safeState = sanitizer.sanitizeOperationalState(parsedState);
+        persistSnapshot(
+                conversationId,
+                objectiveId,
+                sanitizer.sanitizeOperationalState(parsedState),
+                (ArrayNode) parsedReferences
+        );
+    }
+
+    private void persistSnapshot(
+            UUID conversationId,
+            String objectiveId,
+            ObjectNode safeState,
+            ArrayNode parsedReferences
+    ) {
         ArrayNode references = objectMapper.createArrayNode();
         ArrayNode freshness = objectMapper.createArrayNode();
         for (JsonNode reference : parsedReferences) {
@@ -140,11 +172,9 @@ public class TaskStateSnapshotRepository {
             );
             String capturedAt = reference.path("capturedAt").asText("");
             safeReference.put("capturedAt", capturedAt);
-            // Never duplicate old result payloads: only execution metadata is
-            // needed to decide which capability should be refreshed.
             references.add(safeReference);
             ObjectNode metadata = objectMapper.createObjectNode();
-            metadata.put("toolName", reference.path("toolName").asText(""));
+            metadata.put("toolName", toolName);
             metadata.put("capturedAt", capturedAt.isBlank() ? "UNKNOWN" : capturedAt);
             metadata.put("status", "STALE");
             metadata.put(
