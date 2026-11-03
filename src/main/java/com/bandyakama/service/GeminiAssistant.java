@@ -397,24 +397,9 @@ public class GeminiAssistant {
                         call.args().orElse(Map.of())
                 );
                 Object objectiveValue = arguments.remove("__objectiveId");
-                String objectiveId = objectiveValue instanceof String value
-                        && !value.isBlank() ? value : null;
-                if (objectiveStates.size() == 1 && objectiveId == null) {
-                    objectiveId = objectiveStates.keySet().iterator().next();
-                }
-                if (objectiveStates.size() > 1
-                        && (objectiveId == null || !objectiveStates.containsKey(objectiveId))) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_GATEWAY,
-                            "L’appel d’outil ne précise pas un objectif actif valide."
-                    );
-                }
-                if (objectiveId != null && !objectiveStates.containsKey(objectiveId)) {
-                    throw new ResponseStatusException(
-                            HttpStatus.BAD_GATEWAY,
-                            "L’appel d’outil cible un objectif inconnu ou inactif."
-                    );
-                }
+                String objectiveId = resolveObjectiveId(
+                        objectiveValue, objectiveStates
+                );
                 JsonNode stateForTool = objectiveId == null
                         ? activeState : objectiveStates.get(objectiveId);
                 Map<String, Object> effectiveArguments =
@@ -566,6 +551,33 @@ public class GeminiAssistant {
                 List.copyOf(toolStates),
                 objectiveStates
         );
+    }
+
+    static String resolveObjectiveId(
+            Object suppliedObjectiveId,
+            Map<String, JsonNode> activeObjectiveStates
+    ) {
+        String objectiveId = suppliedObjectiveId instanceof String value
+                && !value.isBlank() ? value : null;
+        if (activeObjectiveStates == null || activeObjectiveStates.isEmpty()) {
+            if (objectiveId != null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "L’appel d’outil cible un objectif inactif."
+                );
+            }
+            return null;
+        }
+        if (activeObjectiveStates.size() == 1 && objectiveId == null) {
+            return activeObjectiveStates.keySet().iterator().next();
+        }
+        if (objectiveId == null || !activeObjectiveStates.containsKey(objectiveId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "L’appel d’outil ne précise pas un objectif actif valide."
+            );
+        }
+        return objectiveId;
     }
 
     static List<Content> toGeminiHistory(
