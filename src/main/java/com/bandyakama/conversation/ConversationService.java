@@ -395,8 +395,8 @@ public class ConversationService {
         boolean hasAssistantWork = plan.orderedOperations().stream().anyMatch(operation ->
                 switch (operation.type()) {
                     case CREATE_OBJECTIVE, CREATE_SUBTASK, CONTINUE_OBJECTIVE,
-                            RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION,
-                            SOCIAL_TURN -> true;
+                            RESUME_OBJECTIVE, CORRECT_OBJECTIVE, ANSWER_CLARIFICATION -> true;
+                    case SOCIAL_TURN, COMPLETE_OBJECTIVE, NEW_TOPIC_REQUEST -> false;
                     case COMPLETE_OBJECTIVE, NEW_TOPIC_REQUEST -> false;
                 }
         );
@@ -413,10 +413,12 @@ public class ConversationService {
             String controlText = plan.orderedOperations().stream()
                     .map(operation -> switch (operation.type()) {
                         case NEW_TOPIC_REQUEST ->
-                                "Bien sûr. Quel sujet souhaitez-vous aborder ?";
+                                "Bien sûr. Quelle est votre nouvelle question ?";
                         case COMPLETE_OBJECTIVE ->
                                 "L'objectif concerné est maintenant terminé.";
-                        case SOCIAL_TURN -> "";
+                        case SOCIAL_TURN -> isGreeting(message)
+                                ? "Bonjour ! Comment puis-je vous aider ?"
+                                : "Bien sûr, je vous écoute.";
                         default -> "";
                     })
                     .filter(text -> !text.isBlank())
@@ -483,6 +485,12 @@ public class ConversationService {
                 )
         );
         return completed;
+    }
+
+    private boolean isGreeting(String message) {
+        String normalized = message == null ? "" : message.strip()
+                .toLowerCase(java.util.Locale.ROOT);
+        return normalized.matches("^(bonjour|salut|hello|coucou)(?:\\\\s+.*)?[!?.]*$");
     }
 
     private String buildPlanInstruction(
