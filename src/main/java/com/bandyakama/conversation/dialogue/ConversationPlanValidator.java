@@ -144,6 +144,24 @@ public class ConversationPlanValidator {
             return;
         }
 
+        if (type == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION) {
+            PendingClarification pending = state.pendingClarification();
+            if (pending == null || !Objects.equals(
+                    pending.targetObjectiveId(), operation.targetObjectiveId())) {
+                throw invalid(
+                        "ANSWER_CLARIFICATION doit cibler la clarification actuellement en attente."
+                );
+            }
+            if (operation.targetObjectiveId() != null
+                    && !existing.containsKey(operation.targetObjectiveId())) {
+                throw invalid(
+                        "ANSWER_CLARIFICATION cible un objectif inexistant : "
+                                + operation.targetObjectiveId()
+                );
+            }
+            return;
+        }
+
         DialogueObjective target = existing.get(operation.targetObjectiveId());
         if (target == null) {
             throw invalid(
@@ -172,15 +190,6 @@ public class ConversationPlanValidator {
                 if (target.status() != DialogueObjectiveStatus.ACTIVE
                         || !Objects.equals(state.activeObjectiveId(), target.id())) {
                     throw invalid("COMPLETE_OBJECTIVE doit cibler l'objectif actif.");
-                }
-            }
-            case ANSWER_CLARIFICATION -> {
-                PendingClarification pending = state.pendingClarification();
-                if (pending == null || !Objects.equals(
-                        pending.targetObjectiveId(), target.id())) {
-                    throw invalid(
-                            "ANSWER_CLARIFICATION doit cibler l'objectif de la clarification en attente."
-                    );
                 }
             }
             default -> throw invalid("Type d'opération non pris en charge : " + type);
