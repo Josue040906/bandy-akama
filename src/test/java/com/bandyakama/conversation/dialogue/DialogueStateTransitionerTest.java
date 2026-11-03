@@ -101,6 +101,54 @@ class DialogueStateTransitionerTest {
     }
 
     @Test
+    void preservesExecutionDependenciesWhenUpdatingAndChangingObjectiveStatus() {
+        DialogueObjective prerequisite = new DialogueObjective(
+                "prerequisite", "Collecter les données", "Données validées.",
+                DialogueObjectiveStatus.COMPLETED, null, NOW, NOW, List.of(), List.of()
+        );
+        DialogueObjective active = new DialogueObjective(
+                "active", "Rédiger le rapport", "Version initiale.",
+                DialogueObjectiveStatus.ACTIVE, null, NOW, NOW, List.of(),
+                List.of("prerequisite")
+        );
+        DialogueState state = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "active",
+                List.of(prerequisite, active),
+                null
+        );
+
+        ContextInterpretationProposal continuationProposal = proposal(
+                DialogueRelation.CONTINUATION, "active", "Résumé actualisé."
+        );
+        ContextDecision continuationDecision = new ContextDecision(
+                DialogueRelation.CONTINUATION, "active", "Poursuite.", null
+        );
+        DialogueState updated = transitioner.transition(
+                input(state), continuationProposal, continuationDecision
+        );
+
+        assertEquals(List.of("prerequisite"),
+                find(updated, "active").dependsOnObjectiveIds());
+
+        ContextInterpretationProposal newTopicProposal = new ContextInterpretationProposal(
+                DialogueRelation.NEW_TOPIC_REQUEST, null, "Nouveau sujet.", null,
+                InterpretationConfidence.HIGH, null, null, List.of()
+        );
+        ContextDecision newTopicDecision = new ContextDecision(
+                DialogueRelation.NEW_TOPIC_REQUEST, null, "Nouveau sujet.", null
+        );
+        DialogueState suspended = transitioner.transition(
+                input(updated), newTopicProposal, newTopicDecision
+        );
+
+        assertEquals(DialogueObjectiveStatus.SUSPENDED,
+                find(suspended, "active").status());
+        assertEquals(List.of("prerequisite"),
+                find(suspended, "active").dependsOnObjectiveIds());
+    }
+
+    @Test
     void clarificationDoesNotMutateExistingObjectives() {
         DialogueObjective active = objective("active", DialogueObjectiveStatus.ACTIVE);
         DialogueState state = state("active", active);
