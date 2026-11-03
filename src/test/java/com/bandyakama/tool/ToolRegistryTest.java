@@ -96,6 +96,21 @@ class ToolRegistryTest {
     }
 
     @Test
+    void rejectsTheReservedObjectiveRoutingParameter() {
+        ToolDefinition tool = tool("objectiveAwareSearch", "GET");
+        tool.setParameters(List.of(
+                new ToolParameter(
+                        "__objectiveId",
+                        "string",
+                        "Internal objective selector.",
+                        false
+                )
+        ));
+
+        assertThrows(IllegalArgumentException.class, () -> registry.register(tool));
+    }
+
+    @Test
     void assistantRoleAndInstructionsCanBeUpdatedInTheDatabase() {
         AssistantProfile updated = profileRepository.update(
                 new AssistantProfile(
