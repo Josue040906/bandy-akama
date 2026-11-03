@@ -16,7 +16,8 @@ public record ContextResolution(
         ValidatedConversationPlan plan,
         DialogueState originalState
 ) {
-    /** Compatibility constructor for the legacy mono-decision path. */
+    /** @deprecated Use {@link #fromPlan(ValidatedConversationPlan, DialogueState, DialogueState)}. */
+    @Deprecated(forRemoval = true)
     public ContextResolution(
             ContextDecision decision,
             InterpretationConfidence confidence,
@@ -67,6 +68,8 @@ public record ContextResolution(
         );
     }
 
+    /** @deprecated Plan-based resolutions do not expose a mono-decision. */
+    @Deprecated(forRemoval = true)
     public ContextDecision decision() {
         if (decision == null) {
             throw new IllegalStateException(
@@ -80,6 +83,8 @@ public record ContextResolution(
         return plan != null;
     }
 
+    /** @deprecated Kept only to validate persisted/test compatibility objects. */
+    @Deprecated(forRemoval = true)
     private static void validateLegacyDecision(ContextDecision decision, DialogueState state) {
         if (decision.relation() == DialogueRelation.NEEDS_CLARIFICATION) {
             PendingClarification pending = state.pendingClarification();
