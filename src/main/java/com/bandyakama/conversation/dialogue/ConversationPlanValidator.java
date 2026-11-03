@@ -44,6 +44,7 @@ public class ConversationPlanValidator {
         }
 
         validateClarificationAnswers(input.dialogueState(), proposal);
+        validateNoConflictingTargetMutations(proposal);
         validateOperations(input, proposal, existing, proposed);
         validateExistingHierarchy(input.dialogueState(), existing);
         validateProposedGraphs(proposed, existing);
@@ -52,6 +53,30 @@ public class ConversationPlanValidator {
                 proposal,
                 topologicalOrder(proposed)
         );
+    }
+
+    private void validateNoConflictingTargetMutations(
+            ConversationPlanProposal proposal
+    ) {
+        Map<String, List<ConversationPlanProposal.Operation>> byTarget = new HashMap<>();
+        for (ConversationPlanProposal.Operation operation : proposal.operations()) {
+            if (operation.targetObjectiveId() != null) {
+                byTarget.computeIfAbsent(operation.targetObjectiveId(), ignored -> new ArrayList<>())
+                        .add(operation);
+            }
+        }
+        for (List<ConversationPlanProposal.Operation> operations : byTarget.values()) {
+            if (operations.size() < 2) continue;
+            boolean allClarificationAnswers = operations.stream().allMatch(operation ->
+                    operation.type()
+                            == ConversationPlanProposal.OperationType.ANSWER_CLARIFICATION);
+            if (!allClarificationAnswers) {
+                throw invalid(
+                        "Un plan ne peut pas appliquer plusieurs mutations incompatibles "
+                                + "au même objectif dans un seul tour."
+                );
+            }
+        }
     }
 
     private void validateClarificationAnswers(
@@ -174,9 +199,14 @@ public class ConversationPlanValidator {
                     if (targetOperation.type()
                             == ConversationPlanProposal.OperationType.SOCIAL_TURN
                             || targetOperation.type()
-                            == ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST) {
+                            == ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST
+                            || (targetOperation.targetObjectiveId() == null
+                            && targetOperation.type()
+                            != ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
+                            && targetOperation.type()
+                            != ConversationPlanProposal.OperationType.CREATE_SUBTASK)) {
                         throw invalid(
-                                "Une clarification ne peut pas cibler une opération sans objectif."
+                                "Une clarification doit cibler une opération représentant un objectif."
                         );
                     }
                 }
