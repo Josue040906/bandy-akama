@@ -2,6 +2,7 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.ContextEngineInput;
+import com.bandyakama.conversation.dialogue.ConversationPlanInterpreter;
 import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueObjective;
@@ -13,6 +14,7 @@ import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
 import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -20,7 +22,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.context.annotation.Import;
 
 import java.util.List;
 import java.util.UUID;
@@ -41,7 +42,6 @@ import static org.mockito.Mockito.when;
         "bandy.conversations.context.recent-messages=10",
         "bandy.conversations.dialogue.enabled=true"
 })
-@Import(LegacyDialoguePlanTestConfiguration.class)
 class ConversationContextIntegrationTest {
 
     @Autowired
@@ -65,8 +65,23 @@ class ConversationContextIntegrationTest {
     @MockBean
     private DialogueInterpreter dialogueInterpreter;
 
+    /** Replace the actual engine dependency: tests never instantiate Gemini planning. */
+    @MockBean
+    private ConversationPlanInterpreter planInterpreter;
+
     @MockBean
     private GeminiAssistant assistant;
+
+    @BeforeEach
+    void configurePlanInterpreterWithoutGemini() {
+        when(planInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    return LegacyDialoguePlanTestConfiguration.adapt(
+                            input, dialogueInterpreter.interpret(input)
+                    );
+                });
+    }
 
     @Test
     void resolvesAndPersistsNewTaskThenContinuesItOnTheNextTurn() {
