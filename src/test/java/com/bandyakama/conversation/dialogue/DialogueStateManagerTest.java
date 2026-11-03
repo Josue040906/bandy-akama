@@ -26,26 +26,9 @@ class DialogueStateManagerTest {
             new DialogueStateManager(stateRepository, contextEngine);
 
     @Test
-    void restoresPersistedStateBeforeResolvingTheIncomingMessage() {
+    void delegatesHistoricalRecoveryToTheSemanticEngineWithoutRegexClassification() {
         UUID conversationId = UUID.randomUUID();
         DialogueState persistedState = DialogueState.empty();
-        Instant now = Instant.parse("2026-11-02T10:00:00Z");
-        DialogueObjective objective = new DialogueObjective(
-                "objective-1",
-                "Préparer un rapport",
-                "Préparation d'un rapport.",
-                DialogueObjectiveStatus.ACTIVE,
-                null,
-                now,
-                now,
-                List.of()
-        );
-        DialogueState proposedState = new DialogueState(
-                DialogueState.CURRENT_SCHEMA_VERSION,
-                objective.id(),
-                List.of(objective),
-                null
-        );
         ContextResolution expectedResolution = new ContextResolution(
                 new ContextDecision(
                         DialogueRelation.NEW_TASK,
@@ -54,30 +37,28 @@ class DialogueStateManagerTest {
                         null
                 ),
                 InterpretationConfidence.HIGH,
-                proposedState
+                new DialogueState(
+                        DialogueState.CURRENT_SCHEMA_VERSION,
+                        "objective-1",
+                        List.of(new DialogueObjective(
+                                "objective-1", "Préparer un rapport", "Préparation.",
+                                DialogueObjectiveStatus.ACTIVE, null,
+                                Instant.EPOCH, Instant.EPOCH, List.of()
+                        )),
+                        null
+                )
         );
         List<DialogueMessage> history = List.of(
-                new DialogueMessage(
-                        1,
-                        DialogueMessage.Role.USER,
-                        "Je prépare un rapport."
-                ),
-                new DialogueMessage(
-                        2,
-                        DialogueMessage.Role.ASSISTANT,
-                        "Quel est le sujet du rapport ?"
-                )
+                new DialogueMessage(1, DialogueMessage.Role.USER, "Je prépare un rapport."),
+                new DialogueMessage(2, DialogueMessage.Role.ASSISTANT, "Quel est le sujet ?")
         );
         when(stateRepository.load(conversationId)).thenReturn(persistedState);
         when(contextEngine.resolve(any(ContextEngineInput.class)))
                 .thenReturn(expectedResolution);
 
         ContextResolution actual = manager.prepareTurn(
-                conversationId,
-                "Le rapport concerne les ventes.",
-                3,
-                history,
-                "Échange initial sur la préparation d'un rapport."
+                conversationId, "Le rapport concerne les ventes.",
+                3, history, "Échange initial sur la préparation d'un rapport."
         );
 
         assertSame(expectedResolution, actual);
@@ -85,11 +66,7 @@ class DialogueStateManagerTest {
                 ArgumentCaptor.forClass(ContextEngineInput.class);
         verify(contextEngine).resolve(inputCaptor.capture());
         ContextEngineInput input = inputCaptor.getValue();
-        assertEquals("recovered-1", input.dialogueState().activeObjectiveId());
-        assertEquals(
-                "Je prépare un rapport.",
-                input.dialogueState().objectives().get(0).goal()
-        );
+        assertEquals(persistedState, input.dialogueState());
         assertEquals("Le rapport concerne les ventes.", input.currentMessage());
         assertEquals(3, input.currentMessageSequenceNumber());
         assertEquals(history, input.history());
