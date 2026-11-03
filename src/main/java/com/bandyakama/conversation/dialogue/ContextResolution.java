@@ -13,7 +13,8 @@ public record ContextResolution(
         ContextDecision decision,
         InterpretationConfidence confidence,
         DialogueState proposedState,
-        ValidatedConversationPlan plan
+        ValidatedConversationPlan plan,
+        DialogueState originalState
 ) {
     /** Compatibility constructor for the legacy mono-decision path. */
     public ContextResolution(
@@ -21,7 +22,7 @@ public record ContextResolution(
             InterpretationConfidence confidence,
             DialogueState proposedState
     ) {
-        this(decision, confidence, proposedState, null);
+        this(decision, confidence, proposedState, null, null);
     }
 
     public ContextResolution {
@@ -46,11 +47,13 @@ public record ContextResolution(
 
     public static ContextResolution fromPlan(
             ValidatedConversationPlan plan,
+            DialogueState originalState,
             DialogueState proposedState
     ) {
         Objects.requireNonNull(plan, "plan must not be null.");
         return new ContextResolution(
-                null, plan.source().confidence(), proposedState, plan
+                null, plan.source().confidence(), proposedState, plan,
+                Objects.requireNonNull(originalState, "originalState must not be null.")
         );
     }
 
