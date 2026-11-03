@@ -779,25 +779,20 @@ public class GeminiAssistant {
     static List<ToolDefinition> selectAllowedTools(
             List<ToolDefinition> availableTools
     ) {
-        if (availableTools == null) {
+        if (availableTools == null || availableTools.isEmpty()) {
             return List.of();
         }
-        Set<String> allowedNames = Set.of(
-                "get_agent_profile",
-                "search_agents",
-                "get_organization_info"
-        );
-        return availableTools.stream()
-                .filter(tool -> allowedNames.contains(tool.getName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        ToolDefinition::getName,
-                        tool -> tool,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
+        Map<String, ToolDefinition> selected = new java.util.LinkedHashMap<>();
+        for (ToolDefinition tool : availableTools) {
+            if (tool == null || !tool.isEnabled()) {
+                continue;
+            }
+            // Validate the complete definition before exposing it to the model.
+            // Runtime execution still resolves the name against this same allowlist.
+            tool.validate();
+            selected.putIfAbsent(tool.getName(), tool);
+        }
+        return List.copyOf(selected.values());
     }
 
     static GenerateContentConfig generationConfig(
