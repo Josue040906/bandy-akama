@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.times;
@@ -96,7 +97,9 @@ class ConversationContextIntegrationTest {
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse("Le premier résultat est prêt.", List.of()),
                 new ChatResponse("Voici le complément demandé.", List.of())
         );
@@ -181,7 +184,9 @@ class ConversationContextIntegrationTest {
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse("Le rapport est préparé.", List.of()),
                 new ChatResponse("Le plan est préparé.", List.of()),
                 new ChatResponse("Reprenons le rapport.", List.of())
@@ -317,7 +322,9 @@ class ConversationContextIntegrationTest {
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse("Le rapport est prêt.", List.of()),
                 new ChatResponse("Le nouveau sujet est prêt.", List.of())
         );
@@ -488,7 +495,9 @@ class ConversationContextIntegrationTest {
                 anyString(),
                 any(UUID.class),
                 nullable(com.fasterxml.jackson.databind.JsonNode.class)
-        )).thenReturn(
+        ,
+                        nullable(java.util.function.Consumer.class),
+                        anyMap())).thenReturn(
                 new ChatResponse("Le rapport est prêt.", List.of()),
                 new ChatResponse("Voici le complément du rapport.", List.of())
         );
