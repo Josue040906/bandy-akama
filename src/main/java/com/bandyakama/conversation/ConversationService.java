@@ -385,26 +385,6 @@ public class ConversationService {
             stateForRequest = null;
         }
 
-        boolean continuesPreviousFocus = previousFocus != null
-                && plan.orderedOperations().stream().anyMatch(operation ->
-                        operation.type()
-                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
-                                .OperationType.CONTINUE_OBJECTIVE
-                                && java.util.Objects.equals(
-                                        operation.targetObjectiveId(), previousFocus
-                                )
-                )
-                && plan.orderedOperations().stream().noneMatch(operation ->
-                        operation.type()
-                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
-                                .OperationType.CREATE_OBJECTIVE
-                                || operation.type()
-                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
-                                .OperationType.NEW_TOPIC_REQUEST
-                                || operation.type()
-                                == com.bandyakama.conversation.dialogue.ConversationPlanProposal
-                                .OperationType.RESUME_OBJECTIVE
-                );
         boolean resetState = focusChanged;
         String planInstruction = buildPlanInstruction(plan, proposed)
                 + (restoreFocusSnapshot
@@ -511,9 +491,10 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             stateForRequest,
-                            // Reuse only results explicitly tagged for this objective.
-                            continuesPreviousFocus && !restoreFocusSnapshot
-                                    && initialObjectiveStates.size() <= 1,
+                            // References are historical, never authoritative. Pass only
+                            // those belonging to the current focus; the repository scopes
+                            // them by objectiveId before building the model context.
+                            nextFocus != null,
                             nextFocus
                     )
             ) + planInstruction
