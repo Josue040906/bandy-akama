@@ -4,9 +4,11 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Versioned, domain-neutral state of the dialogue.
@@ -113,10 +115,16 @@ public final class DialogueState {
         rejectCycles(this.objectives, true);
         rejectCycles(this.objectives, false);
 
+        Set<String> clarificationIds = new HashSet<>();
         for (PendingClarification clarification : this.pendingClarifications) {
             Objects.requireNonNull(
                     clarification, "pendingClarifications must not contain null."
             );
+            if (!clarificationIds.add(clarification.clarificationId())) {
+                throw new IllegalArgumentException(
+                        "Pending clarification identifiers must be unique."
+                );
+            }
             if (clarification.targetObjectiveId() != null
                     && !byId.containsKey(clarification.targetObjectiveId())) {
                 throw new IllegalArgumentException(
