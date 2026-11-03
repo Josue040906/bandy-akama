@@ -110,8 +110,25 @@ public class ConversationPlanValidator {
             Map<String, DialogueObjective> existing,
             Map<String, ConversationPlanProposal.Operation> proposed
     ) {
+        Set<String> pendingClarificationIds = input.dialogueState().pendingClarifications()
+                .stream().map(PendingClarification::clarificationId)
+                .collect(java.util.stream.Collectors.toSet());
+        for (ConversationPlanProposal.Clarification clarification : proposal.clarifications()) {
+            if (!pendingClarificationIds.add(clarification.clarificationId())) {
+                throw invalid("Identifiant de clarification déjà utilisé : "
+                        + clarification.clarificationId());
+            }
+        }
+
         for (ConversationPlanProposal.Operation operation : proposal.operations()) {
             validateTarget(input.dialogueState(), operation, existing);
+            boolean creation = operation.type()
+                    == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
+                    || operation.type()
+                    == ConversationPlanProposal.OperationType.CREATE_SUBTASK;
+            if (!creation && !operation.dependsOn().isEmpty()) {
+                throw invalid("Seules les opérations de création peuvent déclarer des dépendances.");
+            }
             validateReference(operation.parent(), operation, existing, proposed, true);
             for (ConversationPlanProposal.EntityReference dependency : operation.dependsOn()) {
                 validateReference(dependency, operation, existing, proposed, false);
