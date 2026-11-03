@@ -1,7 +1,5 @@
 package com.bandyakama.conversation.dialogue;
 
-import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,15 +12,15 @@ import java.util.Objects;
  * conversational focus, not a global lock. Clarifications are independent
  * unresolved questions and are retained until individually resolved.</p>
  */
-@JsonDeserialize(using = DialogueStateDeserializer.class)
-public record DialogueState(
-        int schemaVersion,
-        String activeObjectiveId,
-        List<DialogueObjective> objectives,
-        List<PendingClarification> pendingClarifications
-) {
+public final class DialogueState {
     public static final int CURRENT_SCHEMA_VERSION = 1;
 
+    private final int schemaVersion;
+    private final String activeObjectiveId;
+    private final List<DialogueObjective> objectives;
+    private final List<PendingClarification> pendingClarifications;
+
+    /** Backward-compatible constructor for a single pending clarification. */
     public DialogueState(
             int schemaVersion,
             String activeObjectiveId,
@@ -33,21 +31,29 @@ public record DialogueState(
                 pendingClarification == null ? List.of() : List.of(pendingClarification));
     }
 
-    public DialogueState {
+    /** Constructor for the multi-clarification state contract. */
+    public DialogueState(
+            int schemaVersion,
+            String activeObjectiveId,
+            List<DialogueObjective> objectives,
+            List<PendingClarification> pendingClarifications
+    ) {
         if (schemaVersion != CURRENT_SCHEMA_VERSION) {
             throw new IllegalArgumentException(
                     "Unsupported dialogue-state schema version: " + schemaVersion
             );
         }
-        objectives = List.copyOf(
+        this.schemaVersion = schemaVersion;
+        this.activeObjectiveId = activeObjectiveId;
+        this.objectives = List.copyOf(
                 Objects.requireNonNull(objectives, "objectives must not be null.")
         );
-        pendingClarifications = List.copyOf(Objects.requireNonNull(
+        this.pendingClarifications = List.copyOf(Objects.requireNonNull(
                 pendingClarifications, "pendingClarifications must not be null."
         ));
 
         Map<String, DialogueObjective> byId = new HashMap<>();
-        for (DialogueObjective objective : objectives) {
+        for (DialogueObjective objective : this.objectives) {
             Objects.requireNonNull(objective, "objectives must not contain null.");
             if (byId.putIfAbsent(objective.id(), objective) != null) {
                 throw new IllegalArgumentException("Objective identifiers must be unique.");
@@ -63,7 +69,7 @@ public record DialogueState(
             }
         }
 
-        for (DialogueObjective objective : objectives) {
+        for (DialogueObjective objective : this.objectives) {
             if (objective.parentObjectiveId() != null
                     && !byId.containsKey(objective.parentObjectiveId())) {
                 throw new IllegalArgumentException(
@@ -86,10 +92,10 @@ public record DialogueState(
             }
         }
 
-        rejectCycles(objectives, true);
-        rejectCycles(objectives, false);
+        rejectCycles(this.objectives, true);
+        rejectCycles(this.objectives, false);
 
-        for (PendingClarification clarification : pendingClarifications) {
+        for (PendingClarification clarification : this.pendingClarifications) {
             Objects.requireNonNull(
                     clarification, "pendingClarifications must not contain null."
             );
@@ -102,10 +108,12 @@ public record DialogueState(
         }
     }
 
-    /**
-     * Compatibility accessor for legacy single-clarification consumers.
-     * New multi-intention code must use pendingClarifications().
-     */
+    public int schemaVersion() { return schemaVersion; }
+    public String activeObjectiveId() { return activeObjectiveId; }
+    public List<DialogueObjective> objectives() { return objectives; }
+    public List<PendingClarification> pendingClarifications() { return pendingClarifications; }
+
+    /** Compatibility accessor; multi-intention code must use pendingClarifications(). */
     public PendingClarification pendingClarification() {
         return pendingClarifications.isEmpty() ? null : pendingClarifications.get(0);
     }
@@ -125,7 +133,6 @@ public record DialogueState(
                     ? (parent == null ? List.of() : List.of(parent))
                     : objective.dependsOnObjectiveIds());
         }
-
         Map<String, Integer> marks = new HashMap<>();
         for (String id : edges.keySet()) {
             visit(id, edges, marks, hierarchy
@@ -135,22 +142,39 @@ public record DialogueState(
     }
 
     private static void visit(
-            String id,
-            Map<String, List<String>> edges,
-            Map<String, Integer> marks,
-            String message
+            String id, Map<String, List<String>> edges,
+            Map<String, Integer> marks, String message
     ) {
         int mark = marks.getOrDefault(id, 0);
-        if (mark == 1) {
-            throw new IllegalArgumentException(message);
-        }
-        if (mark == 2) {
-            return;
-        }
+        if (mark == 1) throw new IllegalArgumentException(message);
+        if (mark == 2) return;
         marks.put(id, 1);
         for (String next : edges.getOrDefault(id, List.of())) {
             visit(next, edges, marks, message);
         }
         marks.put(id, 2);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (this == other) return true;
+        if (!(other instanceof DialogueState that)) return false;
+        return schemaVersion == that.schemaVersion
+                && Objects.equals(activeObjectiveId, that.activeObjectiveId)
+                && objectives.equals(that.objectives)
+                && pendingClarifications.equals(that.pendingClarifications);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(schemaVersion, activeObjectiveId, objectives, pendingClarifications);
+    }
+
+    @Override
+    public String toString() {
+        return "DialogueState[schemaVersion=" + schemaVersion
+                + ", activeObjectiveId=" + activeObjectiveId
+                + ", objectives=" + objectives
+                + ", pendingClarifications=" + pendingClarifications + "]";
     }
 }
