@@ -442,7 +442,10 @@ public class ConversationService {
                             conversationId,
                             requestId,
                             stateForRequest,
-                            stateForRequest != null && !restoreFocusSnapshot
+                            // Result references belong to the focused objective,
+                            // not to the presence of its operational-state JSON.
+                            // They must remain available after memory reconstruction.
+                            !focusChanged && !restoreFocusSnapshot
                     )
             ) + planInstruction
                     + (clarificationText.isBlank() ? ""
