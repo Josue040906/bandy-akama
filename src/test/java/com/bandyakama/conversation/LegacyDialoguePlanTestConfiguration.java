@@ -38,7 +38,7 @@ public final class LegacyDialoguePlanTestConfiguration {
                 String message = input.currentMessage().strip()
                         .toLowerCase(java.util.Locale.ROOT);
                 if (input.dialogueState().activeObjectiveId() != null
-                        && message.matches("^maintenant\\\\b.*")) {
+                        && message.matches("^maintenant\\b.*")) {
                     operations.add(operation(
                             input, "switch-topic",
                             ConversationPlanProposal.OperationType.NEW_TOPIC_REQUEST,
