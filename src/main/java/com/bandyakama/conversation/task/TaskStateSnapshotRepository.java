@@ -164,7 +164,7 @@ public class TaskStateSnapshotRepository {
         persistSnapshot(
                 conversationId,
                 objectiveId,
-                sanitizer.sanitizeOperationalState(parsedState),
+                sanitizeOperationalState(parsedState),
                 (ArrayNode) parsedReferences
         );
     }
@@ -269,7 +269,7 @@ public class TaskStateSnapshotRepository {
             item.put("toolName", toolName);
             item.set(
                     "arguments",
-                    sanitizer.sanitizeArguments(
+                    sanitizeArguments(
                             toolName,
                             reference == null || !reference.isObject()
                                     ? objectMapper.createObjectNode()
