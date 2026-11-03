@@ -561,7 +561,7 @@ class ConversationApiTest {
         );
         String unexpectedContext = contexts.getAllValues().get(3);
         assertTrue(unexpectedContext.contains("Licence en Gestion RH"));
-        assertTrue(unexpectedContext.contains("CONTINUATION"));
+        assertTrue(unexpectedContext.contains("CONTINUE_OBJECTIVE"));
         var unexpectedHistory = ConversationPromptContext.parse(
                 unexpectedContext,
                 objectMapper
