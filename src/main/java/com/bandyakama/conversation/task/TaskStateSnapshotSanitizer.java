@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 
+import java.util.List;
 import java.util.Locale;
 import java.util.Set;
 
@@ -137,7 +138,9 @@ final class TaskStateSnapshotSanitizer {
             // Generic non-sensitive capabilities may retain only declared,
             // scalar parameters. Unknown, nested and identifier-like values
             // remain excluded from durable snapshots.
-            for (ToolParameter parameter : definition.getParameters()) {
+            List<ToolParameter> declaredParameters = definition.getParameters() == null
+                    ? List.of() : definition.getParameters();
+            for (ToolParameter parameter : declaredParameters) {
                 JsonNode value = arguments.path(parameter.getName());
                 if (value == null || value.isMissingNode() || value.isNull()
                         || !value.isValueNode()) {
