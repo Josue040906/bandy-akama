@@ -173,12 +173,20 @@ public record ConversationPlanProposal(
                     requireText(summary, "summary");
                     Objects.requireNonNull(parent, "CREATE_SUBTASK requires a parent.");
                 }
-                case CONTINUE_OBJECTIVE, RESUME_OBJECTIVE, ANSWER_CLARIFICATION -> {
+                case CONTINUE_OBJECTIVE, RESUME_OBJECTIVE -> {
                     requireTarget(targetObjectiveId, type);
                     requireText(summary, "summary");
                     if (goal != null || parent != null) {
                         throw new IllegalArgumentException(
                                 type + " cannot change the goal or parent."
+                        );
+                    }
+                }
+                case ANSWER_CLARIFICATION -> {
+                    requireText(summary, "summary");
+                    if (goal != null || parent != null) {
+                        throw new IllegalArgumentException(
+                                "ANSWER_CLARIFICATION cannot change the goal or parent."
                         );
                     }
                 }
