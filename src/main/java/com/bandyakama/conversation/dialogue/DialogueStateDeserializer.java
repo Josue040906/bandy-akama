@@ -24,12 +24,12 @@ public final class DialogueStateDeserializer extends StdDeserializer<DialogueSta
             DeserializationContext context
     ) throws IOException {
         JsonNode root = parser.getCodec().readTree(parser);
-        int schemaVersion = required(root, "schemaVersion").asInt();
+        int schemaVersion = required(root, "schemaVersion", parser).asInt();
         JsonNode activeNode = root.get("activeObjectiveId");
         String activeObjectiveId = activeNode == null || activeNode.isNull()
                 ? null : activeNode.asText();
 
-        JsonNode objectivesNode = required(root, "objectives");
+        JsonNode objectivesNode = required(root, "objectives", parser);
         DialogueObjective[] objectiveArray = parser.getCodec().treeToValue(
                 objectivesNode, DialogueObjective[].class
         );
@@ -71,12 +71,12 @@ public final class DialogueStateDeserializer extends StdDeserializer<DialogueSta
         );
     }
 
-    private JsonNode required(JsonNode root, String field)
+    private JsonNode required(JsonNode root, String field, JsonParser parser)
             throws com.fasterxml.jackson.databind.JsonMappingException {
         JsonNode value = root.get(field);
         if (value == null || value.isNull()) {
             throw com.fasterxml.jackson.databind.JsonMappingException.from(
-                    (JsonParser) null, "Missing required dialogue-state field: " + field
+                    parser, "Missing required dialogue-state field: " + field
             );
         }
         return value;
