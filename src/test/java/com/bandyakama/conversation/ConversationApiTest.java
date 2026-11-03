@@ -938,7 +938,7 @@ class ConversationApiTest {
                 new ChatResponse(
                         "Agent trouvé.",
                         List.of(new ChatResponse.ToolResult(
-                                "searchEmployees",
+                                "test_reconstruct_directory",
                                 List.of(Map.of("matricule", "R-9")),
                                 Map.of("criteriaJson",
                                         "{\"filters\":[{\"field\":\"service\","
