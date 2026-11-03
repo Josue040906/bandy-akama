@@ -107,8 +107,11 @@ public class ConversationPlanTransitioner {
                     pending.remove(answered);
                     if (operation.targetObjectiveId() != null) {
                         DialogueObjective target = requireObjective(objectives, operation.targetObjectiveId());
+                        List<DialogueReference> references = new ArrayList<>(target.references());
+                        appendReferences(references, operation.referenceMentions(),
+                                input.currentMessageSequenceNumber());
                         objectives.put(target.id(), copy(target, target.goal(), operation.summary(),
-                                target.status(), target.references(), now));
+                                target.status(), references, now));
                         if (target.status() == DialogueObjectiveStatus.ACTIVE) focus = target.id();
                     }
                 }
