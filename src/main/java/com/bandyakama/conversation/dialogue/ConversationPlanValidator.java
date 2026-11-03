@@ -206,9 +206,8 @@ public class ConversationPlanValidator {
 
         switch (type) {
             case CONTINUE_OBJECTIVE -> {
-                if (target.status() != DialogueObjectiveStatus.ACTIVE
-                        || !Objects.equals(state.activeObjectiveId(), target.id())) {
-                    throw invalid("CONTINUE_OBJECTIVE doit cibler l'objectif actif.");
+                if (target.status() != DialogueObjectiveStatus.ACTIVE) {
+                    throw invalid("CONTINUE_OBJECTIVE doit cibler un objectif actif.");
                 }
             }
             case RESUME_OBJECTIVE -> {
@@ -222,9 +221,8 @@ public class ConversationPlanValidator {
                 }
             }
             case COMPLETE_OBJECTIVE -> {
-                if (target.status() != DialogueObjectiveStatus.ACTIVE
-                        || !Objects.equals(state.activeObjectiveId(), target.id())) {
-                    throw invalid("COMPLETE_OBJECTIVE doit cibler l'objectif actif.");
+                if (target.status() != DialogueObjectiveStatus.ACTIVE) {
+                    throw invalid("COMPLETE_OBJECTIVE doit cibler un objectif actif.");
                 }
             }
             default -> throw invalid("Type d'opération non pris en charge : " + type);
