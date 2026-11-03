@@ -46,25 +46,26 @@ class GeminiAssistantOrchestrationTest {
 
 
     @Test
-    void exposesOnlyTheExplicitlyAllowedToolsToGemini() {
-        ToolDefinition oldSearchTool = namedTool("searchEmployees");
+    void exposesEveryEnabledAndValidConfiguredToolToGemini() {
+        ToolDefinition customTool = namedTool("searchEmployees");
         ToolDefinition profileTool = namedTool("get_agent_profile");
         ToolDefinition searchTool = namedTool("search_agents");
         ToolDefinition organizationTool = namedTool("get_organization_info");
+        ToolDefinition disabledTool = namedTool("disabledCapability");
+        disabledTool.setEnabled(false);
 
         assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
-                GeminiAssistant.selectAllowedTools(
-                        List.of(
-                                oldSearchTool,
-                                profileTool,
-                                searchTool,
-                                organizationTool
-                        )
-                )
+                List.of(customTool, profileTool, searchTool, organizationTool),
+                GeminiAssistant.selectAllowedTools(List.of(
+                        customTool,
+                        profileTool,
+                        searchTool,
+                        organizationTool,
+                        disabledTool
+                ))
         );
         assertTrue(GeminiAssistant.selectAllowedTools(
-                List.of(oldSearchTool)
+                List.of(disabledTool)
         ).isEmpty());
     }
 
@@ -143,27 +144,17 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
-    void ignoresLegacyIntentSpecificToolsWhenSelectingAllowedTools() {
-        ToolDefinition legacySearchTool = namedTool("searchEmployeesApproximately");
-        ToolDefinition legacyPersonalProfileTool = namedTool("getMyProfile");
-        ToolDefinition profileTool = namedTool("get_agent_profile");
-        ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
+    void keepsConfiguredCapabilitiesIndependentFromTheirDomainNames() {
+        ToolDefinition travelSearch = namedTool("searchTravelOptions");
+        ToolDefinition documentLookup = namedTool("lookupDocuments");
 
         assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
+                List.of(travelSearch, documentLookup),
                 GeminiAssistant.selectAllowedTools(List.of(
-                        legacySearchTool,
-                        legacyPersonalProfileTool,
-                        profileTool,
-                        searchTool,
-                        organizationTool
+                        travelSearch,
+                        documentLookup
                 ))
         );
-        assertTrue(GeminiAssistant.selectAllowedTools(List.of(
-                legacySearchTool,
-                legacyPersonalProfileTool
-        )).isEmpty());
     }
 
     @Test
