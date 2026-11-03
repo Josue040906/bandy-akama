@@ -2,10 +2,12 @@ package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
-import com.bandyakama.conversation.dialogue.ContextDecision;
 import com.bandyakama.conversation.dialogue.ContextResolution;
-import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueState;
+import com.bandyakama.conversation.dialogue.ConversationPlanProposal;
+import com.bandyakama.conversation.dialogue.ConversationPlanValidator;
+import com.bandyakama.conversation.dialogue.ConversationPlanTransitioner;
+import com.bandyakama.conversation.dialogue.ContextEngineInput;
 import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.conversation.task.TaskStateManager;
 import com.bandyakama.observability.PerformanceTelemetry;
@@ -56,24 +58,32 @@ class ConversationServiceBudgetTest {
                 .thenReturn(new ConversationRepository.DialogueTurnContext(
                         2, java.util.List.of(), ""
                 ));
+        ContextEngineInput planInput = new ContextEngineInput(
+                "Cherche les agents du service.", 2, DialogueState.empty(),
+                java.util.List.of(), ""
+        );
+        ConversationPlanProposal proposal = new ConversationPlanProposal(
+                "Nouvel objectif de recherche.",
+                InterpretationConfidence.HIGH,
+                java.util.List.of(new ConversationPlanProposal.Operation(
+                        "create-search",
+                        ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                        null,
+                        "Chercher les agents du service",
+                        "Recherche d'agents par service.",
+                        null,
+                        java.util.List.of(),
+                        java.util.List.of()
+                )),
+                java.util.List.of()
+        );
+        var validatedPlan = new ConversationPlanValidator().validate(planInput, proposal);
+        DialogueState proposedState = new ConversationPlanTransitioner()
+                .transition(planInput, validatedPlan);
         when(dialogueStateManager.prepareTurn(
                 any(), anyString(), anyLong(), any(), anyString()
-        )).thenReturn(new ContextResolution(
-                new ContextDecision(
-                        DialogueRelation.NEW_TASK, null, "New task", null
-                ),
-                InterpretationConfidence.HIGH,
-                new DialogueState(
-                        DialogueState.CURRENT_SCHEMA_VERSION,
-                        "new-objective",
-                        java.util.List.of(new com.bandyakama.conversation.dialogue.DialogueObjective(
-                                "new-objective", "Test", "Test", 
-                                com.bandyakama.conversation.dialogue.DialogueObjectiveStatus.ACTIVE,
-                                null, java.time.Instant.now(), java.time.Instant.now(),
-                                java.util.List.of()
-                        )),
-                        null
-                )
+        )).thenReturn(ContextResolution.fromPlan(
+                validatedPlan, DialogueState.empty(), proposedState
         ));
         when(assistant.respond(
                 anyString(),
