@@ -548,7 +548,7 @@ class ConversationApiTest {
 
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
+        assertTrue(academicContext.contains("Les résultats d’outils sont des références historiques rattachées à un objectif"));
         assertTrue(academicContext.contains("CONTINUE_OBJECTIVE"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
@@ -624,16 +624,20 @@ class ConversationApiTest {
     @Test
     void suppliesPriorFiltersAndResultsForFollowUpMessages() throws Exception {
         UUID conversationId = createConversation("42");
+        var responseIndex = new java.util.concurrent.atomic.AtomicInteger();
         when(assistant.respond(
                 anyString(),
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
-        ,
-                        nullable(java.util.function.Consumer.class),
-                        anyMap())).thenReturn(
-                new ChatResponse(
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
+        )).thenAnswer(invocation -> {
+            Map<String, JsonNode> objectiveStates = invocation.getArgument(6);
+            String objectiveId = objectiveStates.keySet().iterator().next();
+            return switch (responseIndex.getAndIncrement()) {
+                case 0 -> new ChatResponse(
                         "Quatre agentes trouvées.",
                         List.of(new ChatResponse.ToolResult(
                                 "searchEmployees",
@@ -650,10 +654,11 @@ class ConversationApiTest {
                                                 + "\"value\":\"F\"},"
                                                 + "{\"field\":\"age\","
                                                 + "\"operator\":\"LT\","
-                                                + "\"value\":20}]}")
+                                                + "\"value\":20}]}"),
+                                objectiveId
                         ))
-                ),
-                new ChatResponse(
+                );
+                case 1 -> new ChatResponse(
                         "Voici les agentes de moins de 30 ans.",
                         List.of(new ChatResponse.ToolResult(
                                 "searchEmployees",
@@ -667,11 +672,15 @@ class ConversationApiTest {
                                                 + "\"value\":\"F\"},"
                                                 + "{\"field\":\"age\","
                                                 + "\"operator\":\"LT\","
-                                                + "\"value\":30}]}")
+                                                + "\"value\":30}]}"),
+                                objectiveId
                         ))
-                ),
-                new ChatResponse("Le résultat précédent contient ces agentes.", List.of())
-        );
+                );
+                default -> new ChatResponse(
+                        "Le résultat précédent contient ces agentes.", List.of()
+                );
+            };
+        });
 
         send(conversationId, "42", "Cherche des femmes de moins de 20 ans.");
         send(conversationId, "42", "Maintenant celles de moins de 30 ans.");
@@ -968,21 +977,25 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
-        ,
-                        nullable(java.util.function.Consumer.class),
-                        anyMap())).thenReturn(
-                new ChatResponse(
-                        "Agent trouvé.",
-                        List.of(new ChatResponse.ToolResult(
-                                "test_reconstruct_directory",
-                                List.of(Map.of("matricule", "R-9")),
-                                Map.of("criteriaJson",
-                                        "{\"filters\":[{\"field\":\"service\","
-                                                + "\"operator\":\"EQ\","
-                                                + "\"value\":\"Personnel\"}]}")
-                        ))
-                ),
+                nullable(JsonNode.class),
+                nullable(java.util.function.Consumer.class),
+                anyMap()
+        )).thenAnswer(invocation -> {
+            Map<String, JsonNode> objectiveStates = invocation.getArgument(6);
+            String objectiveId = objectiveStates.keySet().iterator().next();
+            return new ChatResponse(
+                    "Agent trouvé.",
+                    List.of(new ChatResponse.ToolResult(
+                            "test_reconstruct_directory",
+                            List.of(Map.of("matricule", "R-9")),
+                            Map.of("criteriaJson",
+                                    "{\"filters\":[{\"field\":\"service\","
+                                            + "\"operator\":\"EQ\","
+                                            + "\"value\":\"Personnel\"}]}"),
+                            objectiveId
+                    ))
+            );
+        }).thenAnswer(invocation ->
                 new ChatResponse("Le service est bien le Personnel.", List.of())
         );
 
