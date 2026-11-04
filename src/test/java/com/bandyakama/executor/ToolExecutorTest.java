@@ -177,6 +177,71 @@ class ToolExecutorTest {
     }
 
     @Test
+    void callsTheActualProfileEndpointWithTheQueryParameterAndBearerToken()
+            throws IOException {
+        AtomicReference<String> method = new AtomicReference<>();
+        AtomicReference<String> path = new AtomicReference<>();
+        AtomicReference<String> query = new AtomicReference<>();
+        AtomicReference<String> authorization = new AtomicReference<>();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/api/profil/agent", exchange -> {
+            method.set(exchange.getRequestMethod());
+            path.set(exchange.getRequestURI().getPath());
+            query.set(exchange.getRequestURI().getRawQuery());
+            authorization.set(
+                    exchange.getRequestHeaders().getFirst("Authorization")
+            );
+            byte[] responseBody = "{\"matricule\":\"AG-71\"}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set(
+                    "Content-Type",
+                    "application/json"
+            );
+            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            ToolParameter queryParameter = new ToolParameter(
+                    "query",
+                    "string",
+                    "Matricule or exact full name",
+                    true
+            );
+            queryParameter.setLocation("query");
+            ToolDefinition profileTool = new ToolDefinition(
+                    "get_agent_profile",
+                    "Load an identified agent profile",
+                    "GET",
+                    "http://127.0.0.1:"
+                            + server.getAddress().getPort()
+                            + "/api/profil/agent",
+                    List.of(queryParameter)
+            );
+            profileTool.setWhenToUse("After identifying a candidate.");
+
+            Object result = executor.execute(
+                    profileTool,
+                    Map.of("query", "AG-71"),
+                    "Auth-Test-Value"
+            );
+
+            assertEquals("GET", method.get());
+            assertEquals("/api/profil/agent", path.get());
+            assertEquals("query=AG-71", query.get());
+            assertEquals("Auth-Test-Value", authorization.get());
+            assertEquals(Map.of("matricule", "AG-71"), result);
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void doesNotStartToolHttpRequestAfterTurnBudgetExpires() throws IOException {
         AtomicBoolean receivedRequest = new AtomicBoolean();
         HttpServer server = HttpServer.create(

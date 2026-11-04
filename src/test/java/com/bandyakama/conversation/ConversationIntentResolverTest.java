@@ -165,6 +165,28 @@ class ConversationIntentResolverTest {
     }
 
     @Test
+    void treatsUnclassifiedFollowUpsToAgentSearchAsContinuations() {
+        JsonNode search = objectMapper.createObjectNode()
+                .put("toolName", "search_agents");
+
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Oui, affiche son profil complet.", search)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.CONTINUATION,
+                resolver.resolve("Peux-tu me montrer ce dossier ?", search)
+        );
+        assertEquals(
+                ConversationIntentResolver.Decision.NEW_INTENT,
+                resolver.resolve(
+                        "Explique la procédure de reclassement.",
+                        search
+                )
+        );
+    }
+
+    @Test
     void treatsAnExplicitlyDifferentOrganizationAsANewSearch() throws Exception {
         JsonNode state = objectMapper.readTree("""
                 {
