@@ -45,17 +45,17 @@ if ([string]::IsNullOrWhiteSpace($registrationKey)) {
 $tools = @(
     @{
         name = 'search_agents'
-        description = 'Recherche les agents par critères RH structurés. Utiliser deux filtres FUZZY séparés pour un nom complet, et resultMode=COUNT pour un total exact.'
-        whenToUse = 'Utiliser pour toute recherche d’agents par critères, y compris les suivis qui ajoutent ou modifient des filtres. criteriaJson doit contenir un objet JSON avec 1 à 10 filtres utilisant uniquement les champs et opérateurs supportés par l’API. resultMode=COUNT demande un comptage exact backend; ne jamais compter une page de résultats. Utiliser LIST pour afficher les correspondances.'
+        description = 'Recherche les agents avec des critères RH combinables (ET, OU, exclusions), y compris la recherche approximative de personnes avec score de correspondance.'
+        whenToUse = 'Utiliser pour toute recherche d’agents multicritère et ses suivis. A chaque appel, produire dans criteriaJson l’AST COMPLET correspondant à tous les critères encore actifs; ne jamais envoyer uniquement le dernier critère ni compter sur une fusion implicite. Utiliser must pour les conditions obligatoires (ET), should pour les alternatives (OU), must_not pour les exclusions. Pour une recherche de personne approximative, utiliser {"field":"personne","operator":"FUZZY_PERSON","value":"Nom Prénom"}. Les champs et opérateurs sont strictement limités à ceux décrits dans le paramètre. resultMode=COUNT demande le total global exact; ne jamais compter les éléments d’une page. Utiliser LIST pour afficher les correspondances.'
         method = 'POST'
-        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/criteres"
+        url = "$($assistantRhApiUrl.TrimEnd('/'))/api/recherche/agents/avancee"
         enabled = $true
         sensitive = $true
         parameters = @(
             @{
                 name = 'criteriaJson'
                 type = 'string'
-                description = 'Objet JSON encodé en chaîne, ex. {"filters":[{"field":"direction","operator":"CONTAINS","value":"Finances"}],"limit":20,"offset":0}. Champs autorisés: matricule, nom, prenom, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche, niveau_diplome, domaine_etude, etablissement. Opérateurs: EQ, NE, CONTAINS, FUZZY (texte); GT, GTE, LT, LTE, BETWEEN (numérique); BEFORE, AFTER, BETWEEN, WITHIN_LAST_YEARS, OLDER_THAN_YEARS (date).'
+                description = 'Objet JSON AST encodé en chaîne. Exemple: {"must":[{"field":"direction","operator":"CONTAINS","value":"Finances"},{"field":"age","operator":"GT","value":40}],"must_not":[{"field":"service","operator":"EQ","value":"Comptabilité"}],"should":[{"field":"personne","operator":"FUZZY_PERSON","value":"Rakoto Faly"}],"minimum_should_match":0,"limit":20,"offset":0}. Champs: matricule, nom, prenom, personne, nom_complet, sexe, adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. Texte: EQ, NE, CONTAINS, FUZZY; FUZZY_PERSON uniquement sur personne/nom_complet. Numérique (age, echelon): EQ, NE, GT, GTE, LT, LTE, BETWEEN. Date: EQ, BEFORE, AFTER, BETWEEN, WITHIN_LAST_MONTHS, WITHIN_LAST_YEARS, OLDER_THAN_YEARS. Groupes booléens imbriqués via bool; maximum 40 critères et profondeur 6. Pagination: limit 1..50, offset 0..10000. Chaque AST doit décrire tous les critères actifs.'
                 required = $true
                 location = 'body'
             },
