@@ -152,6 +152,38 @@ class ConversationStateMergerTest {
     }
 
     @Test
+    void replacesThePreviousAdvancedAstInsteadOfMergingStaleClauses()
+            throws Exception {
+        JsonNode previous = objectMapper.readTree("""
+                {
+                  "toolName": "search_agents",
+                  "arguments": {
+                    "criteriaJson": "{\"must\":[{\"field\":\"direction\",\"operator\":\"EQ\",\"value\":\"Direction X\"}],\"must_not\":[{\"field\":\"service\",\"operator\":\"EQ\",\"value\":\"Comptabilité\"}]}"
+                  }
+                }
+                """);
+
+        Map<String, Object> merged = merger.mergeToolArguments(
+                previous,
+                "search_agents",
+                Map.of(
+                        "criteriaJson",
+                        "{\"must\":[{\"field\":\"age\",\"operator\":\"GT\",\"value\":40}]}",
+                        "resultMode",
+                        "LIST"
+                )
+        );
+        JsonNode criteria = objectMapper.readTree(
+                (String) merged.get("criteriaJson")
+        );
+
+        assertEquals(1, criteria.path("must").size());
+        assertEquals("age", criteria.path("must").get(0).path("field").asText());
+        assertEquals(0, criteria.path("must_not").size());
+        assertEquals(false, criteria.has("filters"));
+        assertEquals("LIST", merged.get("resultMode"));
+    }
+    @Test
     void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
         ConversationIntentResolver resolver =
                 new ConversationIntentResolver();
