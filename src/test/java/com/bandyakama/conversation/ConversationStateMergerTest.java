@@ -158,7 +158,7 @@ class ConversationStateMergerTest {
                 {
                   "toolName": "search_agents",
                   "arguments": {
-                    "criteriaJson": "{\"must\":[{\"field\":\"direction\",\"operator\":\"EQ\",\"value\":\"Direction X\"}],\"must_not\":[{\"field\":\"service\",\"operator\":\"EQ\",\"value\":\"Comptabilité\"}]}"
+                    "criteriaJson": "{\\\"must\\\":[{\\\"field\\\":\\\"direction\\\",\\\"operator\\\":\\\"EQ\\\",\\\"value\\\":\\\"Direction X\\\"}],\\\"must_not\\\":[{\\\"field\\\":\\\"service\\\",\\\"operator\\\":\\\"EQ\\\",\\\"value\\\":\\\"Comptabilité\\\"}]}"
                   }
                 }
                 """);
