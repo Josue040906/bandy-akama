@@ -2,6 +2,7 @@ package com.bandyakama.conversation;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -154,14 +155,25 @@ class ConversationStateMergerTest {
     @Test
     void replacesThePreviousAdvancedAstInsteadOfMergingStaleClauses()
             throws Exception {
-        JsonNode previous = objectMapper.readTree("""
-                {
-                  "toolName": "search_agents",
-                  "arguments": {
-                    "criteriaJson": "{\"must\":[{\"field\":\"direction\",\"operator\":\"EQ\",\"value\":\"Direction X\"}],\"must_not\":[{\"field\":\"service\",\"operator\":\"EQ\",\"value\":\"Comptabilité\"}]}"
-                  }
-                }
-                """);
+        ObjectNode previous = objectMapper.createObjectNode();
+        previous.put("toolName", "search_agents");
+        previous.putObject("arguments").put(
+                "criteriaJson",
+                objectMapper.writeValueAsString(objectMapper.readTree("""
+                        {
+                          "must": [{
+                            "field": "direction",
+                            "operator": "EQ",
+                            "value": "Direction X"
+                          }],
+                          "must_not": [{
+                            "field": "service",
+                            "operator": "EQ",
+                            "value": "Comptabilité"
+                          }]
+                        }
+                        """))
+        );
 
         Map<String, Object> merged = merger.mergeToolArguments(
                 previous,
