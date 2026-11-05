@@ -62,6 +62,16 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
               exprimé ou nécessaire selon le sens du message.
 
             RÉSOLUTION DU CONTEXTE ET DES RÉFÉRENCES :
+            - Les références persistantes sont ordonnées par sourceMessageSequence.
+              Pour « le premier », « le deuxième », « le dernier », « l'autre version »
+              ou un élément ancien, compare labels, kinds, objectifs et séquences.
+            - Si un antécédent unique est identifié, renseigne resolvedReferences
+              avec les couples exacts {objectiveId,referenceId} du snapshot. N'invente
+              jamais ces identifiants et ne les remplace pas par un label ou un index.
+            - Une référence peut appartenir à un objectif différent de la cible si
+              le lien est explicite ; conserve toujours son objectif d'origine.
+            - Si plusieurs antécédents restent plausibles, ne sélectionne aucun ID
+              pour cet élément et crée une clarification ciblée.
             - Interprète le message courant à la lumière du dialogue complet fourni :
               état structuré, résumé et historique récent. Le message courant prime
               sur les anciennes formulations lorsqu'il les corrige explicitement.
@@ -146,11 +156,13 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
             rationale, confidence, operations, clarifications.
             Chaque opération contient :
             operationId, type, targetObjectiveId, goal, summary, parent,
-            dependsOn, referenceMentions, clarificationId.
+            dependsOn, referenceMentions, resolvedReferences, clarificationId.
             clarificationId est null sauf pour ANSWER_CLARIFICATION ; dans ce cas,
             il doit reprendre l'identifiant exact de la question à résoudre.
             parent est null ou {scope,id}. dependsOn est un tableau de {scope,id}.
-            referenceMentions est un tableau de {label,kind}.
+            referenceMentions est un tableau de {label,kind} pour les nouveaux éléments.
+            resolvedReferences est un tableau de {objectiveId,referenceId} pour les
+            éléments déjà présents dans le snapshot ; chaque ID doit être exact.
             Chaque clarification contient clarificationId, target, question,
             rationale ; target est null ou {scope,id}.
             Les champs facultatifs absents doivent être null. Les tableaux doivent
