@@ -74,11 +74,11 @@ Each synchronous Gemini SDK request is capped by
 `BANDY_GEMINI_TIMEOUT_MILLIS`. The SDK retry policy is explicitly bounded by
 `BANDY_GEMINI_RETRY_ATTEMPTS` (1-5 total attempts) and a short exponential
 backoff capped at two seconds. The default is one retry after the initial
-attempt. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
+attempt. Only a transient Gemini overload (HTTP 503) is retried; a quota
+refusal (429) is not, since retrying it would fail again and consume quota. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
 per user turn; the default of two preserves a short multi-step sequence while
 preventing extended loops. The Gemini and registered-tool timeouts are bounded
-by the remaining turn budget, and automatic Gemini retries are disabled for a
-budgeted turn. PostgreSQL statements receive a JDBC query timeout bounded by
+by the remaining turn budget, which also bounds each retry attempt. PostgreSQL statements receive a JDBC query timeout bounded by
 the remaining budget (rounded up to whole seconds, as required by JDBC); an
 expired budget prevents the next statement from running. Registered backend
 calls also have a 15-second default read timeout when no shorter budget remains.

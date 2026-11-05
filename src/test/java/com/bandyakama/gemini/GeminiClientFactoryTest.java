@@ -27,6 +27,11 @@ class GeminiClientFactoryTest {
                 httpOptions.retryOptions().orElseThrow()
                         .maxDelay().orElseThrow()
         );
+        assertEquals(
+                java.util.List.of(503),
+                httpOptions.retryOptions().orElseThrow()
+                        .httpStatusCodes().orElseThrow()
+        );
     }
 
     @Test

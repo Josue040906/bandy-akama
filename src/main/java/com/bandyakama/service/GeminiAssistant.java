@@ -63,6 +63,7 @@ public class GeminiAssistant {
     private final ObjectMapper objectMapper;
     private final int geminiTimeoutMillis;
     private final int geminiRetryAttempts;
+    private final HttpRetryOptions retryOptions;
     private final int maxToolRounds;
     private final String serviceTier;
     private final String thinkingLevel;
@@ -89,6 +90,7 @@ public class GeminiAssistant {
                 : geminiClientFactory.create(apiKey);
         this.geminiTimeoutMillis = geminiClientFactory.timeoutMillis();
         this.geminiRetryAttempts = geminiClientFactory.retryAttempts();
+        this.retryOptions = geminiClientFactory.retryOptions();
         if (maxToolRounds < 1 || maxToolRounds > 5) {
             throw new IllegalArgumentException(
                     "Le nombre de tours d’outils doit être compris entre 1 et 5."
@@ -208,9 +210,7 @@ public class GeminiAssistant {
                     metrics.toolCacheHits,
                     metrics.toolRounds,
                     geminiTimeoutMillis,
-                    RequestBudget.current()
-                            .map(budget -> 1)
-                            .orElse(geminiRetryAttempts),
+                    geminiRetryAttempts,
                     maxToolRounds,
                     RequestBudget.current()
                             .map(RequestBudget::budgetMillis)
@@ -823,14 +823,11 @@ public class GeminiAssistant {
                 geminiTimeoutMillis,
                 activeBudget.get().remainingMillis()
         );
-        HttpRetryOptions singleAttempt = HttpRetryOptions.builder()
-                .attempts(1)
-                .build();
         HttpOptions requestOptions = baseConfig.httpOptions()
                 .orElseGet(() -> HttpOptions.builder().build())
                 .toBuilder()
                 .timeout(remainingMillis)
-                .retryOptions(singleAttempt)
+                .retryOptions(retryOptions)
                 .build();
         return baseConfig.toBuilder()
                 .httpOptions(requestOptions)
