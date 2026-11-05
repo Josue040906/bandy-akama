@@ -100,11 +100,11 @@ class ConversationServiceBudgetTest {
         });
         AtomicBoolean cleanupRanOutsideBudget = new AtomicBoolean();
         doAnswer(invocation -> {
-            cleanupRanOutsideBudget.set(
-                    RequestBudget.current().isEmpty()
-            );
+            cleanupRanOutsideBudget.set(RequestBudget.current().isEmpty());
             return null;
-        }).when(repository).failRequest(any(), any(), any());
+        }).when(completionService).fail(
+                any(), any(), any(), any(), anyString()
+        );
 
         ConversationService service = new ConversationService(
                 repository,
@@ -129,6 +129,6 @@ class ConversationServiceBudgetTest {
 
         assertEquals(504, failure.getStatusCode().value());
         assertTrue(cleanupRanOutsideBudget.get());
-        verify(repository).failRequest(any(), any(), any());
+        verify(completionService).fail(any(), any(), any(), any(), anyString());
     }
 }

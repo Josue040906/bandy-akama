@@ -1162,7 +1162,16 @@ class ConversationApiTest {
                 Integer.class,
                 conversationId
         );
-        assertEquals(1, savedMessages);
+        assertEquals(2, savedMessages);
+        assertEquals("ERROR", jdbcTemplate.queryForObject("""
+                SELECT message_type FROM bandy_conversation_message
+                WHERE conversation_id = ? AND role = 'ASSISTANT'
+                """, String.class, conversationId));
+        assertEquals("FAILED", jdbcTemplate.queryForObject("""
+                SELECT metadata->>'executionStatus'
+                FROM bandy_conversation_message
+                WHERE conversation_id = ? AND role = 'ASSISTANT'
+                """, String.class, conversationId));
     }
 
     @Test

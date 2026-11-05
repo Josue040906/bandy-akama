@@ -72,7 +72,8 @@ public class ConversationCompletionService {
         Objects.requireNonNull(failureMessage, "failureMessage must not be null.");
 
         boolean recorded = conversationRepository.failRequest(
-                conversationId, idempotencyKey, claimId, failureMessage
+                conversationId, idempotencyKey, claimId,
+                failureMessage, proposedDialogueState
         );
         if (recorded) {
             proposedDialogueState.ifPresent(state ->

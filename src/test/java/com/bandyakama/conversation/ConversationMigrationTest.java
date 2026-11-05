@@ -150,8 +150,8 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "dialogue_state"));
         jdbc.update("""
                 INSERT INTO bandy_conversation_memory (
-                    conversation_id, active_state, result_references
-                ) VALUES (?, CAST('{}' AS JSONB), CAST('[]' AS JSONB))
+                    conversation_id, active_state, result_references, updated_at
+                ) VALUES (?, CAST('{}' AS JSONB), CAST('[]' AS JSONB), CURRENT_TIMESTAMP)
                 """,
                 conversationId
         );

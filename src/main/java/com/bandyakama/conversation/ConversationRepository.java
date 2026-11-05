@@ -1,6 +1,7 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.task.TaskStateManager;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -728,6 +729,23 @@ public class ConversationRepository {
             UUID claimId,
             String failureMessage
     ) {
+        return failRequest(
+                conversationId, idempotencyKey, claimId,
+                failureMessage, Optional.empty()
+        );
+    }
+
+    @Transactional
+    public boolean failRequest(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            String failureMessage,
+            Optional<DialogueState> proposedDialogueState
+    ) {
+        java.util.Objects.requireNonNull(
+                proposedDialogueState, "proposedDialogueState must not be null."
+        );
         int failed = jdbcTemplate.update("""
                 UPDATE bandy_conversation_request
                 SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
@@ -744,6 +762,9 @@ public class ConversationRepository {
         if (failureMessage != null && !failureMessage.isBlank()) {
             ObjectNode metadata = objectMapper.createObjectNode();
             metadata.put("executionStatus", "FAILED");
+            proposedDialogueState.ifPresent(state -> metadata.set(
+                    "dialogueState", objectMapper.valueToTree(state)
+            ));
             insertMessage(
                     conversationId, idempotencyKey, "ASSISTANT",
                     failureMessage, "ERROR", toJson(metadata)
