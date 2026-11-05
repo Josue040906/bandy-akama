@@ -576,6 +576,8 @@ public class ConversationService {
         StringBuilder context = new StringBuilder(
                 "\nPlan conversationnel validé par le backend."
                         + "\nApplique les intentions distinctes sans les réduire à une décision unique."
+                        + "\nLes références résolues ci-dessous ont été sélectionnées par le moteur "
+                        + "conversationnel et validées par le backend. Utilise ces éléments précis."
         );
         context.append("\nOpérations validées :");
         for (var operation : plan.orderedOperations()) {
@@ -593,6 +595,20 @@ public class ConversationService {
             }
             if (operation.clarificationId() != null) {
                 context.append("; clarification=").append(operation.clarificationId());
+            }
+            for (var selection : operation.resolvedReferences()) {
+                var sourceObjective = state.objectives().stream()
+                        .filter(item -> item.id().equals(selection.objectiveId()))
+                        .findFirst().orElseThrow();
+                var selected = sourceObjective.references().stream()
+                        .filter(item -> item.id().equals(selection.referenceId()))
+                        .findFirst().orElseThrow();
+                context.append("\\n  référence résolue : objectif=")
+                        .append(selection.objectiveId())
+                        .append("; référence=").append(selected.id())
+                        .append("; type=").append(sanitizePlanText(selected.kind()))
+                        .append("; libellé=").append(sanitizePlanText(selected.label()))
+                        .append("; messageSource=").append(selected.sourceMessageSequence());
             }
         }
         context.append("\nÉtat des objectifs après transition :");
