@@ -7,6 +7,7 @@ import com.bandyakama.security.UserIdentity;
 import com.bandyakama.service.GeminiAssistant;
 import com.bandyakama.conversation.dialogue.ContextResolution;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
+import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
 import com.bandyakama.conversation.task.TaskStateManager;
 import com.bandyakama.conversation.task.TaskStateSnapshotRepository;
