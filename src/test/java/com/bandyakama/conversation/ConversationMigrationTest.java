@@ -50,13 +50,51 @@ class ConversationMigrationTest {
                 """);
         jdbc.execute("""
                 CREATE TABLE bandy_conversation_request (
-                    conversation_id UUID NOT NULL,
+                    conversation_id UUID NOT NULL
+                        REFERENCES bandy_conversation(id) ON DELETE CASCADE,
                     idempotency_key UUID NOT NULL,
-                    status VARCHAR(20) NOT NULL,
+                    status VARCHAR(20) NOT NULL
+                        CHECK (status IN ('IN_PROGRESS', 'COMPLETED', 'FAILED')),
                     response_json TEXT,
                     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
                     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
                     PRIMARY KEY (conversation_id, idempotency_key)
+                )
+                """);
+        jdbc.execute("""
+                CREATE TABLE bandy_conversation_message (
+                    id UUID PRIMARY KEY,
+                    conversation_id UUID NOT NULL
+                        REFERENCES bandy_conversation(id) ON DELETE CASCADE,
+                    sequence_number BIGINT NOT NULL,
+                    role VARCHAR(20) NOT NULL
+                        CHECK (role IN ('USER', 'ASSISTANT', 'TOOL')),
+                    content TEXT NOT NULL,
+                    message_type VARCHAR(40) NOT NULL,
+                    metadata JSONB NOT NULL,
+                    request_id UUID,
+                    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
+                    UNIQUE (conversation_id, sequence_number)
+                )
+                """);
+        jdbc.execute("""
+                CREATE INDEX idx_bandy_message_conversation_order
+                    ON bandy_conversation_message (conversation_id, sequence_number)
+                """);
+        jdbc.execute("""
+                CREATE INDEX idx_bandy_message_request
+                    ON bandy_conversation_message (conversation_id, request_id)
+                """);
+        jdbc.execute("""
+                CREATE TABLE bandy_conversation_memory (
+                    conversation_id UUID PRIMARY KEY
+                        REFERENCES bandy_conversation(id) ON DELETE CASCADE,
+                    summary TEXT NOT NULL DEFAULT '',
+                    active_state JSONB NOT NULL,
+                    result_references JSONB NOT NULL,
+                    summarized_through_sequence BIGINT NOT NULL DEFAULT 0,
+                    schema_version INTEGER NOT NULL DEFAULT 1,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
                 )
                 """);
         jdbc.update("""
