@@ -1,5 +1,8 @@
 package com.bandyakama.conversation;
 
+import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.service.GeminiAssistant;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.bandyakama.conversation.dialogue.ContextEngineInput;
 import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.ConversationPlanInterpreter;
@@ -17,11 +20,17 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.Map;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,11 +57,22 @@ class LongConversationMemoryIntegrationTest {
     @MockBean
     private ConversationPlanInterpreter planInterpreter;
 
+    @MockBean
+    private GeminiAssistant assistant;
+
     @Test
     void keepsObjectiveAndOldReferenceAvailableAfterSixtySocialTurns() {
         UserIdentity identity = new UserIdentity("long-memory-owner", "client-a");
         Conversation conversation = conversationRepository.create(
                 identity.applicationId(), identity.ownerId()
+        );
+
+        when(assistant.respond(
+                anyString(), nullable(String.class), anyString(), any(UUID.class),
+                nullable(JsonNode.class), nullable(Consumer.class), anyMap()
+        )).thenReturn(
+                new ChatResponse("Le rapport est prêt.", List.of()),
+                new ChatResponse("Le rapport reprend la version initiale.", List.of())
         );
 
         when(planInterpreter.interpret(any(ContextEngineInput.class)))
