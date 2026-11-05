@@ -48,7 +48,7 @@ class ConversationPlanValidatorTest {
                         new ConversationPlanProposal.ResolvedDialogueReference(
                                 "archive", "reference-2"
                         )
-                )
+                ), null
         );
         var result = validator.validate(
                 input(state(null, List.of(archive), null)), plan(List.of(operation), List.of())
@@ -71,7 +71,7 @@ class ConversationPlanValidatorTest {
                 null, "Adapter un rapport", "Adapter le rapport.", null, List.of(), List.of(),
                 List.of(new ConversationPlanProposal.ResolvedDialogueReference(
                         "archive", "invented-reference"
-                ))
+                )), null
         );
         assertThrows(IllegalArgumentException.class, () -> validator.validate(
                 input(state(null, List.of(archive), null)), plan(List.of(operation), List.of())
