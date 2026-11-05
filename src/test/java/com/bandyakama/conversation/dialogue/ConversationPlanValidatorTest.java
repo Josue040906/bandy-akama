@@ -50,9 +50,17 @@ class ConversationPlanValidatorTest {
                         )
                 ), null
         );
-        var result = validator.validate(
-                input(state(null, List.of(archive), null)), plan(List.of(operation), List.of())
+        ContextEngineInput longConversation = new ContextEngineInput(
+                "Reprends le deuxième rapport.", 30,
+                state(null, List.of(archive), null),
+                java.util.stream.LongStream.rangeClosed(18, 29)
+                        .mapToObj(sequence -> new DialogueMessage(
+                                sequence, DialogueMessage.Role.USER,
+                                "Message récent " + sequence
+                        )).toList(),
+                "Les premiers rapports ont été évoqués auparavant."
         );
+        var result = validator.validate(longConversation, plan(List.of(operation), List.of()));
         assertEquals("reference-2", result.orderedOperations().get(0)
                 .resolvedReferences().get(0).referenceId());
     }
