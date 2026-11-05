@@ -7,6 +7,9 @@ import com.bandyakama.conversation.dialogue.ContextInterpretationProposal;
 import com.bandyakama.conversation.dialogue.DialogueInterpreter;
 import com.bandyakama.conversation.dialogue.DialogueObjective;
 import com.bandyakama.conversation.dialogue.DialogueObjectiveStatus;
+import com.bandyakama.conversation.dialogue.DialogueReference;
+import java.time.Instant;
+import java.util.ArrayList;
 import com.bandyakama.conversation.dialogue.DialogueRelation;
 import com.bandyakama.conversation.dialogue.DialogueState;
 import com.bandyakama.conversation.dialogue.DialogueStateRepository;
@@ -82,6 +85,65 @@ class ConversationContextIntegrationTest {
                             input, dialogueInterpreter.interpret(input)
                     );
                 });
+    }
+
+    @Test
+    void promptCompactionPreservesFocusedObjectiveAndItsReferences() throws Exception {
+        Conversation conversation = conversationRepository.create("client-a", "prompt-compaction-owner");
+        Instant now = Instant.parse("2026-11-05T12:00:00Z");
+        List<DialogueObjective> objectives = new ArrayList<>();
+        objectives.add(new DialogueObjective(
+                "focused-objective",
+                "FOCUSED_GOAL_KEEP_THIS",
+                "FOCUSED_SUMMARY_KEEP_THIS " + "detail ".repeat(80),
+                DialogueObjectiveStatus.ACTIVE,
+                null,
+                now,
+                now,
+                List.of(new DialogueReference(
+                        "focused-reference",
+                        "FOCUSED_REFERENCE_KEEP_THIS",
+                        "document",
+                        1
+                )),
+                List.of()
+        ));
+        for (int index = 1; index <= 24; index++) {
+            objectives.add(new DialogueObjective(
+                    "historical-objective-" + index,
+                    "Historical objective " + index,
+                    "Historical details " + index + " " + "background ".repeat(90),
+                    DialogueObjectiveStatus.SUSPENDED,
+                    null,
+                    now,
+                    now,
+                    List.of(new DialogueReference(
+                            "historical-reference-" + index,
+                            "Historical reference " + index,
+                            "document",
+                            index + 1
+                    )),
+                    List.of()
+            ));
+        }
+        DialogueState state = DialogueState.withPendingClarifications(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "focused-objective",
+                objectives,
+                List.of()
+        );
+
+        String promptContext = conversationRepository.contextForRequest(
+                conversation.id(),
+                UUID.randomUUID(),
+                objectMapper.valueToTree(state),
+                false
+        );
+
+        assertTrue(promptContext.contains("focused-objective"));
+        assertTrue(promptContext.contains("FOCUSED_GOAL_KEEP_THIS"));
+        assertTrue(promptContext.contains("FOCUSED_REFERENCE_KEEP_THIS"));
+        assertTrue(promptContext.length() <= 18000);
     }
 
     @Test
