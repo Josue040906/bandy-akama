@@ -43,6 +43,54 @@ class DialogueStateSerializationTest {
     }
 
     @Test
+    void roundTripsManyObjectivesAndHistoricalReferencesWithoutPruning() throws Exception {
+        Instant createdAt = Instant.parse("2026-11-03T06:00:00Z");
+        List<DialogueObjective> objectives = java.util.stream.IntStream.rangeClosed(1, 30)
+                .mapToObj(index -> new DialogueObjective(
+                        "objective-" + index,
+                        "Objectif " + index,
+                        "Contexte durable de l'objectif " + index,
+                        index == 30 ? DialogueObjectiveStatus.ACTIVE
+                                : DialogueObjectiveStatus.SUSPENDED,
+                        null,
+                        createdAt,
+                        createdAt.plusSeconds(index),
+                        List.of(
+                                new DialogueReference(
+                                        "reference-" + index + "-a",
+                                        "version initiale " + index,
+                                        "version",
+                                        index
+                                ),
+                                new DialogueReference(
+                                        "reference-" + index + "-b",
+                                        "document source " + index,
+                                        "document",
+                                        index
+                                )
+                        )
+                ))
+                .toList();
+        DialogueState expected = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION,
+                "objective-30",
+                objectives,
+                null
+        );
+
+        DialogueState restored = objectMapper.readValue(
+                objectMapper.writeValueAsString(expected),
+                DialogueState.class
+        );
+
+        assertEquals(30, restored.objectives().size());
+        assertEquals(60, restored.objectives().stream()
+                .mapToInt(objective -> objective.references().size())
+                .sum());
+        assertEquals(expected, restored);
+    }
+
+    @Test
     void readsLegacySnapshotsWithoutExecutionDependencyFields() throws Exception {
         String legacyJson = """
                 {
