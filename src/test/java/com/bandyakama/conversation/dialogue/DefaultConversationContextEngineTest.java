@@ -64,7 +64,7 @@ class DefaultConversationContextEngineTest {
 
         assertEquals(List.of(), resolution.proposedState().objectives());
         assertEquals(1, resolution.proposedState().pendingClarifications().size());
-        assertEquals("low-confidence",
+        assertEquals("low-confidence-2",
                 resolution.proposedState().pendingClarifications().get(0).clarificationId());
         assertEquals(List.of(), resolution.plan().orderedOperations());
     }
