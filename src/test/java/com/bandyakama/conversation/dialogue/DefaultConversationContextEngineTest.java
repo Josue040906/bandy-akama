@@ -47,6 +47,74 @@ class DefaultConversationContextEngineTest {
     }
 
     @Test
+    void lowConfidenceDoesNotApplyAnUncertainObjectiveMutation() {
+        ConversationPlanProposal proposal = new ConversationPlanProposal(
+                "La demande reste incertaine.", InterpretationConfidence.LOW,
+                List.of(operation(
+                        "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                        null, "Préparer un rapport", "Rapport en préparation", null
+                )), List.of()
+        );
+        org.mockito.Mockito.when(interpreter.interpret(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(proposal);
+
+        ContextResolution resolution = engine.resolve(
+                input("Prépare le rapport demandé.", DialogueState.empty())
+        );
+
+        assertEquals(List.of(), resolution.proposedState().objectives());
+        assertEquals(1, resolution.proposedState().pendingClarifications().size());
+        assertEquals("low-confidence",
+                resolution.proposedState().pendingClarifications().get(0).clarificationId());
+        assertEquals(List.of(), resolution.plan().orderedOperations());
+    }
+
+    @Test
+    void mediumConfidencePreservesClearIntentBesideLocalizedAmbiguity() {
+        ConversationPlanProposal proposal = new ConversationPlanProposal(
+                "Une intention est claire, une autre nécessite une précision.",
+                InterpretationConfidence.MEDIUM,
+                List.of(operation(
+                        "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                        null, "Préparer un planning", "Planning à préparer", null
+                )),
+                List.of(new ConversationPlanProposal.Clarification(
+                        "clarify", null, "Quel document souhaitez-vous comparer ?",
+                        "La référence au document est ambiguë."
+                ))
+        );
+        org.mockito.Mockito.when(interpreter.interpret(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(proposal);
+
+        ContextResolution resolution = engine.resolve(
+                input("Prépare un planning et compare-le à celui-ci.", DialogueState.empty())
+        );
+
+        assertEquals(1, resolution.proposedState().objectives().size());
+        assertEquals(1, resolution.proposedState().pendingClarifications().size());
+        assertEquals(1, resolution.plan().orderedOperations().size());
+    }
+
+    @Test
+    void lowConfidenceSocialTurnDoesNotCreateAnUnnecessaryClarification() {
+        ConversationPlanProposal proposal = new ConversationPlanProposal(
+                "Échange social.", InterpretationConfidence.LOW,
+                List.of(operation(
+                        "social", ConversationPlanProposal.OperationType.SOCIAL_TURN,
+                        null, null, null, null
+                )), List.of()
+        );
+        org.mockito.Mockito.when(interpreter.interpret(org.mockito.ArgumentMatchers.any()))
+                .thenReturn(proposal);
+        DialogueState state = DialogueState.empty();
+
+        ContextResolution resolution = engine.resolve(input("Bonjour.", state));
+
+        assertEquals(state, resolution.proposedState());
+        assertEquals(List.of(), resolution.proposedState().pendingClarifications());
+    }
+
+    @Test
     void newTopicRequestSuspendsOnlyFocusedObjectiveAndRetainsPendingClarification() {
         Instant now = Instant.parse("2026-11-02T08:00:00Z");
         DialogueObjective focused = objective("focused", DialogueObjectiveStatus.ACTIVE, now);
