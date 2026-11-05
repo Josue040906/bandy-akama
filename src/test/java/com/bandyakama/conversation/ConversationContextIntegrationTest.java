@@ -117,9 +117,9 @@ class ConversationContextIntegrationTest {
                         "document",
                         1
                 )),
-                List.of()
+                List.of("required-objective")
         ));
-        for (int index = 1; index <= 24; index++) {
+        for (int index = 2; index <= 24; index++) {
             objectives.add(new DialogueObjective(
                     "historical-objective-" + index,
                     "Historical objective " + index,
