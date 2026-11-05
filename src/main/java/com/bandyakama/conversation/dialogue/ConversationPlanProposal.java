@@ -118,6 +118,14 @@ public record ConversationPlanProposal(
         }
     }
 
+    /** A durable reference selected from one objective in the dialogue snapshot. */
+    public record ResolvedDialogueReference(String objectiveId, String referenceId) {
+        public ResolvedDialogueReference {
+            objectiveId = requireText(objectiveId, "objectiveId");
+            referenceId = requireText(referenceId, "referenceId");
+        }
+    }
+
     /**
      * One semantic change or newly proposed item.
      *
@@ -133,6 +141,7 @@ public record ConversationPlanProposal(
             EntityReference parent,
             List<EntityReference> dependsOn,
             List<ProposedDialogueReference> referenceMentions,
+            List<ResolvedDialogueReference> resolvedReferences,
             String clarificationId
     ) {
         public Operation(
@@ -146,7 +155,17 @@ public record ConversationPlanProposal(
                 List<ProposedDialogueReference> referenceMentions
         ) {
             this(operationId, type, targetObjectiveId, goal, summary, parent,
-                    dependsOn, referenceMentions, null);
+                    dependsOn, referenceMentions, List.of(), null);
+        }
+
+        public Operation(
+                String operationId, OperationType type, String targetObjectiveId,
+                String goal, String summary, EntityReference parent,
+                List<EntityReference> dependsOn,
+                List<ProposedDialogueReference> referenceMentions, String clarificationId
+        ) {
+            this(operationId, type, targetObjectiveId, goal, summary, parent,
+                    dependsOn, referenceMentions, List.of(), clarificationId);
         }
 
         public Operation {
@@ -158,6 +177,12 @@ public record ConversationPlanProposal(
             referenceMentions = List.copyOf(Objects.requireNonNull(
                     referenceMentions, "referenceMentions must not be null."
             ));
+            resolvedReferences = List.copyOf(Objects.requireNonNull(
+                    resolvedReferences, "resolvedReferences must not be null."
+            ));
+            if (new HashSet<>(resolvedReferences).size() != resolvedReferences.size()) {
+                throw new IllegalArgumentException("Resolved references must be unique.");
+            }
 
             if (targetObjectiveId != null && targetObjectiveId.isBlank()) {
                 throw new IllegalArgumentException(
