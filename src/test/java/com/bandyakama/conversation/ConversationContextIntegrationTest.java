@@ -155,6 +155,7 @@ class ConversationContextIntegrationTest {
         assertTrue(promptContext.contains("FOCUSED_GOAL_KEEP_THIS"));
         assertTrue(promptContext.contains("FOCUSED_REFERENCE_KEEP_THIS"));
         assertTrue(promptContext.contains("REQUIRED_DEPENDENCY_KEEP_THIS"));
+        assertFalse(promptContext.contains("historical-objective-2"));
         assertTrue(promptContext.length() <= 18000);
     }
 
