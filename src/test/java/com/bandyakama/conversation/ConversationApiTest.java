@@ -1167,11 +1167,17 @@ class ConversationApiTest {
                 SELECT message_type FROM bandy_conversation_message
                 WHERE conversation_id = ? AND role = 'ASSISTANT'
                 """, String.class, conversationId));
-        assertEquals("FAILED", jdbcTemplate.queryForObject("""
-                SELECT metadata->>'executionStatus'
+        String failureMetadata = jdbcTemplate.queryForObject("""
+                SELECT metadata::text
                 FROM bandy_conversation_message
                 WHERE conversation_id = ? AND role = 'ASSISTANT'
-                """, String.class, conversationId));
+                ORDER BY sequence_number DESC LIMIT 1
+                """, String.class, conversationId);
+        JsonNode metadata = objectMapper.readTree(failureMetadata);
+        if (metadata.isTextual()) {
+            metadata = objectMapper.readTree(metadata.asText());
+        }
+        assertEquals("FAILED", metadata.path("executionStatus").asText());
     }
 
     @Test

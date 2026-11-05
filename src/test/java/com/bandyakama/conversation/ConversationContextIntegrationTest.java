@@ -657,6 +657,9 @@ class ConversationContextIntegrationTest {
                 ORDER BY sequence_number DESC LIMIT 1
                 """, String.class, conversation.id());
         JsonNode metadata = objectMapper.readTree(failureMetadata);
+        if (metadata.isTextual()) {
+            metadata = objectMapper.readTree(metadata.asText());
+        }
         assertEquals("FAILED", metadata.path("executionStatus").asText());
         assertEquals(objectiveId,
                 metadata.path("dialogueState").path("activeObjectiveId").asText());
