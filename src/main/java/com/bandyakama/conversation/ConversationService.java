@@ -19,21 +19,18 @@ import java.util.UUID;
 public class ConversationService {
     private final ConversationRepository repository;
     private final GeminiAssistant assistant;
-    private final ConversationIntentResolver intentResolver;
     private final PerformanceTelemetry performanceTelemetry;
     private final int turnBudgetMillis;
 
     public ConversationService(
             ConversationRepository repository,
             GeminiAssistant assistant,
-            ConversationIntentResolver intentResolver,
             PerformanceTelemetry performanceTelemetry,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
     ) {
         this.repository = repository;
         this.assistant = assistant;
-        this.intentResolver = intentResolver;
         this.performanceTelemetry = performanceTelemetry;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
@@ -213,38 +210,19 @@ public class ConversationService {
         }
 
         try {
-            ConversationIntentResolver.Decision decision = measured(
-                    requestId,
-                    "intent_resolution",
-                    () -> intentResolver.resolve(message, request.activeState())
-            );
-            boolean resetState = decision
-                    == ConversationIntentResolver.Decision.NEW_INTENT;
-            JsonNode stateForRequest = decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? request.activeState()
-                    : null;
-            String classifiedContext = measured(
+            // Gemini reçoit toujours l'état actif et le fil complet : c'est lui
+            // qui décide si le message poursuit le sujet ou en ouvre un nouveau.
+            JsonNode activeState = request.activeState();
+            String context = measured(
                     requestId,
                     "context_preparation",
                     () -> repository.contextForModelRequest(
                             conversationId,
                             requestId,
-                            stateForRequest,
-                            decision
-                                    == ConversationIntentResolver.Decision.CONTINUATION
+                            activeState,
+                            true
                     )
-            )
-                    + "\n\nDécision de continuité prise par Bandy : "
-                    + (decision
-                    == ConversationIntentResolver.Decision.CONTINUATION
-                    ? "CONTINUATION. Utilise le fil complet pour déterminer si la "
-                            + "demande actuelle se rattache au sujet précédent. "
-                            + "Réutilise les données déjà chargées seulement si elles "
-                            + "répondent à cette demande."
-                    : "NOUVELLE INTENTION explicitement détectée. Ignore les "
-                            + "filtres et résultats précédents pour décider des "
-                            + "critères de cette demande.");
+            );
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
@@ -252,21 +230,20 @@ public class ConversationService {
                             ? assistant.respond(
                                     message,
                                     authorization,
-                                    classifiedContext,
+                                    context,
                                     requestId,
-                                    stateForRequest
+                                    activeState
                             )
                             : assistant.respond(
                                     message,
                                     authorization,
-                                    classifiedContext,
+                                    context,
                                     requestId,
-                                    stateForRequest,
+                                    activeState,
                                     tokenConsumer
                             )
             );
-            ChatResponse completedResponse = response.withConversationId(conversationId)
-                    .withConversationStateReset(resetState);
+            ChatResponse completedResponse = response.withConversationId(conversationId);
             measured(
                     requestId,
                     "response_persistence",

@@ -153,57 +153,6 @@ class ConversationStateMergerTest {
     }
 
     @Test
-    void classifiesCountAndCriteriaFollowUpsButNotANewSubject() throws Exception {
-        ConversationIntentResolver resolver =
-                new ConversationIntentResolver();
-        JsonNode activeState = state("search_agents", "{}", null);
-
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Combien sont-ils ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve("Et ceux qui ont plus de 40 ans ?", activeState)
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Explique-moi la procédure de reclassement.",
-                        activeState
-                )
-        );
-    }
-
-    @Test
-    void classifiesApproximateSearchFilterFollowUpsAsContinuations()
-            throws Exception {
-        ConversationIntentResolver resolver =
-                new ConversationIntentResolver();
-        JsonNode activeState = objectMapper.readTree("""
-                {
-                  "toolName": "searchEmployeesApproximately",
-                  "arguments": {"query": "RAKOTO"}
-                }
-                """);
-
-        assertEquals(
-                ConversationIntentResolver.Decision.CONTINUATION,
-                resolver.resolve(
-                        "Et si tu filtres par le poste de gestionnaire ?",
-                        activeState
-                )
-        );
-        assertEquals(
-                ConversationIntentResolver.Decision.NEW_INTENT,
-                resolver.resolve(
-                        "Explique les missions du service RH.",
-                        activeState
-                )
-        );
-    }
-
-    @Test
     void preservesBooleanExclusionWhenCountFollowUpContainsEmptyAst()
             throws Exception {
         JsonNode previous = state(

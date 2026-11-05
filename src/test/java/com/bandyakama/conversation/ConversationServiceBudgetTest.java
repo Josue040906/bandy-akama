@@ -42,7 +42,7 @@ class ConversationServiceBudgetTest {
                 claimId,
                 new ObjectMapper().createObjectNode()
         ));
-        when(repository.contextForRequest(
+        when(repository.contextForModelRequest(
                 any(),
                 any(),
                 any(),
@@ -69,7 +69,6 @@ class ConversationServiceBudgetTest {
         ConversationService service = new ConversationService(
                 repository,
                 assistant,
-                new ConversationIntentResolver(),
                 new PerformanceTelemetry(),
                 100
         );

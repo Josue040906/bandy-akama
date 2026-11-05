@@ -32,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -438,7 +437,6 @@ class ConversationApiTest {
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
         assertTrue(academicContext.contains("réutilise-les pour les suivis"));
-        assertTrue(academicContext.contains("CONTINUATION"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
@@ -465,7 +463,6 @@ class ConversationApiTest {
         );
         String unexpectedContext = contexts.getAllValues().get(3);
         assertTrue(unexpectedContext.contains("Licence en Gestion RH"));
-        assertTrue(unexpectedContext.contains("CONTINUATION"));
         var unexpectedHistory = ConversationPromptContext.parse(
                 unexpectedContext,
                 objectMapper
@@ -642,7 +639,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void explicitNewQuestionResetsStateAndLetsTheAssistantAnswer()
+    void newQuestionKeepsTheActiveStateForGeminiToJudge()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -680,17 +677,18 @@ class ConversationApiTest {
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
+        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
         verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                states.capture()
         );
-        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
-        assertFalse(
-                readMemoryJson(conversationId, "result_references")
-                        .toString().contains("A-7")
+        // Le code n'efface plus l'état sur un mot-clé : Gemini le reçoit et juge.
+        assertEquals(
+                "searchEmployees",
+                states.getAllValues().get(1).path("toolName").asText()
         );
     }
 
@@ -760,7 +758,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void aNewOrganizationSearchDoesNotReceiveThePreviousFilters()
+    void aNewSearchReplacesTheStoredFiltersWithGeminiArguments()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -820,9 +818,8 @@ class ConversationApiTest {
                 any(UUID.class),
                 states.capture()
         );
-        assertNull(states.getAllValues().get(0));
-        assertNull(states.getAllValues().get(1));
-        assertTrue(contexts.getAllValues().get(1).contains("NOUVELLE INTENTION"));
+        // Gemini reçoit les filtres précédents ; ses nouveaux arguments les remplacent.
+        assertTrue(states.getAllValues().get(1).toString().contains("Direction Générale"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
