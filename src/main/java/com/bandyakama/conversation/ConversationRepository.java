@@ -718,7 +718,17 @@ public class ConversationRepository {
 
     @Transactional
     public void failRequest(UUID conversationId, UUID idempotencyKey, UUID claimId) {
-        jdbcTemplate.update("""
+        failRequest(conversationId, idempotencyKey, claimId, null);
+    }
+
+    @Transactional
+    public boolean failRequest(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            String failureMessage
+    ) {
+        int failed = jdbcTemplate.update("""
                 UPDATE bandy_conversation_request
                 SET status = 'FAILED', updated_at = CURRENT_TIMESTAMP
                 WHERE conversation_id = ? AND idempotency_key = ?
@@ -728,7 +738,19 @@ public class ConversationRepository {
                 idempotencyKey,
                 claimId
         );
+        if (failed != 1) {
+            return false;
+        }
+        if (failureMessage != null && !failureMessage.isBlank()) {
+            ObjectNode metadata = objectMapper.createObjectNode();
+            metadata.put("executionStatus", "FAILED");
+            insertMessage(
+                    conversationId, idempotencyKey, "ASSISTANT",
+                    failureMessage, "ERROR", toJson(metadata)
+            );
+        }
         releaseRequest(conversationId, idempotencyKey, claimId);
+        return true;
     }
 
     private void releaseRequest(

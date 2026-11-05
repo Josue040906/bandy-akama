@@ -602,6 +602,85 @@ class ConversationContextIntegrationTest {
     }
 
     @Test
+    void preservesValidatedObjectiveWhenAssistantExecutionFails() throws Exception {
+        UserIdentity identity = new UserIdentity("failed-objective-owner", "client-a");
+        Conversation conversation = conversationRepository.create(
+                identity.applicationId(), identity.ownerId()
+        );
+        when(assistant.respond(
+                anyString(), nullable(String.class), anyString(), any(UUID.class),
+                nullable(JsonNode.class), nullable(java.util.function.Consumer.class), anyMap()
+        )).thenThrow(new IllegalStateException("simulated provider failure"))
+                .thenReturn(new ChatResponse("Le rapport est prêt.", List.of()));
+
+        when(dialogueInterpreter.interpret(any(ContextEngineInput.class)))
+                .thenAnswer(invocation -> {
+                    ContextEngineInput input = invocation.getArgument(0);
+                    DialogueState state = input.dialogueState();
+                    if (state.objectives().isEmpty()) {
+                        return new ContextInterpretationProposal(
+                                DialogueRelation.NEW_TASK, null, "La demande démarre un rapport.",
+                                null, InterpretationConfidence.HIGH,
+                                "Préparer un rapport de ventes", "Rapport de ventes en préparation.",
+                                List.of()
+                        );
+                    }
+                    assertNotNull(state.activeObjectiveId());
+                    return new ContextInterpretationProposal(
+                            DialogueRelation.CONTINUATION, state.activeObjectiveId(),
+                            "La demande complète le rapport existant.", null,
+                            InterpretationConfidence.HIGH, null,
+                            "Le rapport inclut une comparaison par région.", List.of()
+                    );
+                });
+
+        org.springframework.web.server.ResponseStatusException failure =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        org.springframework.web.server.ResponseStatusException.class,
+                        () -> conversationService.sendMessage(
+                                conversation.id(), identity, "Prépare un rapport de ventes.",
+                                null, UUID.randomUUID()
+                        )
+                );
+        assertEquals(org.springframework.http.HttpStatus.BAD_GATEWAY, failure.getStatusCode());
+
+        DialogueState afterFailure = dialogueStateRepository.load(conversation.id());
+        String objectiveId = afterFailure.activeObjectiveId();
+        assertNotNull(objectiveId);
+        assertEquals(1, afterFailure.objectives().size());
+        assertEquals("Préparer un rapport de ventes", afterFailure.objectives().get(0).goal());
+
+        String failureMetadata = jdbcTemplate.queryForObject("""
+                SELECT metadata::text
+                FROM bandy_conversation_message
+                WHERE conversation_id = ? AND role = 'ASSISTANT'
+                ORDER BY sequence_number DESC LIMIT 1
+                """, String.class, conversation.id());
+        JsonNode metadata = objectMapper.readTree(failureMetadata);
+        assertEquals("FAILED", metadata.path("executionStatus").asText());
+        assertEquals(objectiveId,
+                metadata.path("dialogueState").path("activeObjectiveId").asText());
+        assertEquals(0, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ? AND role = 'TOOL'
+                """, Integer.class, conversation.id()));
+
+        conversationService.sendMessage(
+                conversation.id(), identity, "Ajoute une comparaison par région.",
+                null, UUID.randomUUID()
+        );
+        DialogueState afterContinuation = dialogueStateRepository.load(conversation.id());
+        assertEquals(objectiveId, afterContinuation.activeObjectiveId());
+        assertEquals("Le rapport inclut une comparaison par région.",
+                afterContinuation.objectives().get(0).summary());
+        verify(dialogueInterpreter, times(2)).interpret(any(ContextEngineInput.class));
+        verify(assistant, times(2)).respond(
+                anyString(), nullable(String.class), anyString(), any(UUID.class),
+                nullable(JsonNode.class), nullable(java.util.function.Consumer.class), anyMap()
+        );
+    }
+
+    @Test
     void persistsClarificationAndReturnsItsQuestionWithoutCallingAssistant() {
         UserIdentity identity = new UserIdentity("clarification-owner", "client-a");
         Conversation conversation = conversationRepository.create(

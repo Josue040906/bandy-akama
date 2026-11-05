@@ -53,6 +53,34 @@ public class ConversationCompletionService {
         );
     }
 
+    /**
+     * Records a failed turn without discarding a validated dialogue transition.
+     * No operational state or tool result is committed on this path.
+     */
+    @Transactional
+    public void fail(
+            UUID conversationId,
+            UUID idempotencyKey,
+            UUID claimId,
+            Optional<DialogueState> proposedDialogueState,
+            String failureMessage
+    ) {
+        Objects.requireNonNull(conversationId, "conversationId must not be null.");
+        Objects.requireNonNull(idempotencyKey, "idempotencyKey must not be null.");
+        Objects.requireNonNull(claimId, "claimId must not be null.");
+        Objects.requireNonNull(proposedDialogueState, "proposedDialogueState must not be null.");
+        Objects.requireNonNull(failureMessage, "failureMessage must not be null.");
+
+        boolean recorded = conversationRepository.failRequest(
+                conversationId, idempotencyKey, claimId, failureMessage
+        );
+        if (recorded) {
+            proposedDialogueState.ifPresent(state ->
+                    dialogueStateRepository.save(conversationId, state)
+            );
+        }
+    }
+
     /** Compatibility constructor for isolated persistence tests. */
     public ConversationCompletionService(
             ConversationRepository conversationRepository,

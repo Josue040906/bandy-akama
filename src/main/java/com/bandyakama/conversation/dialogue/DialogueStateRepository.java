@@ -69,7 +69,7 @@ public class DialogueStateRepository {
     /**
      * Persists a complete immutable snapshot. Both the rebuildable memory
      * projection and the append-only assistant history are updated inside the
-     * successful request-completion transaction.
+     * durable turn-outcome transaction (successful completion or recorded failure).
      */
     @Transactional
     public void save(UUID conversationId, DialogueState state) {

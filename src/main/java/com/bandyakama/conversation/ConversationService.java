@@ -259,6 +259,7 @@ public class ConversationService {
             return request.completedResponse().withConversationId(conversationId);
         }
 
+        DialogueState proposedStateOnFailure = null;
         try {
             ContextResolution contextResolution;
             DialogueRelation relation;
@@ -286,6 +287,7 @@ public class ConversationService {
                             turnContext.conversationSummary()
                     )
             );
+            proposedStateOnFailure = contextResolution.proposedState();
             if (!contextResolution.isPlanBased()) {
                 throw new IllegalStateException(
                         "Le moteur conversationnel doit fournir un plan validé."
@@ -302,10 +304,19 @@ public class ConversationService {
                     .orElse(false);
             try {
                 try (RequestBudget.Scope ignored = RequestBudget.suspend()) {
-                    repository.failRequest(
+                    String failureMessage = proposedStateOnFailure == null
+                            ? "Je n’ai pas pu traiter cette demande. "
+                                    + "Aucun résultat n’a été confirmé. Vous pouvez réessayer."
+                            : "Je n’ai pas pu terminer cette demande. "
+                                    + "J’ai conservé l’objectif et le contexte compris, "
+                                    + "mais aucun résultat n’a été confirmé. "
+                                    + "Vous pouvez me demander de réessayer.";
+                    completionService.fail(
                             conversationId,
                             requestId,
-                            request.claimId()
+                            request.claimId(),
+                            java.util.Optional.ofNullable(proposedStateOnFailure),
+                            failureMessage
                     );
                 }
             } catch (RuntimeException cleanupFailure) {
