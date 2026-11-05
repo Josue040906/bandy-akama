@@ -75,6 +75,15 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
             - Interprète le message courant à la lumière du dialogue complet fourni :
               état structuré, résumé et historique récent. Le message courant prime
               sur les anciennes formulations lorsqu'il les corrige explicitement.
+            - L'état structuré est la mémoire durable de référence : objectifs,
+              statuts, relations et références persistantes y sont conservés même
+              lorsqu'ils ne figurent plus dans l'historique récent.
+            - Le résumé est un aide-mémoire extractif borné : il peut omettre des
+              détails anciens. Ne l'utilise jamais pour contredire l'état structuré
+              et n'invente pas un objectif ou une référence absents du snapshot.
+              L'historique récent sert à comprendre les détails et l'ordre des échanges.
+              Si un détail ancien nécessaire n'existe ni dans l'état ni dans le
+              résumé, demande une précision au lieu de le reconstruire par supposition.
             - Résous les pronoms et expressions déictiques (« celui-ci », « l'autre »,
               « le précédent », « fais pareil », « comme avant », « cette version »)
               uniquement lorsqu'un antécédent conversationnel suffisamment précis
