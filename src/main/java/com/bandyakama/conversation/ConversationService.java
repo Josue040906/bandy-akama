@@ -603,7 +603,7 @@ public class ConversationService {
                 var selected = sourceObjective.references().stream()
                         .filter(item -> item.id().equals(selection.referenceId()))
                         .findFirst().orElseThrow();
-                context.append("\\n  référence résolue : objectif=")
+                context.append("\n  référence résolue : objectif=")
                         .append(selection.objectiveId())
                         .append("; référence=").append(selected.id())
                         .append("; type=").append(sanitizePlanText(selected.kind()))
