@@ -1203,7 +1203,9 @@ public class ConversationRepository {
         return switch (field.toLowerCase(java.util.Locale.ROOT)) {
             case "toolname", "name", "intent", "matricule", "id",
                     "employeeid", "field", "operator", "value",
-                    "criteria", "filters", "arguments", "result" -> 0;
+                    "criteria", "filters", "arguments", "result",
+                    "activeobjectiveid", "status", "parentobjectiveid",
+                    "dependsonobjectiveids", "references", "pendingclarifications" -> 0;
             default -> 1;
         };
     }
