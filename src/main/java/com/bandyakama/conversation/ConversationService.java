@@ -218,55 +218,6 @@ public class ConversationService {
                     "intent_resolution",
                     () -> intentResolver.resolve(message, request.activeState())
             );
-            var greeting = ConversationIntentResolver.greetingResponse(message);
-            if (greeting.isPresent()) {
-                long greetingStartedAt = System.nanoTime();
-                ChatResponse response = new ChatResponse(
-                        greeting.get(),
-                        java.util.List.of(),
-                        conversationId
-                );
-                measured(
-                        requestId,
-                        "response_persistence",
-                        () -> repository.completeRequest(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                response
-                        )
-                );
-                performanceTelemetry.stage(
-                        requestId,
-                        "deterministic_greeting",
-                        greetingStartedAt,
-                        true
-                );
-                return response;
-            }
-
-            var newQuestion = ConversationIntentResolver.newQuestionResponse(
-                    message
-            );
-            if (newQuestion.isPresent()) {
-                ChatResponse response = new ChatResponse(
-                        newQuestion.get(),
-                        java.util.List.of(),
-                        conversationId
-                ).withConversationStateReset(true);
-                measured(
-                        requestId,
-                        "response_persistence",
-                        () -> repository.completeRequest(
-                                conversationId,
-                                requestId,
-                                request.claimId(),
-                                response
-                        )
-                );
-                return response;
-            }
-
             boolean resetState = decision
                     == ConversationIntentResolver.Decision.NEW_INTENT;
             JsonNode stateForRequest = decision

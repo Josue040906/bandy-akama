@@ -42,7 +42,6 @@ import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.options;
@@ -130,32 +129,6 @@ class ConversationApiTest {
     }
 
     @Test
-    void streamsConversationResponsesAsServerSentEvents() throws Exception {
-        UUID conversationId = createConversation("42");
-        MvcResult pending = mockMvc.perform(post(
-                        "/api/conversations/{id}/messages/stream",
-                        conversationId
-                )
-                        .header("Authorization", bearerToken("42"))
-                        .header("Idempotency-Key", UUID.randomUUID().toString())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .accept(MediaType.TEXT_EVENT_STREAM)
-                        .content("{\"message\":\"Bonjour\"}"))
-                .andExpect(request().asyncStarted())
-                .andReturn();
-
-        mockMvc.perform(asyncDispatch(pending))
-                .andExpect(status().isOk())
-                .andExpect(content().contentTypeCompatibleWith(
-                        MediaType.TEXT_EVENT_STREAM
-                ))
-                .andExpect(content().string(
-                        org.hamcrest.Matchers.containsString("event: done")
-                ));
-        verifyNoInteractions(assistant);
-    }
-
-    @Test
     void forwardsGeneratedTokensBeforeTheFinalConversationEvent()
             throws Exception {
         doAnswer(invocation -> {
@@ -187,6 +160,9 @@ class ConversationApiTest {
 
         mockMvc.perform(asyncDispatch(pending))
                 .andExpect(status().isOk())
+                .andExpect(content().contentTypeCompatibleWith(
+                        MediaType.TEXT_EVENT_STREAM
+                ))
                 .andExpect(content().string(
                         org.hamcrest.Matchers.containsString("event: token")
                 ))
@@ -289,8 +265,15 @@ class ConversationApiTest {
     }
 
     @Test
-    void answersSimpleGreetingWithoutCallingTheAssistantModel() throws Exception {
+    void sendsGreetingsToTheAssistantModel() throws Exception {
         UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse("Bonjour, que puis-je faire pour vous ?", List.of()));
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
                         .header("Authorization", bearerToken("42"))
@@ -299,10 +282,16 @@ class ConversationApiTest {
                         .content("{\"message\":\"Bonjour Bandy !\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value(
-                        "Bonjour ! Comment puis-je vous aider ?"
+                        "Bonjour, que puis-je faire pour vous ?"
                 ));
 
-        verifyNoInteractions(assistant);
+        verify(assistant, times(1)).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
         Integer persistedMessages = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM bandy_conversation_message
                 WHERE conversation_id = ?
@@ -653,7 +642,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void explicitNewQuestionResetsStateWithoutCallingTheAssistant()
+    void explicitNewQuestionResetsStateAndLetsTheAssistantAnswer()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -674,6 +663,7 @@ class ConversationApiTest {
                                                 + "\"value\":\"Personnel\"}]}")
                         ))
                 ),
+                new ChatResponse("Je vous écoute.", List.of()),
                 new ChatResponse("Voici une réponse indépendante.", List.of())
         );
 
@@ -686,11 +676,11 @@ class ConversationApiTest {
         send(conversationId, "42", "Combien y a-t-il de directions ?");
 
         assertEquals(
-                "Bien sûr. Quelle est votre nouvelle question ?",
+                "Je vous écoute.",
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
-        verify(assistant, times(2)).respond(
+        verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
                 anyString(),
@@ -1546,9 +1536,7 @@ class ConversationApiTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"message\":\"Bonjour\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value(
-                        "Bonjour ! Comment puis-je vous aider ?"
-                ))
+                .andExpect(jsonPath("$.message").value("Bonjour."))
                 .andExpect(jsonPath("$.conversationId").isNotEmpty())
                 .andReturn();
         UUID conversationId = UUID.fromString(
