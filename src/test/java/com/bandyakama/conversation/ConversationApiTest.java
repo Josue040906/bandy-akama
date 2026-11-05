@@ -582,63 +582,6 @@ class ConversationApiTest {
     }
 
     @Test
-    void clearsActiveFiltersForAnIndependentIntentButRetainsHistory()
-            throws Exception {
-        UUID conversationId = createConversation("42");
-        when(assistant.respond(
-                anyString(),
-                anyString(),
-                anyString(),
-                any(UUID.class),
-                nullable(JsonNode.class)
-        )).thenReturn(
-                new ChatResponse(
-                        "J’ai trouvé l’agent.",
-                        List.of(new ChatResponse.ToolResult(
-                                "searchEmployees",
-                                List.of(Map.of("matricule", "A-7")),
-                                Map.of("criteriaJson",
-                                        "{\"filters\":[{\"field\":\"service\","
-                                                + "\"operator\":\"EQ\","
-                                                + "\"value\":\"Personnel\"}]}")
-                        ))
-                ),
-                new ChatResponse(
-                        "Le Service du Personnel est une unité administrative.",
-                        List.of(),
-                        null,
-                        true
-                ),
-                new ChatResponse("Voici une explication complémentaire.", List.of())
-        );
-
-        send(conversationId, "42", "Cherche les agents du Personnel.");
-        send(conversationId, "42", "Explique le fonctionnement de la comptabilité.");
-        send(conversationId, "42", "Peux-tu préciser ?");
-
-        var context = org.mockito.ArgumentCaptor.forClass(String.class);
-        verify(assistant, times(3)).respond(
-                anyString(),
-                anyString(),
-                context.capture(),
-                any(UUID.class),
-                nullable(JsonNode.class)
-        );
-        String independentFollowUpContext = context.getAllValues().get(2);
-        assertTrue(independentFollowUpContext.contains(
-                "État structuré précédent (à conserver uniquement si la demande "
-                        + "continue cette intention) :\n{}"
-        ));
-        assertFalse(independentFollowUpContext.contains("A-7"));
-        assertTrue(independentFollowUpContext.contains("comptabilité"));
-        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
-        assertEquals(0, readMemoryJson(
-                conversationId,
-                "result_references"
-        ).size());
-    }
-
-    @Test
     void newQuestionKeepsTheActiveStateForGeminiToJudge()
             throws Exception {
         UUID conversationId = createConversation("42");
@@ -872,7 +815,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void rebuildsSummaryAndHonorsIntentResetsAfterMemoryLoss() throws Exception {
+    void rebuildsSummaryAndStateAfterMemoryLoss() throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
                 anyString(),
@@ -892,12 +835,7 @@ class ConversationApiTest {
                                                 + "\"value\":\"Administration\"}]}")
                         ))
                 ),
-                new ChatResponse(
-                        "La comptabilité est un nouveau sujet.",
-                        List.of(),
-                        null,
-                        true
-                ),
+                new ChatResponse("La comptabilité est un nouveau sujet.", List.of()),
                 new ChatResponse("Réponse trois.", List.of()),
                 new ChatResponse("Réponse quatre.", List.of()),
                 new ChatResponse("Réponse cinq.", List.of()),
@@ -929,12 +867,9 @@ class ConversationApiTest {
 
         assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
         assertTrue(rebuiltContext.contains("comptabilité"), rebuiltContext);
-        assertFalse(rebuiltContext.contains("OLD-RESULT-123"));
-        assertEquals("{}", readMemoryJson(conversationId, "active_state").toString());
-        assertEquals(0, readMemoryJson(
-                conversationId,
-                "result_references"
-        ).size());
+        // L'état est reconstruit à partir du dernier outil exécuté.
+        assertTrue(readMemoryJson(conversationId, "active_state")
+                .toString().contains("Administration"));
     }
 
     @Test
@@ -1237,11 +1172,10 @@ class ConversationApiTest {
                         4000,
                         1800
                 );
-        String context = constrainedRepository.contextForRequest(
+        String context = constrainedRepository.contextForModelRequest(
                 conversationId,
                 UUID.randomUUID(),
-                activeState,
-                true
+                activeState
         );
 
         assertTrue(context.length() <= 1800);

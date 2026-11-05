@@ -219,8 +219,7 @@ public class ConversationService {
                     () -> repository.contextForModelRequest(
                             conversationId,
                             requestId,
-                            activeState,
-                            true
+                            activeState
                     )
             );
             ChatResponse response = measured(

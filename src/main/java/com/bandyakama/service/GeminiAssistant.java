@@ -514,8 +514,8 @@ public class GeminiAssistant {
     ) {
         if (!clarificationPending) {
             return new ChatResponse(
-                    message, List.copyOf(toolResults), null, false,
-                    List.copyOf(toolStates)
+                    message, List.copyOf(toolResults), null,
+                    List.copyOf(toolStates), false
             );
         }
         List<ChatResponse.ToolState> states = new ArrayList<>(toolStates);
@@ -524,7 +524,7 @@ public class GeminiAssistant {
                 Map.of("targetTool", "search_agents")
         ));
         return new ChatResponse(
-                message, List.copyOf(toolResults), null, false,
+                message, List.copyOf(toolResults), null,
                 List.copyOf(states), true
         );
     }

@@ -254,18 +254,6 @@ class GeminiAssistantOrchestrationTest {
                 response.toolStates().get(0).arguments().get("targetTool"));
     }
 
-    @Test
-    void clarificationResponseIsStructuredAndContainsNoToolResults() {
-        ChatResponse response = ChatResponse.clarification("Précisez un service.");
-        assertTrue(response.needClarification());
-        assertTrue(response.toolResults().isEmpty());
-        assertEquals(1, response.toolStates().size());
-        assertEquals("clarification_pending", response.toolStates().get(0).name());
-        assertEquals("Précisez un service.", response.message());
-        assertTrue(response.withConversationId(java.util.UUID.randomUUID())
-                .needClarification());
-    }
-
     private ToolDefinition namedTool(String name) {
         ToolDefinition tool = new ToolDefinition(
                 name,

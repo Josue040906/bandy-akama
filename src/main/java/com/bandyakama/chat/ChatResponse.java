@@ -10,59 +10,19 @@ public record ChatResponse(
         String message,
         List<ToolResult> toolResults,
         UUID conversationId,
-        @JsonIgnore boolean resetConversationState,
         @JsonIgnore List<ToolState> toolStates,
         boolean needClarification
 ) {
     public ChatResponse(String message, List<ToolResult> toolResults) {
-        this(message, toolResults, null, false, List.of(), false);
+        this(message, toolResults, null, List.of(), false);
     }
 
     public ChatResponse(String message, List<ToolResult> toolResults, UUID conversationId) {
-        this(message, toolResults, conversationId, false, List.of(), false);
-    }
-
-    public ChatResponse(
-            String message,
-            List<ToolResult> toolResults,
-            UUID conversationId,
-            boolean resetConversationState
-    ) {
-        this(message, toolResults, conversationId, resetConversationState, List.of(), false);
-    }
-
-    public ChatResponse(
-            String message,
-            List<ToolResult> toolResults,
-            UUID conversationId,
-            boolean resetConversationState,
-            List<ToolState> toolStates
-    ) {
-        this(message, toolResults, conversationId, resetConversationState, toolStates, false);
-    }
-
-    public static ChatResponse clarification(String message) {
-        return new ChatResponse(
-                message,
-                List.of(),
-                null,
-                false,
-                List.of(new ToolState(
-                        "clarification_pending",
-                        Map.of("targetTool", "search_agents")
-                )),
-                true
-        );
+        this(message, toolResults, conversationId, List.of(), false);
     }
 
     public ChatResponse withConversationId(UUID id) {
-        return new ChatResponse(message, toolResults, id, resetConversationState,
-                toolStates, needClarification);
-    }
-
-    public ChatResponse withConversationStateReset(boolean reset) {
-        return new ChatResponse(message, toolResults, conversationId, reset,
-                toolStates, needClarification);
+        return new ChatResponse(message, toolResults, id, toolStates, needClarification);
     }
 
     public record ToolState(String name, Map<String, Object> arguments, Object result) {

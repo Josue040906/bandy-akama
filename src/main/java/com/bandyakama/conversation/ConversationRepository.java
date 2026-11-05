@@ -433,25 +433,10 @@ public class ConversationRepository {
         );
     }
 
-    public String contextForRequest(
-            UUID conversationId,
-            UUID requestId,
-            JsonNode activeState,
-            boolean includeResultReferences
-    ) {
-        return buildContext(
-                conversationId,
-                activeState,
-                includeResultReferences,
-                maxContextCharacters
-        );
-    }
-
     public String contextForModelRequest(
             UUID conversationId,
             UUID requestId,
-            JsonNode activeState,
-            boolean includeResultReferences
+            JsonNode activeState
     ) {
         List<ConversationPromptContext.Message> history =
                 historyForRequest(conversationId, requestId);
@@ -468,7 +453,6 @@ public class ConversationRepository {
         String context = buildContext(
                 conversationId,
                 activeState,
-                includeResultReferences,
                 contextLimit
         );
         return context
@@ -543,10 +527,6 @@ public class ConversationRepository {
                         .map(ChatResponse.ToolResult::name)
                         .toList())
         );
-        assistantMetadata.put(
-                "resetConversationState",
-                response.resetConversationState()
-        );
         insertMessage(
                 conversationId,
                 idempotencyKey,
@@ -559,15 +539,13 @@ public class ConversationRepository {
         updateMemory(
                 conversationId,
                 stateUpdates(response),
-                persistentToolResults,
-                response.resetConversationState()
+                persistentToolResults
         );
 
         ChatResponse persistedResponse = new ChatResponse(
                 response.message(),
                 persistentToolResults,
                 response.conversationId(),
-                response.resetConversationState(),
                 List.of(),
                 response.needClarification()
         );
@@ -672,8 +650,7 @@ public class ConversationRepository {
     private void updateMemory(
             UUID conversationId,
             List<ChatResponse.ToolState> toolStates,
-            List<ChatResponse.ToolResult> persistentToolResults,
-            boolean clearConversationState
+            List<ChatResponse.ToolResult> persistentToolResults
     ) {
         MemorySnapshot memory = jdbcTemplate.queryForObject("""
                         SELECT summary, active_state::text AS active_state,
@@ -690,14 +667,8 @@ public class ConversationRepository {
                 ),
                 conversationId
         );
-        String state = memory.activeState();
-        state = clearConversationState
-                ? "{}"
-                : toJson(readStoredJson(state));
+        String state = toJson(readStoredJson(memory.activeState()));
         ArrayNode references = readArray(memory.resultReferences());
-        if (clearConversationState) {
-            references.removeAll();
-        }
         for (ChatResponse.ToolState toolState : toolStates) {
             JsonNode previousState = readStoredJson(state);
             ObjectNode cachedProfiles = previousState.path("profiles").isObject()
@@ -826,7 +797,6 @@ public class ConversationRepository {
     private String buildContext(
             UUID conversationId,
             JsonNode activeStateOverride,
-            boolean includeResultReferences,
             int contextCharacterLimit
     ) {
         ContextMemory memory = jdbcTemplate.queryForObject("""
@@ -840,9 +810,7 @@ public class ConversationRepository {
                 ),
                 conversationId
         );
-        JsonNode resultReferences = includeResultReferences
-                ? readStoredJson(memory.resultReferences())
-                : objectMapper.createArrayNode();
+        JsonNode resultReferences = readStoredJson(memory.resultReferences());
 
         StringBuilder context = new StringBuilder(
                 "Contexte conversationnel persistant. L’état structuré et les "
@@ -870,12 +838,7 @@ public class ConversationRepository {
         appendContextBlock(
                 context,
                 "Références aux résultats métier précédents :",
-                includeResultReferences
-                        ? compactJson(
-                                resultReferences,
-                                contextCharacterLimit / 4
-                        )
-                        : "Aucune référence transmise pour cette nouvelle intention.",
+                compactJson(resultReferences, contextCharacterLimit / 4),
                 contextCharacterLimit / 4,
                 contextCharacterLimit
         );
@@ -1092,7 +1055,7 @@ public class ConversationRepository {
                 "[]"
         );
         List<HistoricalMessage> history = jdbcTemplate.query("""
-                SELECT sequence_number, request_id, role, content,
+                SELECT sequence_number, role, content,
                        metadata::text AS metadata
                 FROM bandy_conversation_message
                 WHERE conversation_id = ? AND role IN ('USER', 'ASSISTANT', 'TOOL')
@@ -1100,36 +1063,16 @@ public class ConversationRepository {
                 """,
                 (resultSet, rowNumber) -> new HistoricalMessage(
                         resultSet.getLong("sequence_number"),
-                        resultSet.getObject("request_id", UUID.class),
                         resultSet.getString("role"),
                         resultSet.getString("content"),
                         readStoredJson(resultSet.getString("metadata"))
                 ),
                 conversationId
         );
-        HistoricalMessage latestReset = history.stream()
-                .filter(message -> "ASSISTANT".equals(message.role()))
-                .filter(message -> message.metadata()
-                        .path("resetConversationState").asBoolean(false))
-                .max(java.util.Comparator.comparingLong(
-                        HistoricalMessage::sequenceNumber
-                ))
-                .orElse(null);
-        long latestResetSequence = latestReset == null
-                ? 0
-                : latestReset.sequenceNumber();
-        UUID resetRequestId = latestReset == null
-                ? null
-                : latestReset.requestId();
         ArrayNode references = objectMapper.createArrayNode();
         String state = "{}";
         for (HistoricalMessage message : history) {
-            if (!"TOOL".equals(message.role())
-                    || (message.sequenceNumber() <= latestResetSequence
-                    && !java.util.Objects.equals(
-                            message.requestId(),
-                            resetRequestId
-                    ))) {
+            if (!"TOOL".equals(message.role())) {
                 continue;
             }
             JsonNode metadata = message.metadata();
@@ -1390,7 +1333,6 @@ public class ConversationRepository {
 
     private record HistoricalMessage(
             long sequenceNumber,
-            UUID requestId,
             String role,
             String content,
             JsonNode metadata
