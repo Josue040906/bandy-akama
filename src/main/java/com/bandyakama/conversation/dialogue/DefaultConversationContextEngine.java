@@ -29,13 +29,16 @@ public class DefaultConversationContextEngine implements ConversationContextEngi
     public ContextResolution resolve(ContextEngineInput input) {
         Objects.requireNonNull(input, "input must not be null.");
         ConversationPlanProposal interpreted = interpreter.interpret(input);
-        ConversationPlanProposal proposal = applyConfidencePolicy(interpreted);
+        ConversationPlanProposal proposal = applyConfidencePolicy(
+                input, interpreted
+        );
         ValidatedConversationPlan validated = validator.validate(input, proposal);
         DialogueState proposedState = transitioner.transition(input, validated);
         return ContextResolution.fromPlan(validated, input.dialogueState(), proposedState);
     }
 
     private ConversationPlanProposal applyConfidencePolicy(
+            ContextEngineInput input,
             ConversationPlanProposal proposal
     ) {
         if (proposal.confidence() != InterpretationConfidence.LOW
@@ -53,7 +56,7 @@ public class DefaultConversationContextEngine implements ConversationContextEngi
                 InterpretationConfidence.LOW,
                 socialTurns,
                 List.of(new ConversationPlanProposal.Clarification(
-                        "low-confidence",
+                        "low-confidence-" + input.currentMessageSequenceNumber(),
                         null,
                         "Je ne suis pas certain d'avoir correctement compris votre demande. "
                                 + "Pouvez-vous préciser ce que vous souhaitez faire ?",
