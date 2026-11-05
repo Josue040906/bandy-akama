@@ -133,6 +133,35 @@ class ConversationPlanTransitionerTest {
     }
 
     @Test
+    void ambiguousHistoricalReferenceCreatesClarificationWithoutSelectingAnItem() {
+        DialogueReference first = new DialogueReference(
+                "first-version", "Version initiale", "DOCUMENT", 1
+        );
+        DialogueReference second = new DialogueReference(
+                "second-version", "Version révisée", "DOCUMENT", 8
+        );
+        DialogueObjective objective = new DialogueObjective(
+                "documents", "Comparer des versions", "Deux versions disponibles.",
+                DialogueObjectiveStatus.ACTIVE, null, NOW, NOW, List.of(first, second)
+        );
+        DialogueState initial = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, "documents", List.of(objective),
+                (PendingClarification) null
+        );
+        var clarification = new ConversationPlanProposal.Clarification(
+                "which-version", null,
+                "De quelle version parlez-vous : initiale ou révisée ?",
+                "L'expression « l'autre version » admet deux antécédents plausibles."
+        );
+
+        DialogueState result = apply(input(initial), plan(List.of(), List.of(clarification)));
+
+        assertEquals(initial.objectives(), result.objectives());
+        assertEquals(1, result.pendingClarifications().size());
+        assertEquals("which-version", result.pendingClarifications().get(0).clarificationId());
+    }
+
+    @Test
     void newTopicRequestSuspendsOnlyTheFocusedObjectiveAndPreservesClarifications() {
         DialogueObjective focused = objective("focused", DialogueObjectiveStatus.ACTIVE);
         DialogueObjective other = objective("other", DialogueObjectiveStatus.ACTIVE);
