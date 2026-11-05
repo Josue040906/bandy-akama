@@ -90,9 +90,10 @@ class ConversationBenchTest {
     @BeforeAll
     static void requireConfiguration() {
         boolean dryRun = "true".equalsIgnoreCase(System.getenv("BANDY_BENCH_DRY_RUN"));
+        // Le mot de passe reste facultatif : une base locale en « trust » n'en demande pas.
         List<String> missing = (dryRun
-                ? List.of("BANDY_BENCH_DB_URL", "BANDY_BENCH_DB_PASSWORD")
-                : List.of("BANDY_BENCH_DB_URL", "BANDY_BENCH_DB_PASSWORD", "GEMINI_API_KEY"))
+                ? List.of("BANDY_BENCH_DB_URL")
+                : List.of("BANDY_BENCH_DB_URL", "GEMINI_API_KEY"))
                 .stream()
                 .filter(name -> System.getenv(name) == null || System.getenv(name).isBlank())
                 .toList();
