@@ -7,6 +7,9 @@ import com.bandyakama.conversation.dialogue.ConversationPlanProposal;
 import com.bandyakama.conversation.dialogue.ConversationPlanTransitioner;
 import com.bandyakama.conversation.dialogue.ConversationPlanValidator;
 import com.bandyakama.conversation.dialogue.DialogueState;
+import com.bandyakama.conversation.dialogue.DialogueObjective;
+import com.bandyakama.conversation.dialogue.DialogueObjectiveStatus;
+import com.bandyakama.conversation.dialogue.DialogueReference;
 import com.bandyakama.conversation.dialogue.DialogueStateManager;
 import com.bandyakama.conversation.dialogue.InterpretationConfidence;
 import com.bandyakama.conversation.task.TaskStateManager;
@@ -49,6 +52,20 @@ class ConversationServicePlanExecutionTest {
                 any(), any(), any(), anyBoolean(), nullable(String.class)
         )).thenReturn("Contexte de conversation.");
 
+        DialogueReference archivedReference = new DialogueReference(
+                "reference-2026", "Rapport financier 2026", "DOCUMENT", 1
+        );
+        DialogueObjective archivedObjective = new DialogueObjective(
+                "archive", "Historique des rapports", "Rapport financier antérieur.",
+                DialogueObjectiveStatus.COMPLETED, null,
+                java.time.Instant.parse("2026-11-01T08:00:00Z"),
+                java.time.Instant.parse("2026-11-01T08:00:00Z"),
+                List.of(archivedReference)
+        );
+        DialogueState originalState = new DialogueState(
+                DialogueState.CURRENT_SCHEMA_VERSION, null, List.of(archivedObjective),
+                (com.bandyakama.conversation.dialogue.PendingClarification) null
+        );
         var createReport = new ConversationPlanProposal.Operation(
                 "create-report",
                 ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
@@ -57,7 +74,10 @@ class ConversationServicePlanExecutionTest {
                 "Rapport pour l'exercice 2026.",
                 null,
                 List.of(),
-                List.of()
+                List.of(),
+                List.of(new ConversationPlanProposal.ResolvedDialogueReference(
+                        "archive", "reference-2026"
+                ))
         );
         var createTrip = new ConversationPlanProposal.Operation(
                 "create-trip",
@@ -78,7 +98,7 @@ class ConversationServicePlanExecutionTest {
         ContextEngineInput engineInput = new ContextEngineInput(
                 "Prépare un rapport financier et organise mon voyage.",
                 3,
-                DialogueState.empty(),
+                originalState,
                 List.of(),
                 ""
         );
@@ -86,7 +106,7 @@ class ConversationServicePlanExecutionTest {
         DialogueState proposed = new ConversationPlanTransitioner()
                 .transition(engineInput, validated);
         ContextResolution resolution = ContextResolution.fromPlan(
-                validated, DialogueState.empty(), proposed
+                validated, originalState, proposed
         );
         when(dialogueManager.prepareTurn(any(), anyString(), anyLong(), any(), anyString()))
                 .thenReturn(resolution);
@@ -127,6 +147,8 @@ class ConversationServicePlanExecutionTest {
         assertEquals(true, assistantContext.getValue().contains("Préparer un rapport financier"));
         assertEquals(true, assistantContext.getValue().contains("Organiser un voyage"));
         assertEquals(true, assistantContext.getValue().contains("CREATE_OBJECTIVE"));
+        assertEquals(true, assistantContext.getValue().contains("Rapport financier 2026"));
+        assertEquals(true, assistantContext.getValue().contains("reference-2026"));
         verify(completion).complete(
                 eq(conversationId),
                 eq(requestId),
