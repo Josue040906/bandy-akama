@@ -147,6 +147,7 @@ public class ConversationPlanValidator {
 
         for (ConversationPlanProposal.Operation operation : proposal.operations()) {
             validateTarget(input.dialogueState(), operation, existing);
+            validateResolvedReferences(operation, existing);
             boolean creation = operation.type()
                     == ConversationPlanProposal.OperationType.CREATE_OBJECTIVE
                     || operation.type()
@@ -210,6 +211,23 @@ public class ConversationPlanValidator {
                         );
                     }
                 }
+            }
+        }
+    }
+
+    private void validateResolvedReferences(
+            ConversationPlanProposal.Operation operation,
+            Map<String, DialogueObjective> existing
+    ) {
+        for (ConversationPlanProposal.ResolvedDialogueReference selection
+                : operation.resolvedReferences()) {
+            DialogueObjective objective = existing.get(selection.objectiveId());
+            if (objective == null) throw invalid(
+                    "Référence liée à un objectif inconnu : " + selection.objectiveId());
+            if (objective.references().stream().noneMatch(reference ->
+                    reference.id().equals(selection.referenceId()))) {
+                throw invalid("Référence conversationnelle inconnue : "
+                        + selection.referenceId());
             }
         }
     }
