@@ -22,6 +22,16 @@ class GeminiConversationPlanInterpreterPromptTest {
     }
 
     @Test
+    void requiresExactPersistentReferenceIdsAndClarifiesAmbiguousOrdinals() {
+        String instruction = GeminiConversationPlanInterpreter.SYSTEM_INSTRUCTION;
+        assertTrue(instruction.contains("resolvedReferences"));
+        assertTrue(instruction.contains("objectiveId,referenceId"));
+        assertTrue(instruction.contains("le deuxième"));
+        assertTrue(instruction.contains("l'autre version"));
+        assertTrue(instruction.contains("ne sélectionne aucun ID"));
+    }
+
+    @Test
     void distinguishesCorrectionContinuationResumptionAndNewTopics() {
         String instruction = GeminiConversationPlanInterpreter.SYSTEM_INSTRUCTION;
 
