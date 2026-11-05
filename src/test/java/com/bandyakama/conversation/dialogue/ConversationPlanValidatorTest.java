@@ -30,6 +30,55 @@ class ConversationPlanValidatorTest {
     }
 
     @Test
+    void acceptsAnExactReferenceFromAnOlderObjectiveSnapshot() {
+        DialogueReference first = new DialogueReference(
+                "reference-1", "Premier rapport", "DOCUMENT", 1
+        );
+        DialogueReference second = new DialogueReference(
+                "reference-2", "Deuxième rapport", "DOCUMENT", 2
+        );
+        DialogueObjective archive = new DialogueObjective(
+                "archive", "Historique des rapports", "Deux rapports archivés.",
+                DialogueObjectiveStatus.COMPLETED, null, NOW, NOW, List.of(first, second)
+        );
+        var operation = new ConversationPlanProposal.Operation(
+                "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                null, "Adapter le rapport choisi", "Adapter le deuxième rapport.",
+                null, List.of(), List.of(), List.of(
+                        new ConversationPlanProposal.ResolvedDialogueReference(
+                                "archive", "reference-2"
+                        )
+                )
+        );
+        var result = validator.validate(
+                input(state(null, List.of(archive), null)), plan(List.of(operation), List.of())
+        );
+        assertEquals("reference-2", result.orderedOperations().get(0)
+                .resolvedReferences().get(0).referenceId());
+    }
+
+    @Test
+    void rejectsAReferenceIdThatDoesNotBelongToItsDeclaredObjective() {
+        DialogueReference reference = new DialogueReference(
+                "reference-1", "Premier rapport", "DOCUMENT", 1
+        );
+        DialogueObjective archive = new DialogueObjective(
+                "archive", "Historique", "Rapport archivé.",
+                DialogueObjectiveStatus.COMPLETED, null, NOW, NOW, List.of(reference)
+        );
+        var operation = new ConversationPlanProposal.Operation(
+                "create", ConversationPlanProposal.OperationType.CREATE_OBJECTIVE,
+                null, "Adapter un rapport", "Adapter le rapport.", null, List.of(), List.of(),
+                List.of(new ConversationPlanProposal.ResolvedDialogueReference(
+                        "archive", "invented-reference"
+                ))
+        );
+        assertThrows(IllegalArgumentException.class, () -> validator.validate(
+                input(state(null, List.of(archive), null)), plan(List.of(operation), List.of())
+        ));
+    }
+
+    @Test
     void rejectsUnknownExistingObjectiveReferences() {
         var resume = targeted(
                 "resume", ConversationPlanProposal.OperationType.RESUME_OBJECTIVE,
