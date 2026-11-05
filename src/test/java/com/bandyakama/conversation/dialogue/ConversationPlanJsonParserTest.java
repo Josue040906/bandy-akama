@@ -94,6 +94,36 @@ class ConversationPlanJsonParserTest {
     }
 
     @Test
+    void parsesExactPersistentReferenceSelections() {
+        String json = """
+                {
+                  "rationale":"L'utilisateur désigne le deuxième document.",
+                  "confidence":"HIGH",
+                  "operations":[{
+                    "operationId":"create",
+                    "type":"CREATE_OBJECTIVE",
+                    "targetObjectiveId":null,
+                    "goal":"Adapter le document choisi",
+                    "summary":"Adapter le deuxième rapport.",
+                    "parent":null,
+                    "dependsOn":[],
+                    "referenceMentions":[],
+                    "resolvedReferences":[{
+                      "objectiveId":"archive",
+                      "referenceId":"reference-2"
+                    }]
+                  }],
+                  "clarifications":[]
+                }
+                """;
+        var proposal = parser.parse(json);
+        assertEquals("archive", proposal.operations().get(0)
+                .resolvedReferences().get(0).objectiveId());
+        assertEquals("reference-2", proposal.operations().get(0)
+                .resolvedReferences().get(0).referenceId());
+    }
+
+    @Test
     void rejectsMalformedOrStructurallyIncompleteJson() {
         assertThrows(IllegalArgumentException.class, () -> parser.parse("{"));
         assertThrows(IllegalArgumentException.class, () -> parser.parse("""
