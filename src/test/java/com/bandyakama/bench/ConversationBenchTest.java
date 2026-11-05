@@ -137,12 +137,16 @@ class ConversationBenchTest {
             Map<String, Object> arguments =
                     new LinkedHashMap<>(invocation.<Map<String, Object>>getArgument(1));
             calls.add(new ToolCall(name, arguments));
-            JsonNode result = toolResults.has(name + "#" + arguments.get("resultMode"))
-                    ? toolResults.get(name + "#" + arguments.get("resultMode"))
-                    : toolResults.get(name);
-            return result == null
-                    ? Map.of("message", "Outil inconnu du banc.")
-                    : mapper.convertValue(result, Object.class);
+            JsonNode fixture = toolResults.get(name);
+            if (fixture == null) {
+                return Map.of("message", "Outil inconnu du banc.");
+            }
+            if (fixture.has("agents") && arguments.get("criteriaJson") instanceof String criteria) {
+                return searchResult(
+                        fixture.get("agents"), criteria, "COUNT".equals(arguments.get("resultMode"))
+                );
+            }
+            return mapper.convertValue(fixture, Object.class);
         }).when(toolExecutor).execute(
                 any(), anyMap(), nullable(String.class), nullable(String.class)
         );
@@ -161,12 +165,21 @@ class ConversationBenchTest {
         int ok = 0;
         int failed = 0;
         int technical = 0;
+        int unmeasurable = 0;
         int skipped = 0;
         for (Scenario scenario : scenarios) {
             UUID conversationId = conversations.create(BENCH_USER).id();
+            boolean previousTurnFailed = false;
             for (int index = 0; index < scenario.tours().size(); index++) {
                 Turn turn = scenario.tours().get(index);
                 String label = scenario.id() + "." + (index + 1);
+                if (previousTurnFailed) {
+                    // Un suivi n'a pas de sens si le tour qu'il prolonge a échoué.
+                    unmeasurable++;
+                    table.append(row(label, turn.message(), "", "", 0,
+                            "NON MESURABLE (tour précédent en erreur)"));
+                    continue;
+                }
                 if (modelCalls() + worstCasePerTurn > maxCalls) {
                     skipped++;
                     table.append(row(label, turn.message(), "", "", 0,
@@ -193,6 +206,7 @@ class ConversationBenchTest {
                 }
                 if (verdict.startsWith("ERREUR")) {
                     technical++;
+                    previousTurnFailed = true;
                 } else if (verdict.startsWith("ÉCHEC")) {
                     failed++;
                 } else {
@@ -213,8 +227,8 @@ class ConversationBenchTest {
 
         String summary = String.format(
                 "%d OK, %d échecs de compréhension, %d erreurs techniques, "
-                        + "%d non exécutés, %d appels Gemini (modèle %s).",
-                ok, failed, technical, skipped, modelCalls(), model
+                        + "%d non mesurables, %d non exécutés, %d appels Gemini (modèle %s).",
+                ok, failed, technical, unmeasurable, skipped, modelCalls(), model
         );
         Path report = Path.of("target", "bench", "rapport-"
                 + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"))
@@ -297,6 +311,107 @@ class ConversationBenchTest {
         String expected = normalize(rule.substring(operator + 1));
         String actual = normalize(pair[1]);
         return rule.charAt(operator) == '=' ? actual.equals(expected) : actual.contains(expected);
+    }
+
+    /**
+     * Imite la recherche RH sur les agents fictifs : applique les critères
+     * must / must_not / should, puis la pagination ou le comptage.
+     * Un champ absent des données fictives ne filtre pas.
+     */
+    private Map<String, Object> searchResult(JsonNode agents, String criteriaJson, boolean count) {
+        JsonNode criteria;
+        try {
+            criteria = mapper.readTree(criteriaJson);
+        } catch (Exception invalidJson) {
+            throw new IllegalArgumentException("criteriaJson n'est pas un JSON valide.");
+        }
+        List<JsonNode> matching = new ArrayList<>();
+        agents.forEach(agent -> {
+            if (matchesGroup(agent, criteria)) {
+                matching.add(agent);
+            }
+        });
+        Map<String, Object> result = new LinkedHashMap<>();
+        if (count) {
+            result.put("total", matching.size());
+            result.put("agents", List.of());
+            return result;
+        }
+        int limit = criteria.path("limit").asInt(20);
+        int offset = criteria.path("offset").asInt(0);
+        List<JsonNode> page = matching.subList(
+                Math.min(offset, matching.size()), Math.min(offset + limit, matching.size())
+        );
+        result.put("total", page.size());
+        result.put("limite", limit);
+        result.put("offset", offset);
+        result.put("hasMore", offset + limit < matching.size());
+        result.put("agents", mapper.convertValue(page, List.class));
+        return result;
+    }
+
+    private static boolean matchesGroup(JsonNode agent, JsonNode group) {
+        for (String key : List.of("must", "filters")) {
+            for (JsonNode condition : group.path(key)) {
+                if (!matchesCondition(agent, condition)) {
+                    return false;
+                }
+            }
+        }
+        for (JsonNode condition : group.path("must_not")) {
+            if (matchesCondition(agent, condition)) {
+                return false;
+            }
+        }
+        JsonNode should = group.path("should");
+        if (group.path("minimum_should_match").asInt(0) >= 1 && !should.isEmpty()) {
+            for (JsonNode condition : should) {
+                if (matchesCondition(agent, condition)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
+    }
+
+    private static boolean matchesCondition(JsonNode agent, JsonNode condition) {
+        if (condition.has("bool")) {
+            return matchesGroup(agent, condition.get("bool"));
+        }
+        String field = condition.path("field").asText();
+        String operator = condition.path("operator").asText();
+        JsonNode value = condition.path("value");
+        JsonNode actual = List.of("personne", "nom_complet").contains(field)
+                ? com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.textNode(
+                        agent.path("prenom").asText() + " " + agent.path("nom").asText())
+                : agent.path(field);
+        if (actual.isMissingNode()) {
+            return true;
+        }
+        if (actual.isNumber()) {
+            double number = actual.asDouble();
+            double expected = value.asDouble();
+            double upper = condition.path("upperValue").asDouble(expected);
+            return switch (operator) {
+                case "GT" -> number > expected;
+                case "GTE" -> number >= expected;
+                case "LT" -> number < expected;
+                case "LTE" -> number <= expected;
+                case "BETWEEN" -> number >= expected && number <= upper;
+                case "NE" -> number != expected;
+                default -> number == expected;
+            };
+        }
+        String text = normalize(actual.asText());
+        String expected = normalize(value.asText());
+        return switch (operator) {
+            case "EQ" -> text.equals(expected);
+            case "NE" -> !text.equals(expected);
+            case "FUZZY_PERSON" -> java.util.Arrays.stream(expected.split("\\s+"))
+                    .allMatch(text::contains);
+            default -> text.contains(expected);
+        };
     }
 
     private int modelCalls() {

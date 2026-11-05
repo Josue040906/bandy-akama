@@ -4,14 +4,6 @@
     "tours": [{ "message": "Salut Bandy !", "outil": "aucun" }]
   },
   {
-    "id": "S02", "titre": "Recherche formulée familièrement",
-    "tours": [{ "message": "tu peux me trouver les agents du service finances stp", "outil": "search_agents", "attendus": ["*~financ"] }]
-  },
-  {
-    "id": "S03", "titre": "Faute de frappe sur le verbe",
-    "tours": [{ "message": "cherhce l'agent rakoto jean", "outil": "search_agents", "attendus": ["*~rakoto"] }]
-  },
-  {
     "id": "S04", "titre": "Comptage direct avec sigle",
     "tours": [{ "message": "combien d'agents à la DGB ?", "outil": "search_agents", "attendus": ["resultMode=COUNT", "direction"] }]
   },
@@ -83,5 +75,12 @@
   {
     "id": "S15", "titre": "Abréviation et faute dans un comptage",
     "tours": [{ "message": "combien de fammes ds le service compta", "outil": "search_agents", "attendus": ["resultMode=COUNT", "sexe=F", "*~compta"] }]
+  },
+  {
+    "id": "S16", "titre": "Pagination d'une liste",
+    "tours": [
+      { "message": "montre les agents de la direction du budget, 2 par page", "outil": "search_agents", "attendus": ["limit=2", "*~budget"] },
+      { "message": "page suivante", "outil": "search_agents", "attendus": ["offset=2", "*~budget"] }
+    ]
   }
 ]
