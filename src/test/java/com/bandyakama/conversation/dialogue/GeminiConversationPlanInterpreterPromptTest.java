@@ -33,6 +33,21 @@ class GeminiConversationPlanInterpreterPromptTest {
     }
 
     @Test
+    void definesConfidenceLevelsWithoutDiscardingClearIndependentIntentions() {
+        String instruction = GeminiConversationPlanInterpreter.SYSTEM_INSTRUCTION;
+
+        assertTrue(instruction.contains(
+                "MEDIUM signifie qu'au moins une intention est claire"
+        ));
+        assertTrue(instruction.contains(
+                "LOW signifie qu'aucune opération modifiant l'état"
+        ));
+        assertTrue(instruction.contains(
+                "N'utilise jamais LOW pour un message qui contient des opérations claires"
+        ));
+    }
+
+    @Test
     void preservesIndependentIntentionsAndDoesNotAssumeTheFocusedObjective() {
         String instruction = GeminiConversationPlanInterpreter.SYSTEM_INSTRUCTION;
 
