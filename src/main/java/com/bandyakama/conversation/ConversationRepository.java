@@ -38,6 +38,19 @@ public class ConversationRepository {
     private static final int MAX_CACHED_PROFILES = 3;
 
     private static final int MAX_RECENT_CONTENT_LENGTH = 1800;
+
+    /**
+     * Un message dont le tour a échoué reste enregistré, mais n'est plus
+     * présenté à Gemini comme une question restée sans réponse.
+     */
+    private static final String EXCLUDE_FAILED_TURNS = """
+                AND NOT EXISTS (
+                    SELECT 1 FROM bandy_conversation_request r
+                    WHERE r.conversation_id = m.conversation_id
+                        AND r.idempotency_key = m.request_id
+                        AND r.status = 'FAILED'
+                )
+            """;
     private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
 
     private static final RowMapper<Conversation> CONVERSATION_ROW_MAPPER =
@@ -468,12 +481,13 @@ public class ConversationRepository {
             UUID requestId
     ) {
         List<ConversationPromptContext.Message> messages = jdbcTemplate.query("""
-                        SELECT role, content
-                        FROM bandy_conversation_message
-                        WHERE conversation_id = ?
-                            AND role IN ('USER', 'ASSISTANT')
-                            AND (request_id IS NULL OR request_id <> ?)
-                        ORDER BY sequence_number DESC
+                        SELECT m.role, m.content
+                        FROM bandy_conversation_message m
+                        WHERE m.conversation_id = ?
+                            AND m.role IN ('USER', 'ASSISTANT')
+                            AND (m.request_id IS NULL OR m.request_id <> ?)
+                        """ + EXCLUDE_FAILED_TURNS + """
+                        ORDER BY m.sequence_number DESC
                         LIMIT ?
                         """,
                 (resultSet, rowNumber) -> new ConversationPromptContext.Message(
@@ -738,10 +752,11 @@ public class ConversationRepository {
         long cutoff = summaryCutoff(conversationId);
         if (cutoff > summarizedThrough) {
             List<String> olderMessages = jdbcTemplate.query("""
-                    SELECT role, content FROM bandy_conversation_message
-                    WHERE conversation_id = ? AND sequence_number > ?
-                        AND sequence_number <= ? AND role IN ('USER', 'ASSISTANT')
-                    ORDER BY sequence_number
+                    SELECT m.role, m.content FROM bandy_conversation_message m
+                    WHERE m.conversation_id = ? AND m.sequence_number > ?
+                        AND m.sequence_number <= ? AND m.role IN ('USER', 'ASSISTANT')
+                    """ + EXCLUDE_FAILED_TURNS + """
+                    ORDER BY m.sequence_number
                     """,
                     (resultSet, rowNumber) -> resultSet.getString("role")
                             + ": " + resultSet.getString("content"),

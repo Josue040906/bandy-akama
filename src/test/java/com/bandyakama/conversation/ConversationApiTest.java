@@ -1576,6 +1576,54 @@ class ConversationApiTest {
                 .readValueAs(UUID.class);
     }
 
+    @Test
+    void failedTurnIsNotShownToGeminiAsAnUnansweredQuestion() throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        ))
+                .thenThrow(new ResponseStatusException(
+                        org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                        "Gemini est temporairement indisponible."
+                ))
+                .thenReturn(new ChatResponse("Voici les agents des impôts.", List.of()));
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"message\":\"les agents de la direction du budget\"}"))
+                .andExpect(status().isServiceUnavailable());
+        send(conversationId, "42", "et à la direction des impôts ?");
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant, times(2)).respond(
+                anyString(),
+                anyString(),
+                contexts.capture(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+        var history = ConversationPromptContext.parse(
+                contexts.getAllValues().get(1),
+                objectMapper
+        ).history();
+        assertFalse(history.stream().anyMatch(turn ->
+                turn.content().contains("direction du budget")
+        ));
+        // Le message reste enregistré : seul l'historique envoyé à Gemini l'écarte.
+        assertEquals(1, jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM bandy_conversation_message
+                WHERE conversation_id = ? AND content LIKE '%direction du budget%'
+                """,
+                Integer.class,
+                conversationId
+        ));
+    }
+
     private MvcResult send(UUID conversationId, String subject, String message)
             throws Exception {
         return mockMvc.perform(post(
