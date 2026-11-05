@@ -93,6 +93,17 @@ class ConversationContextIntegrationTest {
         Instant now = Instant.parse("2026-11-05T12:00:00Z");
         List<DialogueObjective> objectives = new ArrayList<>();
         objectives.add(new DialogueObjective(
+                "required-objective",
+                "REQUIRED_DEPENDENCY_KEEP_THIS",
+                "Completed prerequisite details.",
+                DialogueObjectiveStatus.COMPLETED,
+                null,
+                now,
+                now,
+                List.of(),
+                List.of()
+        ));
+        objectives.add(new DialogueObjective(
                 "focused-objective",
                 "FOCUSED_GOAL_KEEP_THIS",
                 "FOCUSED_SUMMARY_KEEP_THIS " + "detail ".repeat(80),
@@ -143,6 +154,7 @@ class ConversationContextIntegrationTest {
         assertTrue(promptContext.contains("focused-objective"));
         assertTrue(promptContext.contains("FOCUSED_GOAL_KEEP_THIS"));
         assertTrue(promptContext.contains("FOCUSED_REFERENCE_KEEP_THIS"));
+        assertTrue(promptContext.contains("REQUIRED_DEPENDENCY_KEEP_THIS"));
         assertTrue(promptContext.length() <= 18000);
     }
 
