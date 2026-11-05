@@ -30,13 +30,16 @@ public class ConversationPlanJsonParser {
             for (JsonNode node : operationNodes) {
                 validateFields(node, Set.of(
                         "operationId", "type", "targetObjectiveId", "goal", "summary",
-                        "parent", "dependsOn", "referenceMentions", "clarificationId"
+                        "parent", "dependsOn", "referenceMentions",
+                        "resolvedReferences", "clarificationId"
                 ), "operation");
                 List<ConversationPlanProposal.EntityReference> dependencies =
                         parseReferences(requiredArray(node, "dependsOn"));
                 List<ProposedDialogueReference> mentions = parseMentions(
                         requiredArray(node, "referenceMentions")
                 );
+                List<ConversationPlanProposal.ResolvedDialogueReference> resolved =
+                        parseResolvedReferences(node.get("resolvedReferences"));
                 operations.add(new ConversationPlanProposal.Operation(
                         requiredText(node, "operationId"),
                         enumValue(ConversationPlanProposal.OperationType.class,
@@ -47,6 +50,7 @@ public class ConversationPlanJsonParser {
                         parseOptionalReference(node.get("parent")),
                         dependencies,
                         mentions,
+                        resolved,
                         optionalText(node, "clarificationId")
                 ));
             }
@@ -85,6 +89,21 @@ public class ConversationPlanJsonParser {
         List<ConversationPlanProposal.EntityReference> references = new ArrayList<>();
         for (JsonNode node : nodes) {
             references.add(parseReference(node));
+        }
+        return references;
+    }
+
+    private List<ConversationPlanProposal.ResolvedDialogueReference> parseResolvedReferences(
+            JsonNode nodes
+    ) {
+        List<ConversationPlanProposal.ResolvedDialogueReference> references = new ArrayList<>();
+        if (nodes == null) return references;
+        if (!nodes.isArray()) throw new IllegalArgumentException(
+                "resolvedReferences doit être un tableau.");
+        for (JsonNode node : nodes) {
+            validateFields(node, Set.of("objectiveId", "referenceId"), "resolved reference");
+            references.add(new ConversationPlanProposal.ResolvedDialogueReference(
+                    requiredText(node, "objectiveId"), requiredText(node, "referenceId")));
         }
         return references;
     }
