@@ -1,7 +1,6 @@
 package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
-import com.bandyakama.conversation.ConversationStateMerger;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
@@ -58,7 +57,6 @@ public class GeminiAssistant {
     private final String model;
     private final AssistantConfigurationRepository configurationRepository;
     private final ToolExecutor toolExecutor;
-    private final ConversationStateMerger stateMerger;
     private final PerformanceTelemetry performanceTelemetry;
     private final ObjectMapper objectMapper;
     private final int geminiTimeoutMillis;
@@ -80,7 +78,6 @@ public class GeminiAssistant {
             GeminiClientFactory geminiClientFactory,
             AssistantConfigurationRepository configurationRepository,
             ToolExecutor toolExecutor,
-            ConversationStateMerger stateMerger,
             PerformanceTelemetry performanceTelemetry,
             ObjectMapper objectMapper
     ) {
@@ -100,7 +97,6 @@ public class GeminiAssistant {
         this.model = model;
         this.configurationRepository = configurationRepository;
         this.toolExecutor = toolExecutor;
-        this.stateMerger = stateMerger;
         this.performanceTelemetry = performanceTelemetry;
         this.objectMapper = objectMapper;
         this.serviceTier = normalizeServiceTier(serviceTier);
@@ -111,33 +107,6 @@ public class GeminiAssistant {
             );
         }
         this.maxOutputTokens = maxOutputTokens;
-    }
-
-    public GeminiAssistant(
-            String apiKey,
-            String model,
-            int maxToolRounds,
-            GeminiClientFactory geminiClientFactory,
-            AssistantConfigurationRepository configurationRepository,
-            ToolExecutor toolExecutor,
-            ConversationStateMerger stateMerger,
-            PerformanceTelemetry performanceTelemetry,
-            ObjectMapper objectMapper
-    ) {
-        this(
-                apiKey,
-                model,
-                maxToolRounds,
-                "standard",
-                "low",
-                1024,
-                geminiClientFactory,
-                configurationRepository,
-                toolExecutor,
-                stateMerger,
-                performanceTelemetry,
-                objectMapper
-        );
     }
 
     public ChatResponse respond(String message, String authorization) {
@@ -344,7 +313,6 @@ public class GeminiAssistant {
         List<ChatResponse.ToolState> toolStates = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
-        JsonNode activeState = initialState;
         boolean clarificationPending = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
@@ -362,13 +330,9 @@ public class GeminiAssistant {
             List<PreparedToolCall> preparedCalls = new ArrayList<>();
             for (FunctionCall call : calls) {
                 String name = call.name().orElse("");
-                Map<String, Object> arguments = call.args().orElse(Map.of());
-                Map<String, Object> effectiveArguments =
-                        stateMerger.mergeToolArguments(
-                                activeState,
-                                name,
-                                arguments
-                        );
+                // Gemini envoie des arguments complets : le code ne les
+                // recombine plus avec ceux du tour précédent.
+                Map<String, Object> effectiveArguments = call.args().orElse(Map.of());
                 boolean rejected = "search_agents".equals(name)
                         && !SearchCriteriaValidator.hasPositiveCriteria(
                                 effectiveArguments.get("criteriaJson"),
@@ -427,10 +391,6 @@ public class GeminiAssistant {
                         effectiveArguments,
                         "get_agent_profile".equals(name) ? result : null
                 ));
-                activeState = stateMerger.stateAfterToolCall(
-                        name,
-                        effectiveArguments
-                );
                 if (!execution.sensitive()) {
                     executedResults.add(new ChatResponse.ToolResult(
                             name,
