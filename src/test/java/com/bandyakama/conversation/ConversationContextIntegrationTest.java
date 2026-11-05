@@ -124,7 +124,8 @@ class ConversationContextIntegrationTest {
                     "historical-objective-" + index,
                     "Historical objective " + index,
                     "Historical details " + index + " " + "background ".repeat(90)
-                            + " HISTORICAL_DETAIL_SHOULD_BE_COMPACTED_" + index,
+                            + " HISTORICAL_DETAIL_SHOULD_BE_COMPACTED_" + index
+                            + "_ONLY_MARKER",
                     DialogueObjectiveStatus.SUSPENDED,
                     null,
                     now,
@@ -156,7 +157,7 @@ class ConversationContextIntegrationTest {
         assertTrue(promptContext.contains("FOCUSED_GOAL_KEEP_THIS"));
         assertTrue(promptContext.contains("FOCUSED_REFERENCE_KEEP_THIS"));
         assertTrue(promptContext.contains("REQUIRED_DEPENDENCY_KEEP_THIS"));
-        assertFalse(promptContext.contains("HISTORICAL_DETAIL_SHOULD_BE_COMPACTED_2"));
+        assertFalse(promptContext.contains("HISTORICAL_DETAIL_SHOULD_BE_COMPACTED_2_ONLY_MARKER"));
         assertTrue(promptContext.length() <= 18000);
     }
 
