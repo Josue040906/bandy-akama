@@ -130,8 +130,17 @@ public class GeminiConversationPlanInterpreter implements ConversationPlanInterp
             - SOCIAL_TURN et NEW_TOPIC_REQUEST ne contiennent aucune mutation.
             - Si le message contient seulement une salutation, retourne une seule
               opération SOCIAL_TURN.
-            - La confiance globale est HIGH, MEDIUM ou LOW ; elle n'annule jamais
-              les clarifications localisées.
+            - HIGH signifie que toutes les intentions et leurs cibles sont claires.
+            - MEDIUM signifie qu'au moins une intention est claire et qu'une autre
+              partie nécessite une clarification localisée ; conserve les opérations
+              claires et clarifie uniquement les parties ambiguës.
+            - LOW signifie qu'aucune opération modifiant l'état ne peut être appliquée
+              avec suffisamment de certitude. Dans ce cas, ne propose aucune mutation
+              d'objectif : retourne une clarification générale. Une simple salutation
+              peut rester SOCIAL_TURN.
+            - N'utilise jamais LOW pour un message qui contient des opérations claires
+              indépendantes d'une ambiguïté locale : utilise MEDIUM et sépare les
+              opérations claires des clarifications.
 
             Retourne exclusivement un JSON avec :
             rationale, confidence, operations, clarifications.
