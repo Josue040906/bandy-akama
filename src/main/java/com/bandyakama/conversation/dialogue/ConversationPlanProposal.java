@@ -168,17 +168,6 @@ public record ConversationPlanProposal(
                     dependsOn, referenceMentions, List.of(), clarificationId);
         }
 
-        public Operation(
-                String operationId, OperationType type, String targetObjectiveId,
-                String goal, String summary, EntityReference parent,
-                List<EntityReference> dependsOn,
-                List<ProposedDialogueReference> referenceMentions,
-                List<ResolvedDialogueReference> resolvedReferences
-        ) {
-            this(operationId, type, targetObjectiveId, goal, summary, parent,
-                    dependsOn, referenceMentions, resolvedReferences, null);
-        }
-
         public Operation {
             operationId = requireText(operationId, "operationId");
             type = Objects.requireNonNull(type, "type must not be null.");
