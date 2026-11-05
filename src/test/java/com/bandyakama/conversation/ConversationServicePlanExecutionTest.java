@@ -77,7 +77,7 @@ class ConversationServicePlanExecutionTest {
                 List.of(),
                 List.of(new ConversationPlanProposal.ResolvedDialogueReference(
                         "archive", "reference-2026"
-                ))
+                )), null
         );
         var createTrip = new ConversationPlanProposal.Operation(
                 "create-trip",
