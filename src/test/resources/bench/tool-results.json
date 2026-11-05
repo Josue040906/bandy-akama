@@ -1,0 +1,26 @@
+{
+  "search_agents": {
+    "total": 3, "limite": 20, "offset": 0, "hasMore": false,
+    "agents": [
+      { "id": 101, "matricule": "FIC-0101", "nom": "RAKOTO", "prenom": "Jean", "sexe": "M", "age": 42, "date_embauche": "2012-03-01", "poste": "Comptable", "service": "Service Finances", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 3 },
+      { "id": 102, "matricule": "FIC-0102", "nom": "RASOA", "prenom": "Mialy", "sexe": "F", "age": 29, "date_embauche": "2021-09-15", "poste": "Analyste budgétaire", "service": "Service Finances", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 1 },
+      { "id": 103, "matricule": "FIC-0103", "nom": "RANDRIA", "prenom": "Hery", "sexe": "M", "age": 55, "date_embauche": "1998-02-02", "poste": "Chef de service", "service": "Service Informatique", "direction": "Direction des Systèmes d'Information", "categorie": "A", "echelon": 5 }
+    ]
+  },
+  "search_agents#COUNT": { "total": 7, "limite": 0, "offset": 0, "hasMore": false, "agents": [] },
+  "get_agent_profile": {
+    "agent": { "matricule": "FIC-0101", "nom": "RAKOTO", "prenom": "Jean", "sexe": "M", "date_embauche": "2012-03-01", "poste": "Comptable", "service": "Service Finances", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 3 },
+    "diplomes": [ { "niveau": "Master", "domaine": "Finances publiques", "etablissement": "Université d'Antananarivo", "annee": 2010 } ],
+    "carriere": [
+      { "date": "2012-03-01", "evenement": "Recrutement", "poste": "Comptable" },
+      { "date": "2018-01-01", "evenement": "Avancement", "echelon": 3 }
+    ]
+  },
+  "get_organization_info": {
+    "total": 2,
+    "directions": [
+      { "id": 1, "code": "DGB", "nom": "Direction Générale du Budget", "responsable": "RAVELO Nirina", "services": ["Service Finances", "Service Comptabilité"] },
+      { "id": 2, "code": "DSI", "nom": "Direction des Systèmes d'Information", "responsable": "RANDRIA Hery", "services": ["Service Informatique"] }
+    ]
+  }
+}

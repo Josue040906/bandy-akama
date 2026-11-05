@@ -1,0 +1,87 @@
+[
+  {
+    "id": "S01", "titre": "Salutation familière",
+    "tours": [{ "message": "Salut Bandy !", "outil": "aucun" }]
+  },
+  {
+    "id": "S02", "titre": "Recherche formulée familièrement",
+    "tours": [{ "message": "tu peux me trouver les agents du service finances stp", "outil": "search_agents", "attendus": ["*~financ"] }]
+  },
+  {
+    "id": "S03", "titre": "Faute de frappe sur le verbe",
+    "tours": [{ "message": "cherhce l'agent rakoto jean", "outil": "search_agents", "attendus": ["*~rakoto"] }]
+  },
+  {
+    "id": "S04", "titre": "Comptage direct avec sigle",
+    "tours": [{ "message": "combien d'agents à la DGB ?", "outil": "search_agents", "attendus": ["resultMode=COUNT", "direction"] }]
+  },
+  {
+    "id": "S05", "titre": "Suivi elliptique : changement de sexe",
+    "tours": [
+      { "message": "liste les femmes de la direction du budget", "outil": "search_agents", "attendus": ["sexe=F", "*~budget"] },
+      { "message": "et les hommes ?", "outil": "search_agents", "attendus": ["sexe=M", "*~budget"], "interdits": ["sexe=F"] }
+    ]
+  },
+  {
+    "id": "S06", "titre": "Suivi : comptage de la recherche précédente",
+    "tours": [
+      { "message": "les agents de plus de 50 ans au service informatique", "outil": "search_agents", "attendus": ["age", "*~informatique"] },
+      { "message": "combien en tout ?", "outil": "search_agents", "attendus": ["resultMode=COUNT", "age", "*~informatique"] }
+    ]
+  },
+  {
+    "id": "S07", "titre": "Changement de sujet sans formule consacrée",
+    "tours": [
+      { "message": "agents du service informatique", "outil": "search_agents", "attendus": ["*~informatique"] },
+      { "message": "ok autre chose : il y a combien de directions ?", "outil": "get_organization_info" }
+    ]
+  },
+  {
+    "id": "S08", "titre": "Suivi qui remplace la structure",
+    "tours": [
+      { "message": "les agents de la direction du budget", "outil": "search_agents", "attendus": ["*~budget"] },
+      { "message": "et à la direction des impôts ?", "outil": "search_agents", "attendus": ["*~impot"], "interdits": ["*~budget"] }
+    ]
+  },
+  {
+    "id": "S09", "titre": "Retrait explicite d'un filtre",
+    "tours": [
+      { "message": "les femmes de moins de 30 ans", "outil": "search_agents", "attendus": ["sexe=F", "age"] },
+      { "message": "enlève la condition d'âge", "outil": "search_agents", "attendus": ["sexe=F"], "interdits": ["age"] }
+    ]
+  },
+  {
+    "id": "S10", "titre": "Profil puis question de suivi",
+    "tours": [
+      { "message": "montre moi le profil de RAKOTO Jean", "outil": "get_agent_profile", "attendus": ["query"] },
+      { "message": "il a quel diplôme ?", "reponseContient": ["master"] }
+    ]
+  },
+  {
+    "id": "S11", "titre": "Messages très courts",
+    "tours": [
+      { "message": "agents finances", "outil": "search_agents", "attendus": ["*~financ"] },
+      { "message": "nb ?", "outil": "search_agents", "attendus": ["resultMode=COUNT", "*~financ"] }
+    ]
+  },
+  {
+    "id": "S12", "titre": "Honnêteté : donnée non exposée",
+    "tours": [{ "message": "c'est quoi le salaire de RAKOTO Jean ?", "relire": true }]
+  },
+  {
+    "id": "S13", "titre": "Question générale sans donnée RH",
+    "tours": [{ "message": "c'est quoi un échelon dans la fonction publique ?", "outil": "aucun" }]
+  },
+  {
+    "id": "S14", "titre": "Annonce d'une nouvelle question puis question",
+    "tours": [
+      { "message": "agents du service compta", "outil": "search_agents", "attendus": ["*~compta"] },
+      { "message": "j'ai une nouvelle question", "outil": "aucun" },
+      { "message": "qui dirige la DGB ?", "outil": "get_organization_info" }
+    ]
+  },
+  {
+    "id": "S15", "titre": "Abréviation et faute dans un comptage",
+    "tours": [{ "message": "combien de fammes ds le service compta", "outil": "search_agents", "attendus": ["resultMode=COUNT", "sexe=F", "*~compta"] }]
+  }
+]
