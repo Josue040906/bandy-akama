@@ -1120,29 +1120,60 @@ public class ConversationRepository {
         List<JsonNode> retained = new java.util.ArrayList<>(
                 java.util.Collections.nCopies(objectives.size(), null)
         );
-        int activeIndex = -1;
+        java.util.Map<String, Integer> indexes = new java.util.HashMap<>();
         for (int index = 0; index < objectives.size(); index++) {
-            if (activeObjectiveId.equals(
-                    objectives.get(index).path("id").asText()
-            )) {
-                activeIndex = index;
-                break;
-            }
+            indexes.put(objectives.get(index).path("id").asText(), index);
         }
-        if (activeIndex < 0) {
+        Integer activeIndex = indexes.get(activeObjectiveId);
+        if (activeIndex == null) {
             return compactJsonNode(objectives, maxCharacters);
         }
 
-        ArrayNode selected = objectMapper.createArrayNode();
-        JsonNode active = compactJsonNode(objectives.get(activeIndex), maxCharacters - 2);
-        if (toJson(active).length() > maxCharacters - 2) {
-            return selected;
+        List<String> priorityIds = new java.util.ArrayList<>();
+        priorityIds.add(activeObjectiveId);
+        for (int cursor = 0; cursor < priorityIds.size(); cursor++) {
+            Integer index = indexes.get(priorityIds.get(cursor));
+            if (index == null) {
+                continue;
+            }
+            JsonNode objective = objectives.get(index);
+            String parentId = objective.path("parentObjectiveId").asText("");
+            if (!parentId.isBlank() && !priorityIds.contains(parentId)) {
+                priorityIds.add(parentId);
+            }
+            JsonNode dependencies = objective.path("dependsOnObjectiveIds");
+            if (dependencies.isArray()) {
+                for (JsonNode dependency : dependencies) {
+                    String dependencyId = dependency.asText("");
+                    if (!dependencyId.isBlank() && !priorityIds.contains(dependencyId)) {
+                        priorityIds.add(dependencyId);
+                    }
+                }
+            }
         }
-        retained.set(activeIndex, active);
-        selected.add(active);
+
+        ArrayNode selected = objectMapper.createArrayNode();
+        for (String priorityId : priorityIds) {
+            Integer index = indexes.get(priorityId);
+            if (index == null) {
+                continue;
+            }
+            int remaining = maxCharacters - toJson(selected).length() - 2;
+            if (remaining < 3) {
+                break;
+            }
+            JsonNode candidate = compactJsonNode(objectives.get(index), remaining);
+            ArrayNode trial = selected.deepCopy();
+            trial.add(candidate);
+            if (toJson(trial).length() > maxCharacters) {
+                break;
+            }
+            selected = trial;
+            retained.set(index, candidate);
+        }
 
         for (int index = objectives.size() - 1; index >= 0; index--) {
-            if (index == activeIndex) {
+            if (retained.get(index) != null) {
                 continue;
             }
             int remaining = maxCharacters - toJson(selected).length() - 2;
