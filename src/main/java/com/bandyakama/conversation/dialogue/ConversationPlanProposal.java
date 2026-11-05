@@ -264,7 +264,8 @@ public record ConversationPlanProposal(
                 case COMPLETE_OBJECTIVE -> {
                     requireTarget(targetObjectiveId, type);
                     if (goal != null || summary != null || parent != null
-                            || !dependsOn.isEmpty() || !referenceMentions.isEmpty()) {
+                            || !dependsOn.isEmpty() || !referenceMentions.isEmpty()
+                            || !resolvedReferences.isEmpty()) {
                         throw new IllegalArgumentException(
                                 "COMPLETE_OBJECTIVE cannot contain update data."
                         );
@@ -273,7 +274,8 @@ public record ConversationPlanProposal(
                 case SOCIAL_TURN, NEW_TOPIC_REQUEST -> {
                     requireNoTarget(targetObjectiveId, type);
                     if (goal != null || summary != null || parent != null
-                            || !dependsOn.isEmpty() || !referenceMentions.isEmpty()) {
+                            || !dependsOn.isEmpty() || !referenceMentions.isEmpty()
+                            || !resolvedReferences.isEmpty()) {
                         throw new IllegalArgumentException(
                                 type + " cannot contain objective mutation data."
                         );
