@@ -1051,18 +1051,26 @@ public class ConversationRepository {
         }
         if (value.isArray()) {
             ArrayNode compacted = objectMapper.createArrayNode();
-            for (JsonNode item : value) {
+            List<JsonNode> retained = new java.util.ArrayList<>();
+            for (int index = value.size() - 1; index >= 0; index--) {
                 int remaining = maxCharacters - toJson(compacted).length() - 2;
                 if (remaining < 3) {
                     break;
                 }
-                compacted.add(compactJsonNode(item, remaining));
-                if (toJson(compacted).length() > maxCharacters) {
-                    compacted.remove(compacted.size() - 1);
+                JsonNode candidate = compactJsonNode(value.get(index), remaining);
+                ArrayNode trial = compacted.deepCopy();
+                trial.add(candidate);
+                if (toJson(trial).length() > maxCharacters) {
                     break;
                 }
+                compacted = trial;
+                retained.add(candidate);
             }
-            return compacted;
+            ArrayNode ordered = objectMapper.createArrayNode();
+            for (int index = retained.size() - 1; index >= 0; index--) {
+                ordered.add(retained.get(index));
+            }
+            return ordered;
         }
         if (value.isObject()) {
             ObjectNode compacted = objectMapper.createObjectNode();
@@ -1082,10 +1090,14 @@ public class ConversationRepository {
                     continue;
                 }
                 ObjectNode candidate = compacted.deepCopy();
-                candidate.set(
-                        field.getKey(),
-                        compactJsonNode(field.getValue(), remaining)
-                );
+                JsonNode compactedValue = "objectives".equalsIgnoreCase(field.getKey())
+                        ? compactDialogueObjectives(
+                                field.getValue(),
+                                remaining,
+                                value.path("activeObjectiveId").asText(null)
+                        )
+                        : compactJsonNode(field.getValue(), remaining);
+                candidate.set(field.getKey(), compactedValue);
                 if (toJson(candidate).length() <= maxCharacters) {
                     compacted = candidate;
                 }
@@ -1093,6 +1105,67 @@ public class ConversationRepository {
             return compacted;
         }
         return value.deepCopy();
+    }
+
+    private JsonNode compactDialogueObjectives(
+            JsonNode objectives,
+            int maxCharacters,
+            String activeObjectiveId
+    ) {
+        if (!objectives.isArray() || activeObjectiveId == null
+                || activeObjectiveId.isBlank()) {
+            return compactJsonNode(objectives, maxCharacters);
+        }
+
+        List<JsonNode> retained = new java.util.ArrayList<>(
+                java.util.Collections.nCopies(objectives.size(), null)
+        );
+        int activeIndex = -1;
+        for (int index = 0; index < objectives.size(); index++) {
+            if (activeObjectiveId.equals(
+                    objectives.get(index).path("id").asText()
+            )) {
+                activeIndex = index;
+                break;
+            }
+        }
+        if (activeIndex < 0) {
+            return compactJsonNode(objectives, maxCharacters);
+        }
+
+        ArrayNode selected = objectMapper.createArrayNode();
+        JsonNode active = compactJsonNode(objectives.get(activeIndex), maxCharacters - 2);
+        if (toJson(active).length() > maxCharacters - 2) {
+            return selected;
+        }
+        retained.set(activeIndex, active);
+        selected.add(active);
+
+        for (int index = objectives.size() - 1; index >= 0; index--) {
+            if (index == activeIndex) {
+                continue;
+            }
+            int remaining = maxCharacters - toJson(selected).length() - 2;
+            if (remaining < 3) {
+                break;
+            }
+            JsonNode candidate = compactJsonNode(objectives.get(index), remaining);
+            ArrayNode trial = selected.deepCopy();
+            trial.add(candidate);
+            if (toJson(trial).length() > maxCharacters) {
+                break;
+            }
+            selected = trial;
+            retained.set(index, candidate);
+        }
+
+        ArrayNode ordered = objectMapper.createArrayNode();
+        for (JsonNode objective : retained) {
+            if (objective != null) {
+                ordered.add(objective);
+            }
+        }
+        return ordered;
     }
 
     private int jsonFieldPriority(String field) {
