@@ -105,10 +105,17 @@ class ConversationBenchTest {
 
     @Test
     void runsScenarios() throws Exception {
-        List<Scenario> scenarios = mapper.readValue(
+        List<Scenario> allScenarios = mapper.readValue(
                 resource("bench/scenarios.json"),
                 new TypeReference<>() { }
         );
+        // Facultatif : BANDY_BENCH_SCENARIOS=S18,S19 ne mesure que ces scénarios.
+        List<String> selected = List.of(
+                System.getenv().getOrDefault("BANDY_BENCH_SCENARIOS", "").split("\\s*,\\s*")
+        ).stream().filter(id -> !id.isBlank()).toList();
+        List<Scenario> scenarios = selected.isEmpty()
+                ? allScenarios
+                : allScenarios.stream().filter(s -> selected.contains(s.id())).toList();
         JsonNode toolResults = mapper.readTree(resource("bench/tool-results.json"));
         int maxCalls = Integer.parseInt(
                 System.getenv().getOrDefault("BANDY_BENCH_MAX_CALLS", "50")

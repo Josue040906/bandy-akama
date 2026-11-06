@@ -98,7 +98,7 @@
     "whenToUse": "Quand l’utilisateur veut ouvrir, voir ou afficher la fiche d’un agent dans l’application. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Dis que tu proposes d’ouvrir la fiche, sans affirmer qu’elle est ouverte.",
     "method": "GET",
     "url": "/agents/{agentId}",
-    "enabled": false,
+    "enabled": true,
     "sensitive": false,
     "actionLevel": "NAVIGATE",
     "parameters": [
@@ -114,17 +114,17 @@
   {
     "name": "open_page",
     "description": "Propose à l’interface d’ouvrir une page principale de SYGPERS.",
-    "whenToUse": "Quand l’utilisateur veut aller sur une page de l’application : tableau de bord, son profil, l’organisation, la liste des agents, les carrières, les documents ou ses activités. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
+    "whenToUse": "Quand l’utilisateur veut aller sur la liste des agents, la page des documents ou la page de ses activités. Aucune autre page n’est accessible par l’assistant : pour une autre page, dis simplement que tu ne peux pas l’ouvrir. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
     "method": "GET",
     "url": "/{page}",
-    "enabled": false,
+    "enabled": true,
     "sensitive": false,
     "actionLevel": "NAVIGATE",
     "parameters": [
       {
         "name": "page",
         "type": "string",
-        "description": "Une seule de ces valeurs : dashboard, profil, organisation, agents, carrieres, documents, activites.",
+        "description": "Une seule de ces valeurs : agents, documents, activites.",
         "required": true,
         "location": "path"
       }

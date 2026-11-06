@@ -90,5 +90,16 @@
   {
     "id": "S18", "titre": "Activités de l'utilisateur connecté",
     "tours": [{ "message": "qu'est-ce que j'ai fait dernièrement sur l'appli ?", "outil": "get_my_activities" }]
+  },
+  {
+    "id": "S19", "titre": "Navigation vers la fiche d'un agent à retrouver",
+    "tours": [{ "message": "ouvre la fiche de Jean Rakoto", "outil": "open_agent_record", "attendus": ["agentId~101"] }]
+  },
+  {
+    "id": "S20", "titre": "Navigation vers une page autorisée, puis une page non autorisée",
+    "tours": [
+      { "message": "emmène-moi sur mes activités", "outil": "open_page", "attendus": ["page=activites"] },
+      { "message": "et le tableau de bord ?", "relire": true, "interdits": ["page=dashboard"] }
+    ]
   }
 ]
