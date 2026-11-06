@@ -60,4 +60,4 @@ Start-And-Wait 8080 'cd /d "D:\Projets\assistant-rh-api" && mvn spring-boot:run'
 Start-And-Wait 8090 'cd /d "D:\Projets\bandy-akama" && mvn spring-boot:run'
 
 Set-Location 'D:\Projets\bandy-akama'
-& '.\scripts\register-rh-tools.ps1'
+& '.\scripts\configure-assistant.ps1'

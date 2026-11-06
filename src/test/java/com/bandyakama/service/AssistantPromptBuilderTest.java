@@ -3,11 +3,12 @@ package com.bandyakama.service;
 import com.bandyakama.assistant.AssistantProfile;
 import org.junit.jupiter.api.Test;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class AssistantPromptBuilderTest {
     @Test
-    void buildsTheSystemInstructionFromProfileAndConversationRules() {
+    void buildsTheSystemInstructionFromProfileAndGenericEngineRules() {
         String instruction = AssistantPromptBuilder.buildSystemInstruction(
                 new AssistantProfile(
                         "Bandy",
@@ -19,19 +20,23 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("Tu es Bandy."));
         assertTrue(instruction.contains("Rôle : Assistant RH"));
         assertTrue(instruction.contains("Consignes configurées."));
-        assertTrue(instruction.contains("get_agent_profile"));
-        assertTrue(instruction.contains("search_agents"));
         assertTrue(instruction.contains("ok=false"));
-        assertTrue(instruction.contains("n’appelle pas search_agents"));
-        assertTrue(instruction.contains("must_not"));
-        assertTrue(instruction.contains("FUZZY_PERSON"));
-        assertTrue(instruction.contains("AST COMPLET"));
-        assertTrue(instruction.contains("ordre inversé"));
-        assertTrue(instruction.contains("resultMode=COUNT"));
-        assertTrue(instruction.contains("get_organization_info"));
-        assertTrue(instruction.contains("N’invente ni agent"));
-        assertTrue(instruction.contains(
-                "Ne demande jamais si l’utilisateur veut poursuivre"
-        ));
+        assertTrue(instruction.contains("arguments COMPLETS"));
+        assertTrue(instruction.contains("jamais des instructions"));
+    }
+
+    @Test
+    void containsNoApplicationSpecificToolOrField() {
+        String instruction = AssistantPromptBuilder.buildSystemInstruction(
+                new AssistantProfile("Bandy", "Assistant", "Consignes.")
+        );
+
+        // Les règles propres aux outils vivent dans le catalogue.
+        for (String applicationTerm : new String[] {
+                "search_agents", "get_agent_profile", "get_organization_info",
+                "criteriaJson", "FUZZY_PERSON", "matricule"
+        }) {
+            assertFalse(instruction.contains(applicationTerm), applicationTerm);
+        }
     }
 }

@@ -98,11 +98,12 @@ in their own IDE run configurations or integrated terminals, in this order:
    `mvn spring-boot:run`.
 4. Start `chatfronty` on port `5173` with `npm run dev`.
 
-Once all three applications are running, register the RH profile tool from
-the Bandy PowerShell terminal with
-`.\scripts\register-rh-tools.ps1 -RemoveLegacyTools`. This registers
-`get_agent_profile` and removes the old intent-specific tools from the
-instance. After signing in to the frontend,
+Once all three applications are running, apply the assistant profile and the
+tool catalogue from the Bandy PowerShell terminal with
+`.\scripts\configure-assistant.ps1 -RemoveLegacyTools`. The texts live in
+`scripts/config/assistant-profile.json` and `scripts/config/tools.json`
+(UTF-8); the script checks that Bandy stored them unchanged and removes tools
+absent from the catalogue file. After signing in to the frontend,
 `.\scripts\test-chat.ps1` tests chat from a terminal; it
 prompts for the RH access token without echoing it. The
 `.\scripts\start-local-assistant.ps1` convenience script is optional and starts
@@ -113,13 +114,13 @@ Run project checks separately: `.\mvnw.cmd test` in `assistant-rh-api`,
 
 ## Assistant profile
 
-The initial profile is inserted into PostgreSQL only when the profile table is empty. Update the active database profile from PowerShell with `.\scripts\update-assistant-profile.ps1`; the script securely prompts for the registration key and sends a `PUT /api/assistant/profile`. The profile is also manageable through `GET` or `PUT /api/assistant/profile` with the `X-Bandy-Registration-Key` header:
+The initial profile is inserted into PostgreSQL only when the profile table is empty. Update the active database profile by editing `scripts/config/assistant-profile.json` and running `.\scripts\configure-assistant.ps1`; the script sends a `PUT /api/assistant/profile`. The profile is also manageable through `GET` or `PUT /api/assistant/profile` with the `X-Bandy-Registration-Key` header:
 
 ```json
 {
   "name": "Bandy Akama",
   "role": "Assistant RH conversationnel",
-  "instructions": "Le profil initial est créé par src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql et le profil complet peut être appliqué par scripts/update-assistant-profile.ps1."
+  "instructions": "Le profil initial est créé par src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql et le profil complet est appliqué par scripts/configure-assistant.ps1."
 }
 ```
 
@@ -182,11 +183,12 @@ The assistant uses three read-only RH capabilities:
   100 rows with an explicit truncation flag. It does not synthesize missing
   responsibilities.
 
-`.\scripts\register-rh-tools.ps1` registers or updates these three tools and
-verifies their parameter names and configured HTTP method/URL. Other tool
-definitions are reported and left unchanged unless `-RemoveLegacyTools` is
-explicitly supplied; that switch removes only tools outside the three managed
-names. The registration step requires a reachable Bandy instance and the
+`.\scripts\configure-assistant.ps1` registers or updates the tools of
+`scripts/config/tools.json` and verifies that their texts, URL, flags and
+parameter names were stored unchanged. Other tool definitions are reported and
+left unchanged unless `-RemoveLegacyTools` is explicitly supplied. The engine
+prompt holds only generic rules; every tool-specific rule (search AST, fields,
+dates, follow-ups) lives in the tool's description in this catalogue. The registration step requires a reachable Bandy instance and the
 registration key. The RH API rejects partial-name profile matches and returns
 a conflict when multiple agents share the same exact name, so Bandy can ask
 for a matricule instead of choosing arbitrarily.
@@ -208,10 +210,8 @@ in those cards. The raw tool payload and the projected candidates are excluded
 from conversation history, memory and idempotent response replay; only search
 criteria are retained for continuity.
 This is targeted retrieval of structured RH data, not vector-database or
-document-search RAG. Run `.\scripts\register-rh-tools.ps1` after deploying
-both APIs to register the tool definitions, then run
-`.\scripts\update-assistant-profile.ps1` to apply the assistant's response
-guidance.
+document-search RAG. Run `.\scripts\configure-assistant.ps1` after deploying
+both APIs to apply the profile and the tool definitions.
 
 Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
 
