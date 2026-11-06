@@ -106,6 +106,7 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "active_claim_id"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
+        assertTrue(hasColumn(jdbc, "bandy_tool", "action_level"));
     }
 
     private boolean hasColumn(

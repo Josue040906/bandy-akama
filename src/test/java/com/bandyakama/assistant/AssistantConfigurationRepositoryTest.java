@@ -45,6 +45,10 @@ class AssistantConfigurationRepositoryTest {
                     snapshot.enabledTools().get(0).getParameters().get(0).getName()
             );
             assertTrue(snapshot.enabledTools().get(0).isSensitive());
+            assertEquals(
+                    com.bandyakama.tool.ToolActionLevel.READ,
+                    snapshot.enabledTools().get(0).getActionLevel()
+            );
 
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
@@ -102,7 +106,8 @@ class AssistantConfigurationRepositoryTest {
                     http_method VARCHAR(10),
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
-                    sensitive BOOLEAN
+                    sensitive BOOLEAN,
+                    action_level VARCHAR(16) DEFAULT 'READ' NOT NULL
                 )
                 """);
         jdbcTemplate.execute("""

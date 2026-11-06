@@ -32,6 +32,8 @@ public class ToolDefinition {
 
     private boolean sensitive;
 
+    private ToolActionLevel actionLevel = ToolActionLevel.READ;
+
     @NotBlank
     @Size(max = 2000)
     private String whenToUse;
@@ -76,6 +78,11 @@ public class ToolDefinition {
 
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
+
+    public ToolActionLevel getActionLevel() { return actionLevel; }
+    public void setActionLevel(ToolActionLevel actionLevel) {
+        this.actionLevel = actionLevel == null ? ToolActionLevel.READ : actionLevel;
+    }
 
     public void validate() {
         if (name == null || !name.matches("[A-Za-z][A-Za-z0-9_]{0,63}")) {

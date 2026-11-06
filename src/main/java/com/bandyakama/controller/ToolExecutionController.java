@@ -2,6 +2,7 @@ package com.bandyakama.controller;
 
 import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.security.ToolRegistrationGuard;
+import com.bandyakama.tool.ToolActionLevel;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolRegistry;
 import org.springframework.http.HttpStatus;
@@ -45,6 +46,13 @@ public class ToolExecutionController {
             return ResponseEntity.notFound().build();
         }
         ToolDefinition tool =  toolOptional.get();
+        // Exécution directe réservée aux consultations : une navigation, une
+        // tâche préparée ou confirmée ne passe jamais par ce raccourci.
+        if (tool.getActionLevel() != ToolActionLevel.READ) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                    .body(Map.of("message", "Seuls les outils de consultation "
+                            + "peuvent être exécutés directement."));
+        }
         try {
             Object result = toolExecutor.execute(tool, arguments);
             return ResponseEntity.ok(result);

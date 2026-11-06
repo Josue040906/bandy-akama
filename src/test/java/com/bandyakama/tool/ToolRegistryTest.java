@@ -61,6 +61,38 @@ class ToolRegistryTest {
     }
 
     @Test
+    void persistsTheActionLevelAndDefaultsToConsultation() {
+        registry.register(tool("readTool", "GET"));
+        ToolDefinition confirmed = tool("confirmedTool", "POST");
+        confirmed.setActionLevel(ToolActionLevel.CONFIRM);
+        registry.register(confirmed);
+
+        assertEquals(ToolActionLevel.READ,
+                registry.findByName("readTool").orElseThrow().getActionLevel());
+        assertEquals(ToolActionLevel.CONFIRM,
+                registry.findByName("confirmedTool").orElseThrow().getActionLevel());
+    }
+
+    @Test
+    void refusesAnUnknownActionLevelThroughTheApi() throws Exception {
+        mockMvc.perform(post("/api/tools")
+                        .header("X-Bandy-Registration-Key", registrationKey)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "levelTool",
+                                  "description": "A tool with a bad level.",
+                                  "whenToUse": "Never.",
+                                  "method": "GET",
+                                  "url": "https://example.test/api",
+                                  "actionLevel": "WRITE",
+                                  "parameters": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
     void updatingAToolReplacesItsStoredDefinition() {
         registry.register(tool("agentSearch", "GET"));
         registry.register(tool("agentSearch", "POST"));

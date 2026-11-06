@@ -9,6 +9,7 @@ import com.bandyakama.executor.ToolExecutor;
 import com.bandyakama.gemini.GeminiClientFactory;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
+import com.bandyakama.tool.ToolActionLevel;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import com.google.genai.Chat;
@@ -227,7 +228,11 @@ public class GeminiAssistant {
                 profile
         );
         // Le catalogue décide seul : tout outil activé est proposé à Gemini.
-        List<ToolDefinition> registeredTools = configuration.enabledTools();
+        // Seules les consultations sont prises en charge pour l'instant ; la
+        // navigation et les tâches préparées ou confirmées viennent ensuite.
+        List<ToolDefinition> registeredTools = configuration.enabledTools().stream()
+                .filter(tool -> tool.getActionLevel() == ToolActionLevel.READ)
+                .toList();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
                 tool.getName(),

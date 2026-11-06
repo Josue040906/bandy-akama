@@ -7,6 +7,7 @@
     "url": "{RH_API_URL}/api/recherche/agents/avancee",
     "enabled": true,
     "sensitive": true,
+    "actionLevel": "READ",
     "parameters": [
       {
         "name": "criteriaJson",
@@ -32,6 +33,7 @@
     "url": "{RH_API_URL}/api/profil/agent",
     "enabled": true,
     "sensitive": true,
+    "actionLevel": "READ",
     "parameters": [
       {
         "name": "query",
@@ -50,6 +52,7 @@
     "url": "{RH_API_URL}/api/assistant/organization",
     "enabled": true,
     "sensitive": false,
+    "actionLevel": "READ",
     "parameters": [
       {
         "name": "query",
@@ -75,6 +78,7 @@
     "url": "{RH_API_URL}/api/profil/agent/mon-profil",
     "enabled": true,
     "sensitive": true,
+    "actionLevel": "READ",
     "parameters": []
   },
   {
@@ -85,6 +89,7 @@
     "url": "{RH_API_URL}/api/activites",
     "enabled": true,
     "sensitive": true,
+    "actionLevel": "READ",
     "parameters": []
   }
 ]

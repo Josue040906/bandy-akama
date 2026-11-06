@@ -1,5 +1,6 @@
 package com.bandyakama.assistant;
 
+import com.bandyakama.tool.ToolActionLevel;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolParameter;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -23,6 +24,7 @@ public class AssistantConfigurationRepository {
                    t.endpoint_url AS tool_endpoint_url,
                    t.enabled AS tool_enabled,
                    t.sensitive AS tool_sensitive,
+                   t.action_level AS tool_action_level,
                    parameter.name AS parameter_name,
                    parameter.type AS parameter_type,
                    parameter.description AS parameter_description,
@@ -78,6 +80,9 @@ public class AssistantConfigurationRepository {
                         definition.setSensitive(
                                 resultSet.getBoolean("tool_sensitive")
                         );
+                        definition.setActionLevel(ToolActionLevel.valueOf(
+                                resultSet.getString("tool_action_level")
+                        ));
                     } catch (java.sql.SQLException exception) {
                         throw new IllegalStateException(
                                 "Impossible de lire la configuration d’un outil.",

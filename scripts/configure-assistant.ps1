@@ -103,6 +103,7 @@ foreach ($tool in $tools) {
         $saved.url -ne $tool.url -or
         [bool]$saved.enabled -ne [bool]$tool.enabled -or
         [bool]$saved.sensitive -ne [bool]$tool.sensitive -or
+        $saved.actionLevel -ne $tool.actionLevel -or
         $savedParameters -ne $expectedParameters) {
         throw "Bandy did not store tool $($tool.name) unchanged (check the encoding and the schema)."
     }
