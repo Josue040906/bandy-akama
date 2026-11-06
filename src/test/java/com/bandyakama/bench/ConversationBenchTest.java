@@ -357,8 +357,9 @@ class ConversationBenchTest {
         List<JsonNode> page = matching.subList(
                 Math.min(offset, matching.size()), Math.min(offset + limit, matching.size())
         );
-        result.put("total", page.size());
-        result.put("limite", limit);
+        // Même contrat que l'API : total = toutes les correspondances, pas la page.
+        result.put("total", matching.size());
+        result.put("limit", limit);
         result.put("offset", offset);
         result.put("hasMore", offset + limit < matching.size());
         result.put("agents", mapper.convertValue(page, List.class));
