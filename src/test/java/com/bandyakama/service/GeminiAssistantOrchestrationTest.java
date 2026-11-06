@@ -149,6 +149,22 @@ class GeminiAssistantOrchestrationTest {
         assertTrue(saved.actions().isEmpty());
     }
 
+    @Test
+    void serializesFormFieldsOnlyForPreparedTasks() throws Exception {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        String navigation = mapper.writeValueAsString(
+                new com.bandyakama.chat.ChatResponse.Action("NAVIGATE", "open", "/agents/1", null)
+        );
+        String prepared = mapper.writeValueAsString(
+                new com.bandyakama.chat.ChatResponse.Action(
+                        "PREPARE", "prepare", "/agents/1", Map.of("telephone", "034")
+                )
+        );
+
+        assertFalse(navigation.contains("fields"));
+        assertTrue(prepared.contains("\"fields\":{\"telephone\":\"034\"}"));
+    }
+
 
     @Test
     void returnsOnlyNavigableAndDisplaySafeFieldsForSensitiveAgentSearch() {

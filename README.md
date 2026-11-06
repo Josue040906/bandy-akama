@@ -215,6 +215,34 @@ both APIs to apply the profile and the tool definitions.
 
 Tool definitions make Bandy issue HTTP requests carrying the user's bearer token, so their destinations are restricted by `BANDY_TOOL_ALLOWED_ORIGINS` (property `bandy.tools.allowed-origins`, comma-separated `scheme://host[:port]` origins, default `http://localhost:8080`). Registering a tool outside these origins returns 400, and the executor checks the final URL again before sending anything, so the token never reaches another origin. An empty list allows no destination.
 
+## Action channel (contract for the frontend)
+
+Each tool has an `actionLevel` in the catalogue: `READ` (Bandy calls the API and
+Gemini explains the result), `NAVIGATE`, `PREPARE` or `CONFIRM`. A forbidden
+action is simply not registered. For `NAVIGATE` and `PREPARE` the tool URL is a
+frontend route (for example `/agents/{agentId}`): Bandy sends no request and
+returns an action next to `toolResults`, whose shape is unchanged:
+
+```json
+"actions": [
+  { "type": "NAVIGATE", "tool": "open_agent_record", "route": "/agents/101" },
+  { "type": "PREPARE", "tool": "prepare_agent_update", "route": "/agents/101",
+    "fields": { "telephone": "034 12 345 67" } }
+]
+```
+
+- `NAVIGATE`: the frontend offers to open `route`; its route guard and the API
+  still decide access.
+- `PREPARE`: the frontend opens the form at `route` and prefills it with
+  `fields`. `fields` holds only the values Bandy proposes, so the form can
+  highlight them (for an edit, the ones that differ from the current value).
+  Nothing is saved until the user validates; the frontend then calls the API
+  with the user's own token.
+
+Path arguments are strictly encoded, so an argument cannot add a segment or
+leave the catalogue route. The same `actions` are returned by the streaming
+`done` event and by idempotent replays.
+
 ## Persistent conversations
 
 Conversation history and memory live in Bandy's PostgreSQL database, not in

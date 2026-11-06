@@ -79,6 +79,13 @@ public class ToolDefinition {
     public boolean isSensitive() { return sensitive; }
     public void setSensitive(boolean sensitive) { this.sensitive = sensitive; }
 
+    /** Navigation et tâche préparée visent une route du front, jamais une API. */
+    @com.fasterxml.jackson.annotation.JsonIgnore
+    public boolean targetsInterface() {
+        return actionLevel == ToolActionLevel.NAVIGATE
+                || actionLevel == ToolActionLevel.PREPARE;
+    }
+
     public ToolActionLevel getActionLevel() { return actionLevel; }
     public void setActionLevel(ToolActionLevel actionLevel) {
         this.actionLevel = actionLevel == null ? ToolActionLevel.READ : actionLevel;
@@ -108,15 +115,18 @@ public class ToolDefinition {
                 != parameters.size()) {
             throw new IllegalArgumentException("Les noms des paramètres doivent être uniques.");
         }
-        if (actionLevel == ToolActionLevel.NAVIGATE) {
-            // Une navigation vise une route de l'interface, jamais une API.
+        if (targetsInterface()) {
+            // Navigation et tâche préparée ouvrent une page : méthode GET,
+            // route relative de l'interface, jamais une API.
             if (!method.equalsIgnoreCase("GET")) {
-                throw new IllegalArgumentException("Une navigation utilise la méthode GET.");
+                throw new IllegalArgumentException(
+                        "Une navigation ou une tâche préparée utilise la méthode GET."
+                );
             }
             if (!url.matches("/(?!/)[A-Za-z0-9._~{}/-]*") || url.contains("..")) {
                 throw new IllegalArgumentException(
-                        "Une navigation doit viser une route de l’interface "
-                                + "commençant par /, par exemple /agents/{agentId}."
+                        "Une navigation ou une tâche préparée doit viser une route de "
+                                + "l’interface commençant par /, par exemple /agents/{agentId}."
                 );
             }
         } else try {
@@ -138,8 +148,11 @@ public class ToolDefinition {
         parameters.forEach(parameter -> {
             parameter.validate();
             String location = parameter.getLocation();
+            // Pour une tâche préparée, les paramètres body sont les champs
+            // du formulaire ; ailleurs, une fonction GET n'a pas de corps.
             if (location != null && location.equalsIgnoreCase("body")
-                    && method.equalsIgnoreCase("GET")) {
+                    && method.equalsIgnoreCase("GET")
+                    && actionLevel != ToolActionLevel.PREPARE) {
                 throw new IllegalArgumentException(
                         "Une fonction GET ne peut pas déclarer un paramètre body."
                 );

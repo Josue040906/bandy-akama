@@ -101,5 +101,13 @@
       { "message": "emmène-moi sur mes activités", "outil": "open_page", "attendus": ["page=activites"] },
       { "message": "et le tableau de bord ?", "relire": true, "interdits": ["page=dashboard"] }
     ]
+  },
+  {
+    "id": "S21", "titre": "Tâche préparée : nouveau document pour un agent",
+    "tours": [{ "message": "prépare une attestation de travail pour Jean Rakoto", "outil": "prepare_new_document", "attendus": ["typeDocumentId~1", "employeId~101"] }]
+  },
+  {
+    "id": "S22", "titre": "Tâche préparée : seul le champ modifié est transmis",
+    "tours": [{ "message": "change le numéro de téléphone de Jean Rakoto : 034 12 345 67", "outil": "prepare_agent_update", "attendus": ["agentId~101", "telephone~034"], "interdits": ["nom", "prenom", "sexe"] }]
   }
 ]

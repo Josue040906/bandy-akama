@@ -129,5 +129,57 @@
         "location": "path"
       }
     ]
+  },
+  {
+    "name": "list_document_types",
+    "description": "Liste les types de documents RH actifs dans SYGPERS, avec leur identifiant, leur code, leur libellé et leur description.",
+    "whenToUse": "Avant de préparer un nouveau document, pour connaître l’identifiant du type demandé, ou quand l’utilisateur demande quels documents il peut obtenir. N’envoie aucun paramètre.",
+    "method": "GET",
+    "url": "{RH_API_URL}/api/documents/types",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "READ",
+    "parameters": []
+  },
+  {
+    "name": "prepare_new_document",
+    "description": "Propose à l’interface le formulaire de nouveau document RH, prérempli avec les champs connus. Rien n’est créé tant que l’utilisateur n’a pas validé le formulaire.",
+    "whenToUse": "Quand l’utilisateur veut créer, demander ou générer un document RH (attestation, ordre de mission, demande de mutation…). Appelle d’abord list_document_types pour obtenir typeDocumentId ; si le type demandé n’existe pas, dis-le sans préparer de formulaire. Pour un autre agent, employeId est l’identifiant interne (champ id) renvoyé par search_agents ; pour l’utilisateur lui-même, laisse employeId vide, il le choisira dans le formulaire. Ne transmets que les champs que l’utilisateur a donnés ou qui découlent clairement de sa demande ; dates au format AAAA-MM-JJ. Dis que le formulaire est prérempli et qu’il doit le vérifier puis le valider ; ne dis jamais que le document est créé.",
+    "method": "GET",
+    "url": "/documents/nouveau",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "PREPARE",
+    "parameters": [
+      { "name": "typeDocumentId", "type": "integer", "description": "Identifiant du type de document (champ id de list_document_types).", "required": false, "location": "body" },
+      { "name": "employeId", "type": "integer", "description": "Identifiant interne de l’agent concerné (champ id de search_agents).", "required": false, "location": "body" },
+      { "name": "destinataire", "type": "string", "description": "Destinataire du document, s’il est indiqué.", "required": false, "location": "body" },
+      { "name": "dateDebut", "type": "string", "description": "Date de début, au format AAAA-MM-JJ.", "required": false, "location": "body" },
+      { "name": "dateFin", "type": "string", "description": "Date de fin, au format AAAA-MM-JJ.", "required": false, "location": "body" },
+      { "name": "motif", "type": "string", "description": "Motif ou objet de la demande.", "required": false, "location": "body" },
+      { "name": "lieuTravailSouhaite", "type": "string", "description": "Lieu de travail souhaité, pour une demande de mutation.", "required": false, "location": "body" },
+      { "name": "dateEffetSouhaitee", "type": "string", "description": "Date d’effet souhaitée, au format AAAA-MM-JJ.", "required": false, "location": "body" }
+    ]
+  },
+  {
+    "name": "prepare_agent_update",
+    "description": "Propose à l’interface le formulaire de modification des informations personnelles d’un agent, prérempli avec les seules valeurs à changer. Rien n’est enregistré tant que l’utilisateur n’a pas validé.",
+    "whenToUse": "Quand l’utilisateur veut modifier une information personnelle d’un agent : nom, prénom, sexe, adresse, CIN, téléphone, date ou lieu de naissance. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Ne transmets QUE les champs que l’utilisateur veut changer, avec leur nouvelle valeur ; ne recopie jamais les valeurs actuelles, car l’interface signale chaque champ transmis comme modifié. Dis que le formulaire est prérempli et que les champs modifiés sont à vérifier puis valider ; ne dis jamais que la modification est enregistrée.",
+    "method": "GET",
+    "url": "/agents/{agentId}",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "PREPARE",
+    "parameters": [
+      { "name": "agentId", "type": "integer", "description": "Identifiant interne de l’agent (champ id de search_agents).", "required": true, "location": "path" },
+      { "name": "nom", "type": "string", "description": "Nouveau nom.", "required": false, "location": "body" },
+      { "name": "prenom", "type": "string", "description": "Nouveau prénom.", "required": false, "location": "body" },
+      { "name": "sexe", "type": "string", "description": "Nouveau sexe : F ou M uniquement.", "required": false, "location": "body" },
+      { "name": "adresse", "type": "string", "description": "Nouvelle adresse.", "required": false, "location": "body" },
+      { "name": "cin", "type": "string", "description": "Nouveau numéro de CIN.", "required": false, "location": "body" },
+      { "name": "telephone", "type": "string", "description": "Nouveau numéro de téléphone, tel que donné par l’utilisateur.", "required": false, "location": "body" },
+      { "name": "dateNaissance", "type": "string", "description": "Nouvelle date de naissance, au format AAAA-MM-JJ.", "required": false, "location": "body" },
+      { "name": "lieuNaissance", "type": "string", "description": "Nouveau lieu de naissance.", "required": false, "location": "body" }
+    ]
   }
 ]

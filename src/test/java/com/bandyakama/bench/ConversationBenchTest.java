@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 
 /**
  * Banc de conversation contre le vrai modèle Gemini.
@@ -157,6 +158,9 @@ class ConversationBenchTest {
         }).when(toolExecutor).execute(
                 any(), anyMap(), nullable(String.class), nullable(String.class)
         );
+        // Navigation et tâche préparée ne font aucune requête : la vraie
+        // méthode s'exécute, comme en production.
+        doCallRealMethod().when(toolExecutor).interfaceAction(any(), anyMap());
         doAnswer(invocation -> {
             modelCallTimes.add(System.nanoTime());
             return invocation.callRealMethod();

@@ -228,11 +228,10 @@ public class GeminiAssistant {
                 profile
         );
         // Le catalogue décide seul : tout outil activé est proposé à Gemini.
-        // Consultations et navigations sont prises en charge ; les tâches
-        // préparées ou confirmées viennent ensuite.
+        // Consultations, navigations et tâches préparées sont prises en
+        // charge ; les tâches confirmées viennent ensuite.
         List<ToolDefinition> registeredTools = configuration.enabledTools().stream()
-                .filter(tool -> tool.getActionLevel() == ToolActionLevel.READ
-                        || tool.getActionLevel() == ToolActionLevel.NAVIGATE)
+                .filter(tool -> tool.getActionLevel() != ToolActionLevel.CONFIRM)
                 .toList();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
@@ -810,8 +809,8 @@ public class GeminiAssistant {
                     "message", "Cet outil n’existe pas dans le catalogue : " + name
             ));
         }
-        if (definition.getActionLevel() == ToolActionLevel.NAVIGATE) {
-            return navigation(definition, arguments);
+        if (definition.targetsInterface()) {
+            return interfaceAction(definition, arguments);
         }
         // Seul le catalogue décide qu'un résultat est sensible.
         boolean sensitive = definition.isSensitive();
@@ -917,29 +916,30 @@ public class GeminiAssistant {
     }
 
     /**
-     * Navigation : aucune requête, seulement une route proposée à l'interface.
-     * Gemini apprend que la page est proposée, pas qu'elle est ouverte.
+     * Navigation ou tâche préparée : aucune requête, seulement une action
+     * proposée à l'interface. Gemini apprend ce qui est proposé, jamais que
+     * c'est fait : la page n'est pas ouverte, le formulaire pas enregistré.
      */
-    private ToolExecutionResult navigation(
+    private ToolExecutionResult interfaceAction(
             ToolDefinition definition,
             Map<String, Object> arguments
     ) {
-        String route;
+        ChatResponse.Action action;
         try {
-            route = toolExecutor.navigationRoute(definition, arguments);
+            action = toolExecutor.interfaceAction(definition, arguments);
         } catch (IllegalArgumentException exception) {
             return refusal(Map.of("ok", false, "message", exception.getMessage()));
         }
+        String message = definition.getActionLevel() == ToolActionLevel.PREPARE
+                ? "L’interface propose à l’utilisateur ce formulaire prérempli ; "
+                        + "rien n’est enregistré tant qu’il ne l’a pas vérifié et validé."
+                : "L’interface propose à l’utilisateur d’ouvrir cette page ; "
+                        + "elle n’est pas encore ouverte.";
         return new ToolExecutionResult(
-                Map.of(
-                        "ok", true,
-                        "route", route,
-                        "message", "L’interface propose à l’utilisateur d’ouvrir "
-                                + "cette page ; elle n’est pas encore ouverte."
-                ),
+                Map.of("ok", true, "route", action.route(), "message", message),
                 false,
                 false,
-                new ChatResponse.Action("NAVIGATE", definition.getName(), route)
+                action
         );
     }
 

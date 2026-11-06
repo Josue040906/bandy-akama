@@ -1295,7 +1295,7 @@ class ConversationApiTest {
                 "Je vous propose d’ouvrir sa fiche.",
                 List.of(),
                 null,
-                List.of(new ChatResponse.Action("NAVIGATE", "open_agent_record", "/agents/101")),
+                List.of(new ChatResponse.Action("NAVIGATE", "open_agent_record", "/agents/101", null)),
                 List.of()
         ));
 

@@ -101,6 +101,30 @@ class ToolRegistryTest {
     }
 
     @Test
+    void registersPreparedTasksWhoseBodyParametersAreFormFields() {
+        ToolParameter motif = new ToolParameter("motif", "string", "Motif.", false);
+        motif.setLocation("body");
+        ToolDefinition prepare = new ToolDefinition(
+                "prepare_document", "Prepares a document.", "GET", "/documents/nouveau", List.of(motif)
+        );
+        prepare.setWhenToUse("When the user wants a new document.");
+        prepare.setActionLevel(ToolActionLevel.PREPARE);
+        registry.register(prepare);
+        assertEquals(ToolActionLevel.PREPARE,
+                registry.findByName("prepare_document").orElseThrow().getActionLevel());
+
+        // Une navigation n'a pas de champs de formulaire.
+        ToolDefinition navigation = new ToolDefinition(
+                "navigation_with_body", "Bad.", "GET", "/documents", List.of(motif)
+        );
+        navigation.setWhenToUse("Never.");
+        navigation.setActionLevel(ToolActionLevel.NAVIGATE);
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> registry.register(navigation)
+        );
+    }
+
+    @Test
     void refusesAnUnknownActionLevelThroughTheApi() throws Exception {
         mockMvc.perform(post("/api/tools")
                         .header("X-Bandy-Registration-Key", registrationKey)

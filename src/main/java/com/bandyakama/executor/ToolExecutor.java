@@ -1,5 +1,6 @@
 package com.bandyakama.executor;
 
+import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.tool.ToolDefinition;
 import com.bandyakama.tool.ToolDestinationPolicy;
 import com.bandyakama.observability.PerformanceTelemetry;
@@ -167,29 +168,46 @@ public class ToolExecutor {
     }
 
     /**
-     * Construit la route d'interface d'un outil de navigation, sans aucune
-     * requête. Les valeurs sont encodées strictement : un argument ne peut
-     * pas ajouter de segment (« / ») ni sortir de la route du catalogue.
+     * Construit l'action d'interface d'une navigation ou d'une tâche préparée,
+     * sans aucune requête. Les paramètres path et query forment la route,
+     * encodée strictement : un argument ne peut ni ajouter de segment (« / »)
+     * ni sortir de la route du catalogue. Les paramètres body sont les champs
+     * du formulaire à préremplir.
      */
-    public String navigationRoute(
+    public ChatResponse.Action interfaceAction(
             ToolDefinition tool,
             Map<String, Object> arguments
     ) {
         validateArguments(tool, arguments);
         UriComponentsBuilder route = UriComponentsBuilder.fromPath(tool.getUrl());
         Map<String, Object> variables = new HashMap<>();
+        Map<String, Object> fields = new java.util.LinkedHashMap<>();
         for (var parameter : tool.getParameters()) {
             Object value = arguments.get(parameter.getName());
             if (value == null) {
                 continue;
             }
-            variables.put(parameter.getName(), value instanceof Number number
-                    && isWholeNumber(number) ? number.longValue() : value);
-            if (!"path".equalsIgnoreCase(parameter.getLocation())) {
-                route.queryParam(parameter.getName(), "{" + parameter.getName() + "}");
+            Object normalized = value instanceof Number number && isWholeNumber(number)
+                    ? number.longValue()
+                    : value;
+            String location = parameter.getLocation() == null
+                    ? "query"
+                    : parameter.getLocation().toLowerCase();
+            switch (location) {
+                case "body" -> fields.put(parameter.getName(), normalized);
+                case "path" -> variables.put(parameter.getName(), normalized);
+                default -> {
+                    variables.put(parameter.getName(), normalized);
+                    route.queryParam(parameter.getName(), "{" + parameter.getName() + "}");
+                }
             }
         }
-        return route.encode().buildAndExpand(variables).toUriString();
+        return new ChatResponse.Action(
+                tool.getActionLevel().name(),
+                tool.getName(),
+                route.encode().buildAndExpand(variables).toUriString(),
+                fields
+        );
     }
 
     private RestClient requestClientWithinBudget() {

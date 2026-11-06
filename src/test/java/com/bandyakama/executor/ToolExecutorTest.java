@@ -312,9 +312,9 @@ class ToolExecutorTest {
 
         // Gemini envoie souvent les entiers sous forme décimale (101.0).
         assertEquals("/agents/101",
-                executor.navigationRoute(navigation, Map.of("agentId", 101.0)));
+                executor.interfaceAction(navigation, Map.of("agentId", 101.0)).route());
         assertEquals("/agents/7?onglet=carri%C3%A8re",
-                executor.navigationRoute(navigation, Map.of("agentId", 7, "onglet", "carrière")));
+                executor.interfaceAction(navigation, Map.of("agentId", 7, "onglet", "carrière")).route());
 
         ToolParameter page = new ToolParameter("page", "string", "Page.", true);
         page.setLocation("path");
@@ -323,9 +323,33 @@ class ToolExecutorTest {
         );
         // Un argument ne peut pas ajouter de segment ni remonter l'arborescence.
         assertEquals("/..%2Fadministration",
-                executor.navigationRoute(anyPage, Map.of("page", "../administration")));
+                executor.interfaceAction(anyPage, Map.of("page", "../administration")).route());
         assertThrows(IllegalArgumentException.class,
-                () -> executor.navigationRoute(navigation, Map.of("agentId", "abc")));
+                () -> executor.interfaceAction(navigation, Map.of("agentId", "abc")).route());
+    }
+
+    @Test
+    void preparesAFormWithOnlyTheProposedFieldsAndNoRequest() {
+        ToolParameter agentId = new ToolParameter("agentId", "integer", "Agent.", true);
+        agentId.setLocation("path");
+        ToolParameter telephone = new ToolParameter("telephone", "string", "Téléphone.", false);
+        telephone.setLocation("body");
+        ToolParameter nom = new ToolParameter("nom", "string", "Nom.", false);
+        nom.setLocation("body");
+        ToolDefinition prepare = new ToolDefinition(
+                "prepare_agent_update", "Prepares an update.", "GET",
+                "/agents/{agentId}", List.of(agentId, telephone, nom)
+        );
+        prepare.setActionLevel(com.bandyakama.tool.ToolActionLevel.PREPARE);
+
+        var action = executor.interfaceAction(
+                prepare, Map.of("agentId", 101.0, "telephone", "034 12 345 67")
+        );
+
+        assertEquals("PREPARE", action.type());
+        assertEquals("/agents/101", action.route());
+        // Seul le champ proposé est transmis : le nom, non demandé, est absent.
+        assertEquals(Map.of("telephone", "034 12 345 67"), action.fields());
     }
 
     private static ToolDestinationPolicy allowing(HttpServer server) {

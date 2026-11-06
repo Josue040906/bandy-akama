@@ -2,6 +2,7 @@ package com.bandyakama.chat;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
 
 import java.util.List;
 import java.util.Map;
@@ -45,9 +46,22 @@ public record ChatResponse(
     }
 
     /**
-     * Action proposée à l'interface. Pour une navigation, route est une route
-     * du front déjà construite ; le front et l'API restent juges des droits.
+     * Action proposée à l'interface : route est une route du front déjà
+     * construite ; le front et l'API restent juges des droits. Pour une tâche
+     * préparée, fields contient seulement les champs que Bandy propose de
+     * remplir : l'interface peut les signaler, et rien n'est enregistré avant
+     * la validation de l'utilisateur.
      */
-    public record Action(String type, String tool, String route) {
+    public record Action(
+            String type,
+            String tool,
+            String route,
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> fields
+    ) {
+        public Action {
+            fields = fields == null
+                    ? Map.of()
+                    : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(fields));
+        }
     }
 }
