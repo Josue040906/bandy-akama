@@ -325,6 +325,21 @@ class ConversationBenchTest {
         } catch (Exception invalidJson) {
             throw new IllegalArgumentException("criteriaJson n'est pas un JSON valide.");
         }
+        boolean hasPositiveCriterion = !criteria.path("must").isEmpty()
+                || !criteria.path("filters").isEmpty()
+                || (criteria.path("minimum_should_match").asInt(0) >= 1
+                && !criteria.path("should").isEmpty());
+        if (!hasPositiveCriterion) {
+            // Comme l'API : une recherche sans critère positif est refusée.
+            throw org.springframework.web.client.HttpClientErrorException.create(
+                    org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Bad Request",
+                    org.springframework.http.HttpHeaders.EMPTY,
+                    "{\"message\":\"Au moins un critère de recherche est requis.\"}"
+                            .getBytes(StandardCharsets.UTF_8),
+                    StandardCharsets.UTF_8
+            );
+        }
         List<JsonNode> matching = new ArrayList<>();
         agents.forEach(agent -> {
             if (matchesGroup(agent, criteria)) {

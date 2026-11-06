@@ -1,6 +1,5 @@
 package com.bandyakama.service;
 
-import com.bandyakama.chat.ChatResponse;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.google.genai.types.Content;
 import com.google.genai.types.GenerateContentConfig;
@@ -9,7 +8,6 @@ import com.google.genai.types.ServiceTier;
 import com.google.genai.types.ThinkingLevel;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
-import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -121,28 +119,32 @@ class GeminiAssistantOrchestrationTest {
     }
 
     @Test
-    void translatesMissingAndAmbiguousAgentProfilesIntoUsableToolResults() {
-        var missing = GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.NOT_FOUND
-        ).orElseThrow();
-        var ambiguous = GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.CONFLICT
-        ).orElseThrow();
+    void passesApiRefusalsToGeminiAsDataWithoutInterpretingThem() {
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
 
-        assertEquals(false, missing.get("found"));
-        assertTrue(missing.get("message").toString().contains("matricule"));
-        assertEquals(true, ambiguous.get("ambiguous"));
-        assertTrue(ambiguous.get("message").toString().contains("matricule"));
-        assertTrue(GeminiAssistant.profileLookupError(
-                "some_other_tool",
-                HttpStatus.NOT_FOUND
-        ).isEmpty());
-        assertTrue(GeminiAssistant.profileLookupError(
-                "get_agent_profile",
-                HttpStatus.BAD_GATEWAY
-        ).isEmpty());
+        var forbidden = GeminiAssistant.apiRefusal(
+                403, "{\"code\":\"FORBIDDEN\",\"message\":\"Droits insuffisants.\"}", mapper
+        );
+        assertEquals(false, forbidden.get("ok"));
+        assertEquals(403, forbidden.get("status"));
+        assertEquals(
+                "Droits insuffisants.",
+                ((Map<?, ?>) forbidden.get("message")).get("message")
+        );
+
+        assertEquals("Texte brut", GeminiAssistant.apiRefusal(409, "Texte brut", mapper)
+                .get("message"));
+        assertEquals(404, GeminiAssistant.apiRefusal(404, "", mapper).get("status"));
+    }
+
+    @Test
+    void readsResponsesSavedBeforeClarificationStateWasRemoved() throws Exception {
+        var saved = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                "{\"message\":\"Bonjour.\",\"toolResults\":[],\"needClarification\":true}",
+                com.bandyakama.chat.ChatResponse.class
+        );
+
+        assertEquals("Bonjour.", saved.message());
     }
 
 
@@ -186,24 +188,6 @@ class GeminiAssistantOrchestrationTest {
         assertFalse(agent.containsKey("telephone"));
         assertFalse(agent.containsKey("adresse"));
         assertFalse(agent.containsKey("matricule"));
-    }
-
-    @Test
-    void modelGeneratedClarificationPersistsPendingSearchState() {
-        ChatResponse response = GeminiAssistant.responseWithClarificationState(
-                "Quel service souhaitez-vous cibler ?",
-                List.of(),
-                List.of(),
-                true
-        );
-
-        assertTrue(response.needClarification());
-        assertEquals("Quel service souhaitez-vous cibler ?", response.message());
-        assertTrue(response.toolResults().isEmpty());
-        assertEquals(1, response.toolStates().size());
-        assertEquals("clarification_pending", response.toolStates().get(0).name());
-        assertEquals("search_agents",
-                response.toolStates().get(0).arguments().get("targetTool"));
     }
 
 }

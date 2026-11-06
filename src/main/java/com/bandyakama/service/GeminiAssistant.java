@@ -33,7 +33,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
@@ -312,7 +311,6 @@ public class GeminiAssistant {
         List<ChatResponse.ToolState> toolStates = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
-        boolean clarificationPending = false;
 
         for (int round = 0; round < maxToolRounds; round++) {
             List<FunctionCall> calls = response.parts().stream()
@@ -320,56 +318,17 @@ public class GeminiAssistant {
                     .flatMap(Optional::stream)
                     .toList();
             if (calls.isEmpty()) {
-                return responseWithClarificationState(
-                        response.text(), executedResults, toolStates,
-                        clarificationPending
-                );
-            }
-
-            List<PreparedToolCall> preparedCalls = new ArrayList<>();
-            for (FunctionCall call : calls) {
-                String name = call.name().orElse("");
-                // Gemini envoie des arguments complets : le code ne les
-                // recombine plus avec ceux du tour précédent.
-                Map<String, Object> effectiveArguments = call.args().orElse(Map.of());
-                boolean rejected = "search_agents".equals(name)
-                        && !SearchCriteriaValidator.hasPositiveCriteria(
-                                effectiveArguments.get("criteriaJson"),
-                                objectMapper
-                        );
-                clarificationPending |= rejected;
-                preparedCalls.add(new PreparedToolCall(
-                        name, effectiveArguments, call.id().orElse(null), rejected
-                ));
+                return chatResponse(response.text(), executedResults, toolStates);
             }
 
             metrics.toolRounds++;
-            metrics.toolCalls += preparedCalls.size();
+            metrics.toolCalls += calls.size();
             List<Part> resultParts = new ArrayList<>();
-            for (PreparedToolCall preparedCall : preparedCalls) {
-                String name = preparedCall.name();
-                Map<String, Object> effectiveArguments = preparedCall.arguments();
-                if (preparedCall.rejected()) {
-                    Map<String, Object> validationFeedback = Map.of(
-                            "ok", false,
-                            "code", "SEARCH_CRITERIA_REQUIRED",
-                            "message", "La recherche exige au moins un critère positif "
-                                    + "parmi le nom, le prénom, le matricule, le service, "
-                                    + "la direction ou le poste. Aucun appel au service "
-                                    + "RH n’a été effectué. Demande une précision à "
-                                    + "l’utilisateur sans rappeler search_agents."
-                    );
-                    FunctionResponse.Builder rejectedBuilder = FunctionResponse.builder()
-                            .name(name)
-                            .response(Collections.singletonMap("output", validationFeedback));
-                    if (preparedCall.callId() != null) {
-                        rejectedBuilder.id(preparedCall.callId());
-                    }
-                    resultParts.add(Part.builder()
-                            .functionResponse(rejectedBuilder.build())
-                            .build());
-                    continue;
-                }
+            for (FunctionCall call : calls) {
+                String name = call.name().orElse("");
+                // Gemini envoie des arguments complets : le code ne les
+                // recombine pas et ne les valide pas à la place de l'API.
+                Map<String, Object> effectiveArguments = call.args().orElse(Map.of());
                 ToolExecutionResult execution = executeRegisteredTool(
                         name,
                         effectiveArguments,
@@ -385,36 +344,38 @@ public class GeminiAssistant {
                         result,
                         effectiveArguments
                 ));
-                toolStates.add(new ChatResponse.ToolState(
-                        name,
-                        effectiveArguments,
-                        "get_agent_profile".equals(name) ? result : null
-                ));
-                if (!execution.sensitive()) {
-                    executedResults.add(new ChatResponse.ToolResult(
+                // Un refus est transmis à Gemini, mais ne devient ni l'état
+                // actif de la conversation ni un résultat affiché.
+                if (!execution.refused()) {
+                    toolStates.add(new ChatResponse.ToolState(
                             name,
-                            result,
-                            effectiveArguments
+                            effectiveArguments,
+                            "get_agent_profile".equals(name) ? result : null
                     ));
-                } else if ("search_agents".equals(name)) {
-                    // Retourne à l'interface uniquement les champs nécessaires
-                    // à l'affichage et à l'ouverture d'une fiche agent.
-                    // ConversationRepository continue d'exclure cet outil sensible
-                    // de l'historique et de la réponse idempotente persistée.
-                    executedResults.add(new ChatResponse.ToolResult(
-                            name,
-                            clientSafeSearchResult(result),
-                            Map.of()
-                    ));
+                    if (!execution.sensitive()) {
+                        executedResults.add(new ChatResponse.ToolResult(
+                                name,
+                                result,
+                                effectiveArguments
+                        ));
+                    } else if ("search_agents".equals(name)) {
+                        // Retourne à l'interface uniquement les champs nécessaires
+                        // à l'affichage et à l'ouverture d'une fiche agent.
+                        // ConversationRepository continue d'exclure cet outil sensible
+                        // de l'historique et de la réponse idempotente persistée.
+                        executedResults.add(new ChatResponse.ToolResult(
+                                name,
+                                clientSafeSearchResult(result),
+                                Map.of()
+                        ));
+                    }
                 }
 
                 FunctionResponse.Builder resultBuilder =
                         FunctionResponse.builder()
                                 .name(name)
                                 .response(Collections.singletonMap("output", result));
-                if (preparedCall.callId() != null) {
-                    resultBuilder.id(preparedCall.callId());
-                }
+                call.id().ifPresent(resultBuilder::id);
                 resultParts.add(Part.builder()
                         .functionResponse(resultBuilder.build())
                         .build());
@@ -450,10 +411,7 @@ public class GeminiAssistant {
                 .findAny()
                 .isPresent();
         if (!hasMoreCalls) {
-            return responseWithClarificationState(
-                    response.text(), executedResults, toolStates,
-                    clarificationPending
-            );
+            return chatResponse(response.text(), executedResults, toolStates);
         }
 
         GenerateContentConfig finalConfig =
@@ -500,31 +458,16 @@ public class GeminiAssistant {
             finalMessage = "Je n’ai pas pu établir une réponse fiable à partir "
                     + "des résultats obtenus. Pouvez-vous préciser votre demande ?";
         }
-        return responseWithClarificationState(
-                finalMessage, executedResults, toolStates, clarificationPending
-        );
+        return chatResponse(finalMessage, executedResults, toolStates);
     }
 
-    static ChatResponse responseWithClarificationState(
+    private static ChatResponse chatResponse(
             String message,
             List<ChatResponse.ToolResult> toolResults,
-            List<ChatResponse.ToolState> toolStates,
-            boolean clarificationPending
+            List<ChatResponse.ToolState> toolStates
     ) {
-        if (!clarificationPending) {
-            return new ChatResponse(
-                    message, List.copyOf(toolResults), null,
-                    List.copyOf(toolStates), false
-            );
-        }
-        List<ChatResponse.ToolState> states = new ArrayList<>(toolStates);
-        states.add(new ChatResponse.ToolState(
-                "clarification_pending",
-                Map.of("targetTool", "search_agents")
-        ));
         return new ChatResponse(
-                message, List.copyOf(toolResults), null,
-                List.copyOf(states), true
+                message, List.copyOf(toolResults), null, List.copyOf(toolStates)
         );
     }
 
@@ -851,18 +794,20 @@ public class GeminiAssistant {
             ToolInvocationCache invocationCache,
             TurnMetrics metrics
     ) {
-        ToolDefinition definition = Optional.ofNullable(enabledTools.get(name))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.BAD_GATEWAY,
-                        "Le modèle a demandé un outil non autorisé."
-                ));
+        ToolDefinition definition = enabledTools.get(name);
+        if (definition == null) {
+            return refusal(Map.of(
+                    "ok", false,
+                    "message", "Cet outil n’existe pas dans le catalogue : " + name
+            ));
+        }
+        boolean sensitive = definition.isSensitive() || isSensitiveReadTool(name);
 
         if (invocationCache.contains(name, arguments)) {
             metrics.toolCacheHits++;
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
-                    invocationCache.get(name, arguments),
-                    definition.isSensitive() || isSensitiveReadTool(name)
+                    invocationCache.get(name, arguments), sensitive, false
             );
         }
 
@@ -874,26 +819,21 @@ public class GeminiAssistant {
                     requestId == null ? null : requestId.toString()
             );
             invocationCache.put(name, arguments, result);
-            return new ToolExecutionResult(
-                    result,
-                    definition.isSensitive() || isSensitiveReadTool(name)
-            );
+            return new ToolExecutionResult(result, sensitive, false);
         } catch (IllegalArgumentException exception) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "Les arguments fournis au service métier sont invalides.",
-                    exception
-            );
+            // Arguments incomplets ou mal typés : Gemini peut les corriger
+            // ou demander une précision.
+            return refusal(Map.of("ok", false, "message", exception.getMessage()));
         } catch (RestClientResponseException exception) {
-            Optional<Map<String, Object>> profileLookupResult =
-                    profileLookupError(name, exception.getStatusCode());
-            if (profileLookupResult.isPresent()) {
-                return new ToolExecutionResult(
-                        profileLookupResult.get(),
-                        definition.isSensitive() || isSensitiveReadTool(name)
-                );
+            if (exception.getStatusCode().is4xxClientError()) {
+                // C'est l'API qui décide (droits, introuvable, ambigu,
+                // demande invalide) : Gemini reçoit sa réponse et l'explique.
+                return refusal(apiRefusal(
+                        exception.getStatusCode().value(),
+                        exception.getResponseBodyAsString(),
+                        objectMapper
+                ));
             }
-
             throw new ResponseStatusException(
                     HttpStatus.BAD_GATEWAY,
                     "Le service métier associé à l’outil n’a pas pu traiter la demande.",
@@ -963,29 +903,24 @@ public class GeminiAssistant {
         return Set.of("get_agent_profile", "search_agents").contains(name);
     }
 
-    static Optional<Map<String, Object>> profileLookupError(
-            String toolName,
-            HttpStatusCode status
-    ) {
-        if (!"get_agent_profile".equals(toolName)) {
-            return Optional.empty();
+    private static ToolExecutionResult refusal(Map<String, Object> refusal) {
+        return new ToolExecutionResult(refusal, false, true);
+    }
+
+    /**
+     * Traduit un refus de l'API (4xx) en donnée pour Gemini : le statut et
+     * le corps renvoyé par l'API, sans interprétation propre à une application.
+     */
+    static Map<String, Object> apiRefusal(int status, String body, ObjectMapper objectMapper) {
+        Object message;
+        try {
+            message = body == null || body.isBlank()
+                    ? "Aucun détail fourni par le service."
+                    : objectMapper.readValue(body, Object.class);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException notJson) {
+            message = body;
         }
-        if (status.value() == HttpStatus.NOT_FOUND.value()) {
-            return Optional.of(Map.of(
-                    "found", false,
-                    "message", "Aucun agent ne correspond exactement à cette "
-                            + "identité. Demandez le nom complet exact ou le "
-                            + "matricule."
-            ));
-        }
-        if (status.value() == HttpStatus.CONFLICT.value()) {
-            return Optional.of(Map.of(
-                    "ambiguous", true,
-                    "message", "Plusieurs agents correspondent. Demandez le "
-                            + "matricule ou un autre identifiant distinctif."
-            ));
-        }
-        return Optional.empty();
+        return Map.of("ok", false, "status", status, "message", message);
     }
 
     private Tool toGeminiTool(List<ToolDefinition> definitions) {
@@ -1038,14 +973,7 @@ public class GeminiAssistant {
         };
     }
 
-    private record PreparedToolCall(
-            String name,
-            Map<String, Object> arguments,
-            String callId,
-            boolean rejected
-    ) { }
-
-    private record ToolExecutionResult(Object result, boolean sensitive) {
+    private record ToolExecutionResult(Object result, boolean sensitive, boolean refused) {
     }
 
     private static final class TurnMetrics {
