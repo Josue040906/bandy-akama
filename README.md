@@ -19,7 +19,7 @@ to `.env`, and fill in the local values:
 | `BANDY_GEMINI_MAX_OUTPUT_TOKENS` | Maximum generated output tokens; defaults to `1024` |
 | `BANDY_GEMINI_TIMEOUT_MILLIS` | Maximum duration of one Gemini HTTP attempt; defaults to `15000` |
 | `BANDY_GEMINI_RETRY_ATTEMPTS` | Gemini HTTP attempts including the first call; defaults to `2` |
-| `BANDY_MAX_TOOL_ROUNDS` | Maximum sequential tool rounds per user turn; defaults to `2` |
+| `BANDY_MAX_TOOL_ROUNDS` | Maximum sequential tool rounds per user turn; defaults to `3` (search, reference lookup, then a prepared task) |
 | `BANDY_TURN_BUDGET_MILLIS` | Overall processing budget for one conversation turn; defaults to `30000` |
 | `BANDY_APPLICATION_ID` | Server-side consumer identifier for conversation isolation; defaults to `assistant-rh` |
 | `BANDY_ALLOWED_APPLICATION_IDS` | Comma-separated JWT `aud` allowlist for multi-application deployments |

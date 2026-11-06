@@ -70,7 +70,7 @@ public class GeminiAssistant {
     public GeminiAssistant(
             @Value("${GEMINI_API_KEY:}") String apiKey,
             @Value("${bandy.ai.model:gemini-3.5-flash-lite}") String model,
-            @Value("${bandy.ai.max-tool-rounds:2}") int maxToolRounds,
+            @Value("${bandy.ai.max-tool-rounds:3}") int maxToolRounds,
             @Value("${bandy.ai.service-tier:standard}") String serviceTier,
             @Value("${bandy.ai.thinking-level:low}") String thinkingLevel,
             @Value("${bandy.ai.max-output-tokens:1024}") int maxOutputTokens,

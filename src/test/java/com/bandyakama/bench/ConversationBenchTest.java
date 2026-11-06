@@ -39,7 +39,6 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doCallRealMethod;
 
 /**
  * Banc de conversation contre le vrai modèle Gemini.
@@ -81,7 +80,7 @@ class ConversationBenchTest {
     @Value("${bandy.ai.model:gemini-3.5-flash-lite}")
     private String model;
 
-    @Value("${bandy.ai.max-tool-rounds:2}")
+    @Value("${bandy.ai.max-tool-rounds:3}")
     private int maxToolRounds;
 
     private final List<ToolCall> calls = new ArrayList<>();
@@ -158,9 +157,15 @@ class ConversationBenchTest {
         }).when(toolExecutor).execute(
                 any(), anyMap(), nullable(String.class), nullable(String.class)
         );
-        // Navigation et tâche préparée ne font aucune requête : la vraie
-        // méthode s'exécute, comme en production.
-        doCallRealMethod().when(toolExecutor).interfaceAction(any(), anyMap());
+        // Navigation et tâche préparée ne font aucune requête : l'appel est
+        // enregistré, puis la vraie méthode s'exécute, comme en production.
+        doAnswer(invocation -> {
+            calls.add(new ToolCall(
+                    invocation.<ToolDefinition>getArgument(0).getName(),
+                    new LinkedHashMap<>(invocation.<Map<String, Object>>getArgument(1))
+            ));
+            return invocation.callRealMethod();
+        }).when(toolExecutor).interfaceAction(any(), anyMap());
         doAnswer(invocation -> {
             modelCallTimes.add(System.nanoTime());
             return invocation.callRealMethod();
