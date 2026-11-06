@@ -28,10 +28,7 @@ public record ChatResponse(
         return new ChatResponse(message, toolResults, id, toolStates);
     }
 
-    public record ToolState(String name, Map<String, Object> arguments, Object result) {
-        public ToolState(String name, Map<String, Object> arguments) {
-            this(name, arguments, null);
-        }
+    public record ToolState(String name, Map<String, Object> arguments) {
     }
 
     public record ToolResult(String name, Object result, Map<String, Object> arguments) {

@@ -356,7 +356,7 @@ class ConversationApiTest {
     }
 
     @Test
-    void reusesTheLoadedAgentProfileForIdentityCorrectionAndAcademicFollowUp()
+    void reusesNonSensitiveToolResultsForIdentityCorrectionAndFollowUps()
             throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
@@ -436,7 +436,6 @@ class ConversationApiTest {
 
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
-        assertTrue(academicContext.contains("réutilise-les pour les suivis"));
         var parsedHistory = ConversationPromptContext.parse(
                 academicContext,
                 objectMapper
@@ -1285,6 +1284,17 @@ class ConversationApiTest {
     @Test
     void returnsSafeSearchCardsOnceWithoutPersistingSensitiveCandidates()
             throws Exception {
+        // Le caractère sensible vient uniquement du catalogue.
+        jdbcTemplate.update("DELETE FROM bandy_tool WHERE name = 'search_agents'");
+        jdbcTemplate.update("""
+                INSERT INTO bandy_tool (
+                    name, description, when_to_use, http_method, endpoint_url,
+                    enabled, sensitive
+                ) VALUES (
+                    'search_agents', 'Agent search', 'For agent searches',
+                    'GET', 'http://localhost/agents', TRUE, TRUE
+                )
+                """);
         UUID conversationId = createConversation("42");
         UUID requestId = UUID.randomUUID();
         when(assistant.respond(

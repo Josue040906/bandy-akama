@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -347,11 +346,7 @@ public class GeminiAssistant {
                 // Un refus est transmis à Gemini, mais ne devient ni l'état
                 // actif de la conversation ni un résultat affiché.
                 if (!execution.refused()) {
-                    toolStates.add(new ChatResponse.ToolState(
-                            name,
-                            effectiveArguments,
-                            "get_agent_profile".equals(name) ? result : null
-                    ));
+                    toolStates.add(new ChatResponse.ToolState(name, effectiveArguments));
                     if (!execution.sensitive()) {
                         executedResults.add(new ChatResponse.ToolResult(
                                 name,
@@ -801,7 +796,8 @@ public class GeminiAssistant {
                     "message", "Cet outil n’existe pas dans le catalogue : " + name
             ));
         }
-        boolean sensitive = definition.isSensitive() || isSensitiveReadTool(name);
+        // Seul le catalogue décide qu'un résultat est sensible.
+        boolean sensitive = definition.isSensitive();
 
         if (invocationCache.contains(name, arguments)) {
             metrics.toolCacheHits++;
@@ -897,10 +893,6 @@ public class GeminiAssistant {
         safeResult.put("agents", List.copyOf(safeAgents));
         safeResult.putIfAbsent("total", safeAgents.size());
         return safeResult;
-    }
-
-    private boolean isSensitiveReadTool(String name) {
-        return Set.of("get_agent_profile", "search_agents").contains(name);
     }
 
     private static ToolExecutionResult refusal(Map<String, Object> refusal) {
