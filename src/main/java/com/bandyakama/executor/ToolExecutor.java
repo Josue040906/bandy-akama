@@ -166,6 +166,32 @@ public class ToolExecutor {
         }
     }
 
+    /**
+     * Construit la route d'interface d'un outil de navigation, sans aucune
+     * requête. Les valeurs sont encodées strictement : un argument ne peut
+     * pas ajouter de segment (« / ») ni sortir de la route du catalogue.
+     */
+    public String navigationRoute(
+            ToolDefinition tool,
+            Map<String, Object> arguments
+    ) {
+        validateArguments(tool, arguments);
+        UriComponentsBuilder route = UriComponentsBuilder.fromPath(tool.getUrl());
+        Map<String, Object> variables = new HashMap<>();
+        for (var parameter : tool.getParameters()) {
+            Object value = arguments.get(parameter.getName());
+            if (value == null) {
+                continue;
+            }
+            variables.put(parameter.getName(), value instanceof Number number
+                    && isWholeNumber(number) ? number.longValue() : value);
+            if (!"path".equalsIgnoreCase(parameter.getLocation())) {
+                route.queryParam(parameter.getName(), "{" + parameter.getName() + "}");
+            }
+        }
+        return route.encode().buildAndExpand(variables).toUriString();
+    }
+
     private RestClient requestClientWithinBudget() {
         Optional<RequestBudget> activeBudget = RequestBudget.current();
         if (activeBudget.isEmpty()) {

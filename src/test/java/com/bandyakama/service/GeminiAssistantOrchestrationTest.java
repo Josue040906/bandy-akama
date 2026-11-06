@@ -145,6 +145,8 @@ class GeminiAssistantOrchestrationTest {
         );
 
         assertEquals("Bonjour.", saved.message());
+        // Les réponses antérieures au canal d'actions n'en contiennent pas.
+        assertTrue(saved.actions().isEmpty());
     }
 
 

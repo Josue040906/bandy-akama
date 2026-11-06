@@ -1282,6 +1282,44 @@ class ConversationApiTest {
     }
 
     @Test
+    void returnsNavigationActionsAndReplaysThemIdempotently() throws Exception {
+        UUID conversationId = createConversation("42");
+        UUID requestId = UUID.randomUUID();
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        )).thenReturn(new ChatResponse(
+                "Je vous propose d’ouvrir sa fiche.",
+                List.of(),
+                null,
+                List.of(new ChatResponse.Action("NAVIGATE", "open_agent_record", "/agents/101")),
+                List.of()
+        ));
+
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                            .header("Authorization", bearerToken("42"))
+                            .header("Idempotency-Key", requestId.toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"message\":\"ouvre la fiche de Jean Rakoto\"}"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.toolResults.length()").value(0))
+                    .andExpect(jsonPath("$.actions[0].type").value("NAVIGATE"))
+                    .andExpect(jsonPath("$.actions[0].route").value("/agents/101"));
+        }
+        verify(assistant, times(1)).respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(JsonNode.class)
+        );
+    }
+
+    @Test
     void returnsSafeSearchCardsOnceWithoutPersistingSensitiveCandidates()
             throws Exception {
         // Le caractère sensible vient uniquement du catalogue.

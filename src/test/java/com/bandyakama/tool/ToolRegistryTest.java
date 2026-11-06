@@ -74,6 +74,33 @@ class ToolRegistryTest {
     }
 
     @Test
+    void registersNavigationToFrontRoutesOnly() {
+        ToolParameter agentId = new ToolParameter("agentId", "integer", "Agent.", true);
+        agentId.setLocation("path");
+        ToolDefinition navigation = new ToolDefinition(
+                "open_record", "Opens a record.", "GET", "/agents/{agentId}", List.of(agentId)
+        );
+        navigation.setWhenToUse("When the user wants to open a record.");
+        navigation.setActionLevel(ToolActionLevel.NAVIGATE);
+        registry.register(navigation);
+        assertEquals(ToolActionLevel.NAVIGATE,
+                registry.findByName("open_record").orElseThrow().getActionLevel());
+
+        for (String route : List.of(
+                "https://example.test/agents", "//evil.test/agents", "/agents/../admin", "agents"
+        )) {
+            ToolDefinition invalid = new ToolDefinition(
+                    "bad_route", "Bad.", "GET", route, List.of()
+            );
+            invalid.setWhenToUse("Never.");
+            invalid.setActionLevel(ToolActionLevel.NAVIGATE);
+            org.junit.jupiter.api.Assertions.assertThrows(
+                    IllegalArgumentException.class, () -> registry.register(invalid), route
+            );
+        }
+    }
+
+    @Test
     void refusesAnUnknownActionLevelThroughTheApi() throws Exception {
         mockMvc.perform(post("/api/tools")
                         .header("X-Bandy-Registration-Key", registrationKey)

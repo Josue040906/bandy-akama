@@ -299,6 +299,35 @@ class ToolExecutorTest {
         }
     }
 
+    @Test
+    void buildsNavigationRoutesWithoutAnyRequestAndKeepsArgumentsInsideTheRoute() {
+        ToolParameter agentId = new ToolParameter("agentId", "integer", "Agent.", true);
+        agentId.setLocation("path");
+        ToolParameter tab = new ToolParameter("onglet", "string", "Onglet.", false);
+        tab.setLocation("query");
+        ToolDefinition navigation = new ToolDefinition(
+                "open_agent_record", "Opens a record.", "GET",
+                "/agents/{agentId}", List.of(agentId, tab)
+        );
+
+        // Gemini envoie souvent les entiers sous forme décimale (101.0).
+        assertEquals("/agents/101",
+                executor.navigationRoute(navigation, Map.of("agentId", 101.0)));
+        assertEquals("/agents/7?onglet=carri%C3%A8re",
+                executor.navigationRoute(navigation, Map.of("agentId", 7, "onglet", "carrière")));
+
+        ToolParameter page = new ToolParameter("page", "string", "Page.", true);
+        page.setLocation("path");
+        ToolDefinition anyPage = new ToolDefinition(
+                "open_page", "Opens a page.", "GET", "/{page}", List.of(page)
+        );
+        // Un argument ne peut pas ajouter de segment ni remonter l'arborescence.
+        assertEquals("/..%2Fadministration",
+                executor.navigationRoute(anyPage, Map.of("page", "../administration")));
+        assertThrows(IllegalArgumentException.class,
+                () -> executor.navigationRoute(navigation, Map.of("agentId", "abc")));
+    }
+
     private static ToolDestinationPolicy allowing(HttpServer server) {
         return new ToolDestinationPolicy(List.of(
                 "http://127.0.0.1:" + server.getAddress().getPort()

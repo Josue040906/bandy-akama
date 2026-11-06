@@ -91,5 +91,43 @@
     "sensitive": true,
     "actionLevel": "READ",
     "parameters": []
+  },
+  {
+    "name": "open_agent_record",
+    "description": "Propose à l’interface d’ouvrir la fiche d’un agent dans SYGPERS.",
+    "whenToUse": "Quand l’utilisateur veut ouvrir, voir ou afficher la fiche d’un agent dans l’application. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Dis que tu proposes d’ouvrir la fiche, sans affirmer qu’elle est ouverte.",
+    "method": "GET",
+    "url": "/agents/{agentId}",
+    "enabled": false,
+    "sensitive": false,
+    "actionLevel": "NAVIGATE",
+    "parameters": [
+      {
+        "name": "agentId",
+        "type": "integer",
+        "description": "Identifiant interne de l’agent (champ id d’un résultat de search_agents).",
+        "required": true,
+        "location": "path"
+      }
+    ]
+  },
+  {
+    "name": "open_page",
+    "description": "Propose à l’interface d’ouvrir une page principale de SYGPERS.",
+    "whenToUse": "Quand l’utilisateur veut aller sur une page de l’application : tableau de bord, son profil, l’organisation, la liste des agents, les carrières, les documents ou ses activités. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
+    "method": "GET",
+    "url": "/{page}",
+    "enabled": false,
+    "sensitive": false,
+    "actionLevel": "NAVIGATE",
+    "parameters": [
+      {
+        "name": "page",
+        "type": "string",
+        "description": "Une seule de ces valeurs : dashboard, profil, organisation, agents, carrieres, documents, activites.",
+        "required": true,
+        "location": "path"
+      }
+    ]
   }
 ]

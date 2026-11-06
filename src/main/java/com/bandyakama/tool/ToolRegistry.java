@@ -19,7 +19,9 @@ public class ToolRegistry {
 
     public ToolDefinition register(ToolDefinition tool) {
         tool.validate();
-        if (!destinationPolicy.allows(tool.getUrl())) {
+        // Une navigation n'envoie aucune requête : seule une API est contrôlée.
+        if (tool.getActionLevel() != ToolActionLevel.NAVIGATE
+                && !destinationPolicy.allows(tool.getUrl())) {
             throw new IllegalArgumentException(
                     "L’URL de l’outil ne pointe pas vers une origine autorisée "
                             + "(bandy.tools.allowed-origins)."

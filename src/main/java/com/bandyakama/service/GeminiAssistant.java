@@ -228,10 +228,11 @@ public class GeminiAssistant {
                 profile
         );
         // Le catalogue décide seul : tout outil activé est proposé à Gemini.
-        // Seules les consultations sont prises en charge pour l'instant ; la
-        // navigation et les tâches préparées ou confirmées viennent ensuite.
+        // Consultations et navigations sont prises en charge ; les tâches
+        // préparées ou confirmées viennent ensuite.
         List<ToolDefinition> registeredTools = configuration.enabledTools().stream()
-                .filter(tool -> tool.getActionLevel() == ToolActionLevel.READ)
+                .filter(tool -> tool.getActionLevel() == ToolActionLevel.READ
+                        || tool.getActionLevel() == ToolActionLevel.NAVIGATE)
                 .toList();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
@@ -313,6 +314,7 @@ public class GeminiAssistant {
         List<ChatResponse.ToolResult> executedResults = new ArrayList<>();
         List<ChatResponse.ToolResult> observedResults = new ArrayList<>();
         List<ChatResponse.ToolState> toolStates = new ArrayList<>();
+        List<ChatResponse.Action> actions = new ArrayList<>();
         ToolInvocationCache toolInvocationCache =
                 new ToolInvocationCache(objectMapper);
 
@@ -322,7 +324,7 @@ public class GeminiAssistant {
                     .flatMap(Optional::stream)
                     .toList();
             if (calls.isEmpty()) {
-                return chatResponse(response.text(), executedResults, toolStates);
+                return chatResponse(response.text(), executedResults, actions, toolStates);
             }
 
             metrics.toolRounds++;
@@ -348,9 +350,15 @@ public class GeminiAssistant {
                         result,
                         effectiveArguments
                 ));
+                // Une navigation part dans le canal d'actions : elle ne
+                // remplace pas l'état actif (une recherche reste réutilisable).
                 // Un refus est transmis à Gemini, mais ne devient ni l'état
                 // actif de la conversation ni un résultat affiché.
-                if (!execution.refused()) {
+                if (execution.action() != null) {
+                    if (!actions.contains(execution.action())) {
+                        actions.add(execution.action());
+                    }
+                } else if (!execution.refused()) {
                     toolStates.add(new ChatResponse.ToolState(name, effectiveArguments));
                     if (!execution.sensitive()) {
                         executedResults.add(new ChatResponse.ToolResult(
@@ -411,7 +419,7 @@ public class GeminiAssistant {
                 .findAny()
                 .isPresent();
         if (!hasMoreCalls) {
-            return chatResponse(response.text(), executedResults, toolStates);
+            return chatResponse(response.text(), executedResults, actions, toolStates);
         }
 
         GenerateContentConfig finalConfig =
@@ -458,16 +466,17 @@ public class GeminiAssistant {
             finalMessage = "Je n’ai pas pu établir une réponse fiable à partir "
                     + "des résultats obtenus. Pouvez-vous préciser votre demande ?";
         }
-        return chatResponse(finalMessage, executedResults, toolStates);
+        return chatResponse(finalMessage, executedResults, actions, toolStates);
     }
 
     private static ChatResponse chatResponse(
             String message,
             List<ChatResponse.ToolResult> toolResults,
+            List<ChatResponse.Action> actions,
             List<ChatResponse.ToolState> toolStates
     ) {
         return new ChatResponse(
-                message, List.copyOf(toolResults), null, List.copyOf(toolStates)
+                message, List.copyOf(toolResults), null, actions, List.copyOf(toolStates)
         );
     }
 
@@ -801,6 +810,9 @@ public class GeminiAssistant {
                     "message", "Cet outil n’existe pas dans le catalogue : " + name
             ));
         }
+        if (definition.getActionLevel() == ToolActionLevel.NAVIGATE) {
+            return navigation(definition, arguments);
+        }
         // Seul le catalogue décide qu'un résultat est sensible.
         boolean sensitive = definition.isSensitive();
 
@@ -808,7 +820,7 @@ public class GeminiAssistant {
             metrics.toolCacheHits++;
             performanceTelemetry.toolCacheHit(requestId, name);
             return new ToolExecutionResult(
-                    invocationCache.get(name, arguments), sensitive, false
+                    invocationCache.get(name, arguments), sensitive, false, null
             );
         }
 
@@ -820,7 +832,7 @@ public class GeminiAssistant {
                     requestId == null ? null : requestId.toString()
             );
             invocationCache.put(name, arguments, result);
-            return new ToolExecutionResult(result, sensitive, false);
+            return new ToolExecutionResult(result, sensitive, false, null);
         } catch (IllegalArgumentException exception) {
             // Arguments incomplets ou mal typés : Gemini peut les corriger
             // ou demander une précision.
@@ -901,7 +913,34 @@ public class GeminiAssistant {
     }
 
     private static ToolExecutionResult refusal(Map<String, Object> refusal) {
-        return new ToolExecutionResult(refusal, false, true);
+        return new ToolExecutionResult(refusal, false, true, null);
+    }
+
+    /**
+     * Navigation : aucune requête, seulement une route proposée à l'interface.
+     * Gemini apprend que la page est proposée, pas qu'elle est ouverte.
+     */
+    private ToolExecutionResult navigation(
+            ToolDefinition definition,
+            Map<String, Object> arguments
+    ) {
+        String route;
+        try {
+            route = toolExecutor.navigationRoute(definition, arguments);
+        } catch (IllegalArgumentException exception) {
+            return refusal(Map.of("ok", false, "message", exception.getMessage()));
+        }
+        return new ToolExecutionResult(
+                Map.of(
+                        "ok", true,
+                        "route", route,
+                        "message", "L’interface propose à l’utilisateur d’ouvrir "
+                                + "cette page ; elle n’est pas encore ouverte."
+                ),
+                false,
+                false,
+                new ChatResponse.Action("NAVIGATE", definition.getName(), route)
+        );
     }
 
     /**
@@ -970,7 +1009,12 @@ public class GeminiAssistant {
         };
     }
 
-    private record ToolExecutionResult(Object result, boolean sensitive, boolean refused) {
+    private record ToolExecutionResult(
+            Object result,
+            boolean sensitive,
+            boolean refused,
+            ChatResponse.Action action
+    ) {
     }
 
     private static final class TurnMetrics {

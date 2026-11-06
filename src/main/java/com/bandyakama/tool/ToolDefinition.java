@@ -108,7 +108,18 @@ public class ToolDefinition {
                 != parameters.size()) {
             throw new IllegalArgumentException("Les noms des paramètres doivent être uniques.");
         }
-        try {
+        if (actionLevel == ToolActionLevel.NAVIGATE) {
+            // Une navigation vise une route de l'interface, jamais une API.
+            if (!method.equalsIgnoreCase("GET")) {
+                throw new IllegalArgumentException("Une navigation utilise la méthode GET.");
+            }
+            if (!url.matches("/(?!/)[A-Za-z0-9._~{}/-]*") || url.contains("..")) {
+                throw new IllegalArgumentException(
+                        "Une navigation doit viser une route de l’interface "
+                                + "commençant par /, par exemple /agents/{agentId}."
+                );
+            }
+        } else try {
             String checkedUrl = url.replaceAll(
                     "\\{[A-Za-z][A-Za-z0-9_]{0,63}}",
                     "path-value"
