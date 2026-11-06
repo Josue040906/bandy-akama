@@ -82,5 +82,13 @@
       { "message": "montre les agents de la direction du budget, 2 par page", "outil": "search_agents", "attendus": ["limit=2", "*~budget"] },
       { "message": "page suivante", "outil": "search_agents", "attendus": ["offset=2", "*~budget"] }
     ]
+  },
+  {
+    "id": "S17", "titre": "L'utilisateur parle de lui-même, en langage familier",
+    "tours": [{ "message": "c koi mon échelon actuel ?", "outil": "get_my_profile" }]
+  },
+  {
+    "id": "S18", "titre": "Activités de l'utilisateur connecté",
+    "tours": [{ "message": "qu'est-ce que j'ai fait dernièrement sur l'appli ?", "outil": "get_my_activities" }]
   }
 ]

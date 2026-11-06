@@ -2,7 +2,7 @@
   {
     "name": "search_agents",
     "description": "Recherche, filtre et compte les agents RH : identité approximative (nom, prénom, ordre inversé, fautes, phonétique) et critères combinés en ET/OU/NON, avec un score de correspondance par candidat.",
-    "whenToUse": "Pour toute demande qui recherche, liste, filtre, identifie ou compte des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent.\nCritères : il faut au moins un critère positif (must non vide, ou should avec minimum_should_match=1). Sans critère positif ni recherche active, n’appelle pas l’outil : demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité complète : un seul critère field=personne, operator=FUZZY_PERSON. Nom ou prénom seul : champ nom ou prenom avec FUZZY. Ne retiens jamais un candidat sur le seul signal phonétique : si plusieurs identités restent plausibles, présente-les avec leurs scores et demande une précision.\nStructures : pour un service, une direction ou un poste, utilise CONTAINS avec un mot significatif du libellé (« budget », « informatique », « compta »). Un libellé écrit en toutes lettres (« direction du budget ») s’utilise directement, sans appel préalable. Seulement pour un sigle en majuscules (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info puis filtre sur ce libellé ; ne filtre jamais sur le sigle seul.\nDates : bornes ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires explicites ; demande l’année si elle est incertaine. « Jeune », « vieux » ou un âge approximatif sans seuil : demande une précision.\nSuivis : renvoie toujours l’AST COMPLET mis à jour, en conservant les critères non modifiés ; pour retirer une condition, renvoie l’AST sans elle. Pour un total, resultMode=COUNT avec l’AST actif inchangé ; ne compte jamais les agents affichés. Pour une autre page ou un autre nombre d’agents, réutilise l’AST actif et ne modifie que limit et offset.\nUn appel suffit par demande ; n’enchaîne pas get_agent_profile sans demande explicite.",
+    "whenToUse": "Pour toute demande qui recherche, liste, filtre, identifie ou compte des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent, ni pour l’utilisateur lui-même (get_my_profile).\nCritères : il faut au moins un critère positif (must non vide, ou should avec minimum_should_match=1). Sans critère positif ni recherche active, n’appelle pas l’outil : demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité complète : un seul critère field=personne, operator=FUZZY_PERSON. Nom ou prénom seul : champ nom ou prenom avec FUZZY. Ne retiens jamais un candidat sur le seul signal phonétique : si plusieurs identités restent plausibles, présente-les avec leurs scores et demande une précision.\nStructures : pour un service, une direction ou un poste, utilise CONTAINS avec un mot significatif du libellé (« budget », « informatique », « compta »). Un libellé écrit en toutes lettres (« direction du budget ») s’utilise directement, sans appel préalable. Seulement pour un sigle en majuscules (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info puis filtre sur ce libellé ; ne filtre jamais sur le sigle seul.\nDates : bornes ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires explicites ; demande l’année si elle est incertaine. « Jeune », « vieux » ou un âge approximatif sans seuil : demande une précision.\nSuivis : renvoie toujours l’AST COMPLET mis à jour, en conservant les critères non modifiés ; pour retirer une condition, renvoie l’AST sans elle. Pour un total, resultMode=COUNT avec l’AST actif inchangé ; ne compte jamais les agents affichés. Pour une autre page ou un autre nombre d’agents, réutilise l’AST actif et ne modifie que limit et offset.\nUn appel suffit par demande ; n’enchaîne pas get_agent_profile sans demande explicite.",
     "method": "POST",
     "url": "{RH_API_URL}/api/recherche/agents/avancee",
     "enabled": true,
@@ -27,7 +27,7 @@
   {
     "name": "get_agent_profile",
     "description": "Récupère le profil détaillé d’un agent à partir de son nom ou de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle, affectation, parcours de carrière, diplômes et analyse d’évolution de carrière calculée par le backend.",
-    "whenToUse": "Uniquement pour un agent déjà identifié, quand l’utilisateur demande explicitement son profil ou un détail : coordonnées, sexe, adresse, dates, affectation, carrière, diplômes ou évolution. Pour rechercher ou identifier une personne, utilise search_agents. Transmets dans query le matricule s’il est connu, sinon le nom complet. Si la réponse figure déjà dans la conversation, réutilise-la ; sinon rappelle l’outil, car les profils ne sont pas conservés d’un message à l’autre. Si plusieurs agents correspondent, demande un élément distinctif. N’invente aucune information absente du résultat.",
+    "whenToUse": "Uniquement pour un agent déjà identifié, quand l’utilisateur demande explicitement son profil ou un détail : coordonnées, sexe, adresse, dates, affectation, carrière, diplômes ou évolution. Pour rechercher ou identifier une personne, utilise search_agents ; pour l’utilisateur lui-même, get_my_profile. Transmets dans query le matricule s’il est connu, sinon le nom complet. Si la réponse figure déjà dans la conversation, réutilise-la ; sinon rappelle l’outil, car les profils ne sont pas conservés d’un message à l’autre. Si plusieurs agents correspondent, demande un élément distinctif. N’invente aucune information absente du résultat.",
     "method": "GET",
     "url": "{RH_API_URL}/api/profil/agent",
     "enabled": true,
@@ -66,5 +66,25 @@
         "location": "query"
       }
     ]
+  },
+  {
+    "name": "get_my_profile",
+    "description": "Récupère le profil de l’utilisateur connecté : matricule, nom, prénom, email, date d’embauche, type d’emploi, catégorie, corps, poste, service, direction et parcours de carrière (catégorie, classe et échelon par période).",
+    "whenToUse": "Quand l’utilisateur parle de lui-même : « mon profil », « mon poste », « mon échelon », « ma carrière », « depuis quand je suis ici », « qui suis-je ». Son identité vient de sa connexion : n’envoie aucun paramètre, et n’utilise ni search_agents ni get_agent_profile pour lui. Si la réponse figure déjà dans la conversation, réutilise-la ; sinon rappelle l’outil, car les profils ne sont pas conservés d’un message à l’autre.",
+    "method": "GET",
+    "url": "{RH_API_URL}/api/profil/agent/mon-profil",
+    "enabled": true,
+    "sensitive": true,
+    "parameters": []
+  },
+  {
+    "name": "get_my_activities",
+    "description": "Liste les actions effectuées par l’utilisateur connecté dans SYGPERS (connexion, déconnexion, création, modification, suppression, validation, refus, génération de document, téléversement), de la plus récente à la plus ancienne, avec la date, la description et l’agent concerné le cas échéant.",
+    "whenToUse": "Quand l’utilisateur demande ce qu’il a fait dans l’application : ses dernières actions, son historique, ses modifications ou ce qu’il a fait à une date donnée. Son identité vient de sa connexion : n’envoie aucun paramètre. Pour une période ou un type d’action, filtre toi-même la liste reçue et dis-le. Si la liste est vide, dis qu’aucune activité n’est enregistrée. Sauf demande contraire, présente au plus les dix plus récentes.",
+    "method": "GET",
+    "url": "{RH_API_URL}/api/activites",
+    "enabled": true,
+    "sensitive": true,
+    "parameters": []
   }
 ]

@@ -25,5 +25,19 @@
       { "id": 2, "code": "DSI", "nom": "Direction des Systèmes d'Information", "responsable": "RANDRIA Hery", "services": ["Service Informatique"] },
       { "id": 3, "code": "DGI", "nom": "Direction Générale des Impôts", "responsable": "RAZAFY Lova", "services": ["Service Contentieux"] }
     ]
-  }
+  },
+  "get_my_profile": {
+    "matricule": "FIC-0105", "nom": "ANDRIA", "prenom": "Tiana", "email": "tiana.andria@exemple.test",
+    "dateEmbauche": "2016-01-04", "typeEmploi": "Fonctionnaire", "categorie": "B", "corps": "Comptables publics",
+    "poste": "Comptable", "service": "Service Comptabilité", "direction": "Direction Générale du Budget",
+    "parcoursCarriere": [
+      { "dateDebut": "2016-01-04", "dateFin": "2019-12-31", "categorie": "B", "classe": "2e classe", "echelon": 1 },
+      { "dateDebut": "2020-01-01", "dateFin": null, "categorie": "B", "classe": "1re classe", "echelon": 2 }
+    ]
+  },
+  "get_my_activities": [
+    { "id": 3, "acteurId": 5, "employeId": 101, "typeAction": "MODIFICATION", "description": "Mise à jour de l'affectation de RAKOTO Jean", "dateHeure": "2026-11-05T15:42:00", "acteurEmail": "tiana.andria@exemple.test", "employeMatricule": "FIC-0101", "employeNom": "RAKOTO", "employePrenom": "Jean" },
+    { "id": 2, "acteurId": 5, "employeId": null, "typeAction": "GENERATION", "description": "Génération d'une attestation de travail", "dateHeure": "2026-11-04T10:15:00", "acteurEmail": "tiana.andria@exemple.test", "employeMatricule": null, "employeNom": null, "employePrenom": null },
+    { "id": 1, "acteurId": 5, "employeId": null, "typeAction": "CONNEXION", "description": "Connexion à SYGPERS", "dateHeure": "2026-11-04T08:02:00", "acteurEmail": "tiana.andria@exemple.test", "employeMatricule": null, "employeNom": null, "employePrenom": null }
+  ]
 }
