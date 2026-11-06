@@ -68,6 +68,11 @@ class ConversationServiceBudgetTest {
                 repository,
                 assistant,
                 new PerformanceTelemetry(),
+                // Sans tâche à confirmer, la réponse est renvoyée telle quelle.
+                org.mockito.Mockito.mock(
+                        ConfirmationService.class,
+                        invocation -> invocation.getArgument(2)
+                ),
                 100
         );
 

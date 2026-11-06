@@ -36,6 +36,10 @@ public record ChatResponse(
         return new ChatResponse(message, toolResults, id, actions, toolStates);
     }
 
+    public ChatResponse withActions(List<Action> replacedActions) {
+        return new ChatResponse(message, toolResults, conversationId, replacedActions, toolStates);
+    }
+
     public record ToolState(String name, Map<String, Object> arguments) {
     }
 
@@ -46,22 +50,32 @@ public record ChatResponse(
     }
 
     /**
-     * Action proposée à l'interface : route est une route du front déjà
-     * construite ; le front et l'API restent juges des droits. Pour une tâche
-     * préparée, fields contient seulement les champs que Bandy propose de
-     * remplir : l'interface peut les signaler, et rien n'est enregistré avant
-     * la validation de l'utilisateur.
+     * Action proposée à l'interface ; le front et l'API restent juges des
+     * droits. route est une route du front (navigation, tâche préparée).
+     * fields contient seulement les valeurs proposées par Bandy : champs à
+     * préremplir, ou arguments d'une tâche à confirmer. confirmationId
+     * identifie une tâche confirmée, exécutée seulement après le clic
+     * « Confirmer » de l'utilisateur.
      */
     public record Action(
             String type,
             String tool,
-            String route,
-            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> fields
+            @JsonInclude(JsonInclude.Include.NON_NULL) String route,
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> fields,
+            @JsonInclude(JsonInclude.Include.NON_NULL) UUID confirmationId
     ) {
         public Action {
             fields = fields == null
                     ? Map.of()
                     : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(fields));
+        }
+
+        public Action(String type, String tool, String route, Map<String, Object> fields) {
+            this(type, tool, route, fields, null);
+        }
+
+        public Action withConfirmationId(UUID id) {
+            return new Action(type, tool, route, fields, id);
         }
     }
 }

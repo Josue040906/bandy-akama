@@ -577,6 +577,46 @@ public class ConversationRepository {
         ));
     }
 
+    /**
+     * Inscrit l'issue d'une tâche confirmée parmi les références de résultats
+     * transmises à Gemini, pour qu'il sache au tour suivant ce qui a été fait.
+     * result est null pour un outil sensible : seule l'issue est conservée.
+     */
+    @Transactional
+    public void recordConfirmationOutcome(
+            UUID conversationId,
+            String toolName,
+            Map<String, Object> arguments,
+            String status,
+            Object result
+    ) {
+        ArrayNode references = readArray(jdbcTemplate.queryForObject(
+                "SELECT result_references::text FROM bandy_conversation_memory "
+                        + "WHERE conversation_id = ?",
+                String.class,
+                conversationId
+        ));
+        ObjectNode reference = objectMapper.createObjectNode();
+        reference.put("toolName", toolName);
+        reference.set("arguments", objectMapper.valueToTree(arguments));
+        reference.put("confirmation", status);
+        if (result != null) {
+            reference.set("result", objectMapper.valueToTree(result));
+        }
+        references.add(reference);
+        while (references.size() > 5) {
+            references.remove(0);
+        }
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory
+                SET result_references = CAST(? AS JSONB), updated_at = CURRENT_TIMESTAMP
+                WHERE conversation_id = ?
+                """,
+                toJson(references),
+                conversationId
+        );
+    }
+
     @Transactional
     public void failRequest(UUID conversationId, UUID idempotencyKey, UUID claimId) {
         jdbcTemplate.update("""

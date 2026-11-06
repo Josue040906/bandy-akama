@@ -228,11 +228,7 @@ public class GeminiAssistant {
                 profile
         );
         // Le catalogue décide seul : tout outil activé est proposé à Gemini.
-        // Consultations, navigations et tâches préparées sont prises en
-        // charge ; les tâches confirmées viennent ensuite.
-        List<ToolDefinition> registeredTools = configuration.enabledTools().stream()
-                .filter(tool -> tool.getActionLevel() != ToolActionLevel.CONFIRM)
-                .toList();
+        List<ToolDefinition> registeredTools = configuration.enabledTools();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
                 tool.getName(),
@@ -812,6 +808,9 @@ public class GeminiAssistant {
         if (definition.targetsInterface()) {
             return interfaceAction(definition, arguments);
         }
+        if (definition.getActionLevel() == ToolActionLevel.CONFIRM) {
+            return confirmationRequest(definition, arguments);
+        }
         // Seul le catalogue décide qu'un résultat est sensible.
         boolean sensitive = definition.isSensitive();
 
@@ -916,6 +915,33 @@ public class GeminiAssistant {
     }
 
     /**
+     * Tâche confirmée : rien n'est exécuté pendant le tour. La demande attend
+     * le clic « Confirmer » de l'utilisateur ; le service de conversation
+     * l'enregistre et lui attribue son identifiant de confirmation.
+     */
+    private ToolExecutionResult confirmationRequest(
+            ToolDefinition definition,
+            Map<String, Object> arguments
+    ) {
+        ChatResponse.Action action;
+        try {
+            action = toolExecutor.confirmationRequest(definition, arguments);
+        } catch (IllegalArgumentException exception) {
+            return refusal(Map.of("ok", false, "message", exception.getMessage()));
+        }
+        return new ToolExecutionResult(
+                Map.of(
+                        "ok", true,
+                        "message", "La demande est prête et attend que l’utilisateur "
+                                + "clique sur « Confirmer » ; elle n’est pas exécutée."
+                ),
+                false,
+                false,
+                action
+        );
+    }
+
+    /**
      * Navigation ou tâche préparée : aucune requête, seulement une action
      * proposée à l'interface. Gemini apprend ce qui est proposé, jamais que
      * c'est fait : la page n'est pas ouverte, le formulaire pas enregistré.
@@ -947,7 +973,7 @@ public class GeminiAssistant {
      * Traduit un refus de l'API (4xx) en donnée pour Gemini : le statut et
      * le corps renvoyé par l'API, sans interprétation propre à une application.
      */
-    static Map<String, Object> apiRefusal(int status, String body, ObjectMapper objectMapper) {
+    public static Map<String, Object> apiRefusal(int status, String body, ObjectMapper objectMapper) {
         Object message;
         try {
             message = body == null || body.isBlank()

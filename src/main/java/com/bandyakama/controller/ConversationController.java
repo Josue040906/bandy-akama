@@ -1,6 +1,7 @@
 package com.bandyakama.controller;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.conversation.ConfirmationService;
 import com.bandyakama.conversation.Conversation;
 import com.bandyakama.conversation.ConversationLabelRequest;
 import com.bandyakama.conversation.ConversationMessagePage;
@@ -39,15 +40,18 @@ public class ConversationController {
     private static final int MAX_PAGE_SIZE = 100;
 
     private final ConversationService conversationService;
+    private final ConfirmationService confirmationService;
     private final UserTokenValidator userTokenValidator;
     private final ObjectMapper objectMapper;
 
     public ConversationController(
             ConversationService conversationService,
+            ConfirmationService confirmationService,
             UserTokenValidator userTokenValidator,
             ObjectMapper objectMapper
     ) {
         this.conversationService = conversationService;
+        this.confirmationService = confirmationService;
         this.userTokenValidator = userTokenValidator;
         this.objectMapper = objectMapper;
     }
@@ -142,6 +146,38 @@ public class ConversationController {
     ) {
         conversationService.delete(
                 conversationId,
+                userTokenValidator.validate(authorization)
+        );
+        return ResponseEntity.noContent().build();
+    }
+
+    /** Clic « Confirmer » : exécute la tâche une seule fois, avec le jeton de l'utilisateur. */
+    @PostMapping("/{conversationId}/confirmations/{confirmationId}")
+    public ConfirmationService.Outcome confirm(
+            @RequestHeader(name = "Authorization", required = false)
+            String authorization,
+            @PathVariable UUID conversationId,
+            @PathVariable UUID confirmationId
+    ) {
+        return confirmationService.confirm(
+                conversationId,
+                confirmationId,
+                userTokenValidator.validate(authorization),
+                authorization
+        );
+    }
+
+    /** Clic « Annuler » : la demande ne pourra plus être exécutée. */
+    @DeleteMapping("/{conversationId}/confirmations/{confirmationId}")
+    public ResponseEntity<Void> cancelConfirmation(
+            @RequestHeader(name = "Authorization", required = false)
+            String authorization,
+            @PathVariable UUID conversationId,
+            @PathVariable UUID confirmationId
+    ) {
+        confirmationService.cancel(
+                conversationId,
+                confirmationId,
                 userTokenValidator.validate(authorization)
         );
         return ResponseEntity.noContent().build();

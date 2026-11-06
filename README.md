@@ -243,6 +243,32 @@ Path arguments are strictly encoded, so an argument cannot add a segment or
 leave the catalogue route. The same `actions` are returned by the streaming
 `done` event and by idempotent replays.
 
+`CONFIRM` tools target an API route (allowed origins apply) but nothing runs
+during the turn. Bandy stores a pending request (15 minutes,
+`bandy.confirmations.ttl-minutes`) and returns:
+
+```json
+{ "type": "CONFIRM", "tool": "submit_leave_request",
+  "confirmationId": "7f1c…", "fields": { "motif": "Congé annuel" } }
+```
+
+- `POST /api/conversations/{id}/confirmations/{confirmationId}` with the user's
+  bearer token is the « Confirmer » click. The request runs once (an atomic
+  `PENDING → EXECUTING` transition); Bandy forwards the user's token and sends
+  `Idempotency-Key: {confirmationId}`. The response is
+  `{ "confirmationId", "status": "CONFIRMED" | "FAILED", "result" }`; a second
+  click returns the same outcome without running again. A 4xx from the API gives
+  `FAILED` with the API's message; an outage returns 502 and the request stays
+  confirmable (a retry carries the same idempotency key).
+- `DELETE` on the same URL cancels it. Another user gets 404; a cancelled,
+  expired or already running request gets 409.
+- The outcome is added to the conversation memory, so Gemini knows on the next
+  turn what was done.
+
+Contract for the RH API (its sub-project): write routes used by `CONFIRM` tools
+must treat `Idempotency-Key` as a deduplication key, check rights from the
+forwarded token, and answer refusals with a 4xx and a readable `message`.
+
 ## Persistent conversations
 
 Conversation history and memory live in Bandy's PostgreSQL database, not in

@@ -352,6 +352,20 @@ class ToolExecutorTest {
         assertEquals(Map.of("telephone", "034 12 345 67"), action.fields());
     }
 
+    @Test
+    void preparesAConfirmationWithoutExecutingAndChecksItsArgumentsNow() {
+        ToolDefinition confirmed = tool("https://example.test/api/conges");
+        confirmed.setActionLevel(com.bandyakama.tool.ToolActionLevel.CONFIRM);
+
+        var action = executor.confirmationRequest(confirmed, Map.of("query", "congé"));
+
+        assertEquals("CONFIRM", action.type());
+        assertEquals(Map.of("query", "congé"), action.fields());
+        assertEquals(null, action.confirmationId());
+        assertThrows(IllegalArgumentException.class,
+                () -> executor.confirmationRequest(confirmed, Map.of()));
+    }
+
     private static ToolDestinationPolicy allowing(HttpServer server) {
         return new ToolDestinationPolicy(List.of(
                 "http://127.0.0.1:" + server.getAddress().getPort()

@@ -210,6 +210,18 @@ public class ToolExecutor {
         );
     }
 
+    /**
+     * Prépare une tâche confirmée sans l'exécuter : les arguments sont
+     * vérifiés maintenant, l'appel n'aura lieu qu'après la confirmation.
+     */
+    public ChatResponse.Action confirmationRequest(
+            ToolDefinition tool,
+            Map<String, Object> arguments
+    ) {
+        validateArguments(tool, arguments);
+        return new ChatResponse.Action("CONFIRM", tool.getName(), null, arguments);
+    }
+
     private RestClient requestClientWithinBudget() {
         Optional<RequestBudget> activeBudget = RequestBudget.current();
         if (activeBudget.isEmpty()) {

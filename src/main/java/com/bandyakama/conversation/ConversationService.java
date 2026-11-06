@@ -20,18 +20,21 @@ public class ConversationService {
     private final ConversationRepository repository;
     private final GeminiAssistant assistant;
     private final PerformanceTelemetry performanceTelemetry;
+    private final ConfirmationService confirmationService;
     private final int turnBudgetMillis;
 
     public ConversationService(
             ConversationRepository repository,
             GeminiAssistant assistant,
             PerformanceTelemetry performanceTelemetry,
+            ConfirmationService confirmationService,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
     ) {
         this.repository = repository;
         this.assistant = assistant;
         this.performanceTelemetry = performanceTelemetry;
+        this.confirmationService = confirmationService;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
                     "Le budget de requête doit être positif."
@@ -242,7 +245,13 @@ public class ConversationService {
                                     tokenConsumer
                             )
             );
-            ChatResponse completedResponse = response.withConversationId(conversationId);
+            // Les tâches à confirmer reçoivent leur identifiant avant la
+            // persistance : un rejeu idempotent renvoie les mêmes.
+            ChatResponse completedResponse = confirmationService.registerPending(
+                    conversationId,
+                    requestId,
+                    response.withConversationId(conversationId)
+            );
             measured(
                     requestId,
                     "response_persistence",
