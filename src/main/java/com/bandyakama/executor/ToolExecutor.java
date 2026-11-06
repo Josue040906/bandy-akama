@@ -1,6 +1,7 @@
 package com.bandyakama.executor;
 
 import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolDestinationPolicy;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import org.springframework.stereotype.Service;
@@ -27,14 +28,17 @@ public class ToolExecutor {
     private final HttpClient httpClient;
     private final PerformanceTelemetry performanceTelemetry;
     private final int readTimeoutMillis;
+    private final ToolDestinationPolicy destinationPolicy;
 
     @Autowired
     public ToolExecutor(
             RestClient.Builder restClientBuilder,
             @Value("${bandy.tools.connect-timeout-seconds:5}") int connectTimeoutSeconds,
             @Value("${bandy.tools.read-timeout-seconds:15}") int readTimeoutSeconds,
-            PerformanceTelemetry performanceTelemetry
+            PerformanceTelemetry performanceTelemetry,
+            ToolDestinationPolicy destinationPolicy
     ) {
+        this.destinationPolicy = destinationPolicy;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
                 .build();
@@ -51,8 +55,11 @@ public class ToolExecutor {
         );
     }
 
-    public ToolExecutor(RestClient.Builder restClientBuilder) {
-        this(restClientBuilder, 5, 30, new PerformanceTelemetry());
+    public ToolExecutor(
+            RestClient.Builder restClientBuilder,
+            ToolDestinationPolicy destinationPolicy
+    ) {
+        this(restClientBuilder, 5, 30, new PerformanceTelemetry(), destinationPolicy);
     }
 
     public Object execute(
@@ -117,11 +124,20 @@ public class ToolExecutor {
             }
             queryArguments.forEach(uriBuilder::queryParam);
 
+            java.net.URI target = uriBuilder.buildAndExpand(pathArguments).encode().toUri();
+            // Barrière avant tout envoi : le jeton de l'utilisateur ne part
+            // jamais vers une origine absente de bandy.tools.allowed-origins.
+            if (!destinationPolicy.allows(target.toString())) {
+                throw new IllegalStateException(
+                        "Destination d’outil non autorisée pour " + tool.getName()
+                                + " : vérifiez bandy.tools.allowed-origins."
+                );
+            }
             var request = requestClient.method(
                     HttpMethod.valueOf(
                             tool.getMethod().toUpperCase()
                     )
-            ).uri(uriBuilder.buildAndExpand(pathArguments).encode().toUri());
+            ).uri(target);
 
             if (authorization != null && !authorization.isBlank()) {
                 request.header("Authorization", authorization);

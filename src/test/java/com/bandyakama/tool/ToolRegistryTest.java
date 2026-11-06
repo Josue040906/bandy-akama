@@ -146,6 +146,27 @@ class ToolRegistryTest {
     }
 
     @Test
+    void refusesToRegisterAToolOutsideTheAllowedOrigins() throws Exception {
+        mockMvc.perform(post("/api/tools")
+                        .header("X-Bandy-Registration-Key", registrationKey)
+                        .contentType("application/json")
+                        .content("""
+                                {
+                                  "name": "foreignTool",
+                                  "description": "A tool pointing elsewhere.",
+                                  "whenToUse": "Never.",
+                                  "method": "GET",
+                                  "url": "https://other.test/api",
+                                  "parameters": []
+                                }
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertTrue(registry.getAll().stream()
+                .noneMatch(tool -> tool.getName().equals("foreignTool")));
+    }
+
+    @Test
     void chatRequiresAnAuthenticatedRhUserToken() throws Exception {
         mockMvc.perform(post("/api/chat")
                         .header("Authorization", "Bearer invalid")

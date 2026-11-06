@@ -46,7 +46,7 @@ public class ToolController {
             @Valid @RequestBody ToolDefinition tool
     ) {
         registrationGuard.requireAuthorized(suppliedKey);
-        return toolRegistry.register(tool);
+        return register(tool);
     }
 
     @PutMapping("/{toolName}")
@@ -63,7 +63,21 @@ public class ToolController {
                     "Le nom dans l’URL doit correspondre au nom de l’outil."
             );
         }
-        return toolRegistry.register(tool);
+        return register(tool);
+    }
+
+    // Une définition invalide (schéma, URL, origine non autorisée) est une
+    // erreur de la demande : 400 avec le motif, et non une erreur serveur.
+    private ToolDefinition register(ToolDefinition tool) {
+        try {
+            return toolRegistry.register(tool);
+        } catch (IllegalArgumentException invalidDefinition) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    invalidDefinition.getMessage(),
+                    invalidDefinition
+            );
+        }
     }
 
     @DeleteMapping("/{toolName}")

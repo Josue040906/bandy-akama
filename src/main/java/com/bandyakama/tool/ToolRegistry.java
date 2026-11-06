@@ -7,13 +7,24 @@ import java.util.Optional;
 
 public class ToolRegistry {
     private final ToolRepository toolRepository;
+    private final ToolDestinationPolicy destinationPolicy;
 
-    public ToolRegistry(ToolRepository toolRepository) {
+    public ToolRegistry(
+            ToolRepository toolRepository,
+            ToolDestinationPolicy destinationPolicy
+    ) {
         this.toolRepository = toolRepository;
+        this.destinationPolicy = destinationPolicy;
     }
 
     public ToolDefinition register(ToolDefinition tool) {
         tool.validate();
+        if (!destinationPolicy.allows(tool.getUrl())) {
+            throw new IllegalArgumentException(
+                    "L’URL de l’outil ne pointe pas vers une origine autorisée "
+                            + "(bandy.tools.allowed-origins)."
+            );
+        }
         return toolRepository.save(tool);
     }
 

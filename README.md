@@ -213,7 +213,7 @@ This is targeted retrieval of structured RH data, not vector-database or
 document-search RAG. Run `.\scripts\configure-assistant.ps1` after deploying
 both APIs to apply the profile and the tool definitions.
 
-Only register trusted URLs: tool definitions can make Bandy issue HTTP requests to their configured endpoints.
+Tool definitions make Bandy issue HTTP requests carrying the user's bearer token, so their destinations are restricted by `BANDY_TOOL_ALLOWED_ORIGINS` (property `bandy.tools.allowed-origins`, comma-separated `scheme://host[:port]` origins, default `http://localhost:8080`). Registering a tool outside these origins returns 400, and the executor checks the final URL again before sending anything, so the token never reaches another origin. An empty list allows no destination.
 
 ## Persistent conversations
 

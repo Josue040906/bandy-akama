@@ -1,5 +1,6 @@
 package com.bandyakama.config;
 
+import com.bandyakama.tool.ToolDestinationPolicy;
 import com.bandyakama.tool.ToolRegistry;
 import com.bandyakama.tool.ToolRepository;
 import org.springframework.context.annotation.Bean;
@@ -9,7 +10,10 @@ import org.springframework.context.annotation.Configuration;
 public class ToolConfiguration {
 
     @Bean
-    public ToolRegistry toolRegistry(ToolRepository toolRepository) {
-                return new ToolRegistry(toolRepository);
+    public ToolRegistry toolRegistry(
+            ToolRepository toolRepository,
+            ToolDestinationPolicy destinationPolicy
+    ) {
+        return new ToolRegistry(toolRepository, destinationPolicy);
     }
 }

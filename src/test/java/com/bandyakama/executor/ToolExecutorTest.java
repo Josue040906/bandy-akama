@@ -3,6 +3,7 @@ package com.bandyakama.executor;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.tool.ToolDefinition;
+import com.bandyakama.tool.ToolDestinationPolicy;
 import com.bandyakama.tool.ToolParameter;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.Test;
@@ -24,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ToolExecutorTest {
     private final ToolExecutor executor =
-            new ToolExecutor(RestClient.builder());
+            new ToolExecutor(RestClient.builder(), new ToolDestinationPolicy(List.of("https://example.test")));
 
     @Test
     void rejectsMissingRequiredArgumentsBeforeMakingTheRequest() {
@@ -90,7 +91,7 @@ class ToolExecutorTest {
         try {
             String requestId = "60dfc6d3-04f9-4cc4-9d77-4279e0b4f06e";
             String authorization = "Bearer " + "fixture";
-            executor.execute(
+            executorFor(server).execute(
                     tool("http://127.0.0.1:"
                             + server.getAddress().getPort()
                             + "/api/agents"),
@@ -156,7 +157,7 @@ class ToolExecutorTest {
             );
             postTool.setWhenToUse("Use when searching agents.");
 
-            Object result = executor.execute(
+            Object result = executorFor(server).execute(
                     postTool,
                     Map.of(
                             "criteriaJson",
@@ -196,7 +197,7 @@ class ToolExecutorTest {
             Thread.sleep(5);
             assertThrows(
                     org.springframework.web.server.ResponseStatusException.class,
-                    () -> executor.execute(
+                    () -> executorFor(server).execute(
                             tool("http://127.0.0.1:"
                                     + server.getAddress().getPort()
                                     + "/api/agents"),
@@ -239,7 +240,8 @@ class ToolExecutorTest {
                     RestClient.builder(),
                     5,
                     10,
-                    new PerformanceTelemetry()
+                    new PerformanceTelemetry(),
+                    allowing(server)
             );
             long startedAt = System.nanoTime();
             try (RequestBudget.Scope ignored = RequestBudget.open(700)) {
@@ -261,6 +263,50 @@ class ToolExecutorTest {
         } finally {
             server.stop(0);
         }
+    }
+
+    @Test
+    void neverSendsTheUserTokenToAnOriginOutsideTheAllowList() throws IOException {
+        AtomicBoolean receivedRequest = new AtomicBoolean();
+        HttpServer server = HttpServer.create(
+                new InetSocketAddress("127.0.0.1", 0),
+                0
+        );
+        server.createContext("/api/agents", exchange -> {
+            receivedRequest.set(true);
+            exchange.sendResponseHeaders(200, -1);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            // L'exécuteur n'autorise que https://example.test : ce serveur
+            // local, pourtant joignable, ne doit recevoir aucune requête.
+            assertThrows(
+                    IllegalStateException.class,
+                    () -> executor.execute(
+                            tool("http://127.0.0.1:"
+                                    + server.getAddress().getPort()
+                                    + "/api/agents"),
+                            Map.of("query", "agent"),
+                            "Bearer " + "fixture",
+                            null
+                    )
+            );
+            assertFalse(receivedRequest.get());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    private static ToolDestinationPolicy allowing(HttpServer server) {
+        return new ToolDestinationPolicy(List.of(
+                "http://127.0.0.1:" + server.getAddress().getPort()
+        ));
+    }
+
+    private static ToolExecutor executorFor(HttpServer server) {
+        return new ToolExecutor(RestClient.builder(), allowing(server));
     }
 
     private ToolDefinition tool() {
