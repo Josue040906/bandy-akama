@@ -228,9 +228,8 @@ public class GeminiAssistant {
         String systemInstruction = AssistantPromptBuilder.buildSystemInstruction(
                 profile
         );
-        List<ToolDefinition> registeredTools = selectAllowedTools(
-                configuration.enabledTools()
-        );
+        // Le catalogue décide seul : tout outil activé est proposé à Gemini.
+        List<ToolDefinition> registeredTools = configuration.enabledTools();
         Map<String, ToolDefinition> enabledTools = new HashMap<>();
         registeredTools.forEach(tool -> enabledTools.put(
                 tool.getName(),
@@ -794,29 +793,6 @@ public class GeminiAssistant {
                 .build();
     }
 
-    static List<ToolDefinition> selectAllowedTools(
-            List<ToolDefinition> availableTools
-    ) {
-        if (availableTools == null) {
-            return List.of();
-        }
-        Set<String> allowedNames = Set.of(
-                "get_agent_profile",
-                "search_agents",
-                "get_organization_info"
-        );
-        return availableTools.stream()
-                .filter(tool -> allowedNames.contains(tool.getName()))
-                .collect(java.util.stream.Collectors.toMap(
-                        ToolDefinition::getName,
-                        tool -> tool,
-                        (first, ignored) -> first,
-                        java.util.LinkedHashMap::new
-                ))
-                .values()
-                .stream()
-                .toList();
-    }
 
     static GenerateContentConfig generationConfig(
             String systemInstruction,

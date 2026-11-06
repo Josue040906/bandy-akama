@@ -31,7 +31,10 @@ class AssistantConfigurationRepositoryTest {
                     new AssistantProfile("Assistant", "Reusable", "Instructions"),
                     snapshot.profile()
             );
-            assertEquals(3, snapshot.enabledTools().size());
+            assertEquals(4, snapshot.enabledTools().size());
+            // Un outil inconnu du code Java est exposé dès qu'il est activé au catalogue.
+            assertTrue(snapshot.enabledTools().stream()
+                    .anyMatch(tool -> tool.getName().equals("registered_tool")));
             assertEquals(
                     "get_agent_profile",
                     snapshot.enabledTools().get(0).getName()
@@ -46,11 +49,7 @@ class AssistantConfigurationRepositoryTest {
             jdbcTemplate.update(
                     "UPDATE bandy_assistant_profile SET instructions = 'Updated' WHERE id = 1"
             );
-            jdbcTemplate.update(
-                    "UPDATE bandy_tool SET enabled = FALSE "
-                            + "WHERE name IN ('get_agent_profile', "
-                            + "'search_agents', 'get_organization_info')"
-            );
+            jdbcTemplate.update("UPDATE bandy_tool SET enabled = FALSE");
 
             statementsBeforeSnapshot = jdbcTemplate.queryCount();
             AssistantConfigurationSnapshot updated = repository.get();
@@ -135,8 +134,8 @@ class AssistantConfigurationRepositoryTest {
                  'POST', 'http://localhost/search', TRUE, TRUE),
                 ('get_organization_info', 'Organization', 'For organization questions',
                  'GET', 'http://localhost/organization', TRUE, FALSE),
-                ('legacy_lookup', 'Legacy lookup', 'Never selected', 'GET',
-                 'http://localhost/legacy', TRUE, TRUE)
+                ('registered_tool', 'Any tool', 'Registered by configuration', 'GET',
+                 'http://localhost/any', TRUE, TRUE)
                 """);
         jdbcTemplate.update("""
                 INSERT INTO bandy_tool_parameter
@@ -152,7 +151,7 @@ class AssistantConfigurationRepositoryTest {
                  'query', TRUE, 1),
                 ('get_organization_info', 'scope', 'string', 'Scope',
                  'query', FALSE, 2),
-                ('legacy_lookup', 'legacy', 'string', 'Legacy parameter',
+                ('registered_tool', 'value', 'string', 'Any parameter',
                  'query', TRUE, 1)
                 """);
     }

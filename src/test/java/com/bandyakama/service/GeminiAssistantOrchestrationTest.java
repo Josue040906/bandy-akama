@@ -9,7 +9,6 @@ import com.google.genai.types.ServiceTier;
 import com.google.genai.types.ThinkingLevel;
 import com.google.genai.errors.ApiException;
 import com.google.genai.errors.GenAiIOException;
-import com.bandyakama.tool.ToolDefinition;
 import org.springframework.http.HttpStatus;
 import org.junit.jupiter.api.Test;
 
@@ -46,29 +45,6 @@ class GeminiAssistantOrchestrationTest {
         ));
     }
 
-
-    @Test
-    void exposesOnlyTheExplicitlyAllowedToolsToGemini() {
-        ToolDefinition oldSearchTool = namedTool("searchEmployees");
-        ToolDefinition profileTool = namedTool("get_agent_profile");
-        ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
-
-        assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
-                GeminiAssistant.selectAllowedTools(
-                        List.of(
-                                oldSearchTool,
-                                profileTool,
-                                searchTool,
-                                organizationTool
-                        )
-                )
-        );
-        assertTrue(GeminiAssistant.selectAllowedTools(
-                List.of(oldSearchTool)
-        ).isEmpty());
-    }
 
     @Test
     void mapsPersistedAssistantHistoryToGeminiModelAndUserRoles() {
@@ -142,30 +118,6 @@ class GeminiAssistantOrchestrationTest {
         assertTrue(finalInstruction.contains("résultats métier"));
         assertTrue(finalInstruction.contains("demande une précision"));
         assertFalse(finalInstruction.contains("annonce une réussite"));
-    }
-
-    @Test
-    void ignoresLegacyIntentSpecificToolsWhenSelectingAllowedTools() {
-        ToolDefinition legacySearchTool = namedTool("searchEmployeesApproximately");
-        ToolDefinition legacyPersonalProfileTool = namedTool("getMyProfile");
-        ToolDefinition profileTool = namedTool("get_agent_profile");
-        ToolDefinition searchTool = namedTool("search_agents");
-        ToolDefinition organizationTool = namedTool("get_organization_info");
-
-        assertEquals(
-                List.of(profileTool, searchTool, organizationTool),
-                GeminiAssistant.selectAllowedTools(List.of(
-                        legacySearchTool,
-                        legacyPersonalProfileTool,
-                        profileTool,
-                        searchTool,
-                        organizationTool
-                ))
-        );
-        assertTrue(GeminiAssistant.selectAllowedTools(List.of(
-                legacySearchTool,
-                legacyPersonalProfileTool
-        )).isEmpty());
     }
 
     @Test
@@ -252,18 +204,6 @@ class GeminiAssistantOrchestrationTest {
         assertEquals("clarification_pending", response.toolStates().get(0).name());
         assertEquals("search_agents",
                 response.toolStates().get(0).arguments().get("targetTool"));
-    }
-
-    private ToolDefinition namedTool(String name) {
-        ToolDefinition tool = new ToolDefinition(
-                name,
-                "Outil RH " + name,
-                "GET",
-                "http://localhost/api/" + name,
-                List.of()
-        );
-        tool.setWhenToUse("Utilisé pour les tests.");
-        return tool;
     }
 
 }
