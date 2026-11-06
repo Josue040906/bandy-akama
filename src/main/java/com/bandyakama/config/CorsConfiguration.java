@@ -23,15 +23,6 @@ public class CorsConfiguration implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/api/chat")
-                .allowedOrigins(allowedOrigins)
-                .allowedMethods("POST", "OPTIONS")
-                .allowedHeaders(
-                        "Authorization",
-                        "Content-Type",
-                        "Idempotency-Key"
-                )
-                .maxAge(3600);
         registry.addMapping("/api/conversations/**")
                 .allowedOrigins(allowedOrigins)
                 .allowedMethods("GET", "POST", "PATCH", "DELETE", "OPTIONS")

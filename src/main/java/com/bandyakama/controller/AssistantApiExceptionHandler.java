@@ -7,10 +7,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 
-@RestControllerAdvice(assignableTypes = {
-        ChatController.class,
-        ConversationController.class
-})
+@RestControllerAdvice(assignableTypes = ConversationController.class)
 public class AssistantApiExceptionHandler {
     @ExceptionHandler(ResponseStatusException.class)
     public ResponseEntity<Map<String, String>> handleResponseStatusException(

@@ -63,21 +63,7 @@ public class ToolExecutor {
         this(restClientBuilder, 5, 30, new PerformanceTelemetry(), destinationPolicy);
     }
 
-    public Object execute(
-            ToolDefinition tool,
-            Map<String, Object> arguments
-    ) {
-        return execute(tool, arguments, null);
-    }
-
-    public Object execute(
-            ToolDefinition tool,
-            Map<String, Object> arguments,
-            String authorization
-    ) {
-        return execute(tool, arguments, authorization, null);
-    }
-
+    /** authorization et idempotencyKey sont facultatifs (null). */
     public Object execute(
             ToolDefinition tool,
             Map<String, Object> arguments,

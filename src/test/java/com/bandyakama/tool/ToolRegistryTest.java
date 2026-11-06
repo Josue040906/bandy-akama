@@ -249,31 +249,6 @@ class ToolRegistryTest {
                 .noneMatch(tool -> tool.getName().equals("foreignTool")));
     }
 
-    @Test
-    void chatRequiresAnAuthenticatedRhUserToken() throws Exception {
-        mockMvc.perform(post("/api/chat")
-                        .header("Authorization", "Bearer invalid")
-                        .contentType("application/json")
-                        .content("""
-                                {"message":"Bonjour"}
-                                """))
-                .andExpect(status().isUnauthorized());
-    }
-
-    @Test
-    void chatAllowsBrowserPreflightFromConfiguredFrontendOrigin() throws Exception {
-        mockMvc.perform(options("/api/chat")
-                        .header("Origin", "http://localhost:5173")
-                        .header("Access-Control-Request-Method", "POST")
-                        .header("Access-Control-Request-Headers",
-                                "authorization,content-type"))
-                .andExpect(status().isOk())
-                .andExpect(header().string(
-                        "Access-Control-Allow-Origin",
-                        "http://localhost:5173"
-                ));
-    }
-
     private ToolDefinition tool(String name, String method) {
         ToolParameter query = new ToolParameter(
                 "query",

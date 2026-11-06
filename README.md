@@ -47,12 +47,11 @@ more than Standard (Google currently documents a 75-100% premium). Keep
 `standard` unless the Google Cloud billing owner has approved that charge.
 Priority is supported only for compatible models and accounts; validate it
 with a measured pilot before production use.
-Gemini receives only the explicitly allowed `search_agents`,
-`get_agent_profile` and `get_organization_info` function declarations. The
-runtime filters stale database registrations so they cannot expand the model
-schema. Agent search and profile results are not persisted as raw conversation
-references; the active search criteria are retained for follow-up questions.
-Responses are streamed as SSE `token`, `done` or `error` events.
+Gemini receives every enabled tool of the catalogue; the Java code names no RH
+tool, route or rule. Results of tools flagged `sensitive` in the catalogue are
+not persisted as raw conversation references; the active arguments are retained
+for follow-up questions. Responses are streamed as SSE `token`, `done` or
+`error` events.
 
 To compare the configured Flash model with stable Gemini 3.5 Flash-Lite without
 changing Bandy's production model, run `.\scripts\benchmark-gemini-models.ps1`.
@@ -76,8 +75,8 @@ Each synchronous Gemini SDK request is capped by
 backoff capped at two seconds. The default is one retry after the initial
 attempt. Only a transient Gemini overload (HTTP 503) is retried; a quota
 refusal (429) is not, since retrying it would fail again and consume quota. `BANDY_MAX_TOOL_ROUNDS` bounds sequential tool execution to 1-5 rounds
-per user turn; the default of two preserves a short multi-step sequence while
-preventing extended loops. The Gemini and registered-tool timeouts are bounded
+per user turn; the default of three allows a search, a reference lookup and a
+prepared task while preventing extended loops. The Gemini and registered-tool timeouts are bounded
 by the remaining turn budget, which also bounds each retry attempt. PostgreSQL statements receive a JDBC query timeout bounded by
 the remaining budget (rounded up to whole seconds, as required by JDBC); an
 expired budget prevents the next statement from running. Registered backend
@@ -125,10 +124,11 @@ The initial profile is inserted into PostgreSQL only when the profile table is e
 ```
 
 The initial profile is inserted by `src/main/resources/db/migration/V1__assistant_and_tool_catalog.sql` only when the profile table is empty. The update script applies the full Bandy persona and behavior to an existing profile. The profile is loaded from the database for each chat request, so changes apply
-without restarting Bandy. A single joined query now loads the profile and the
-enabled `get_agent_profile` definition with its parameters, avoiding separate
-profile, tool, and parameter round trips without introducing stale cross-instance
-caches.
+without restarting Bandy. A single joined query loads the profile and every
+enabled tool definition with its parameters, avoiding separate round trips
+without introducing stale cross-instance caches. The system instruction is the
+profile followed by generic engine rules (follow-ups, refusals, honesty); it
+contains no application-specific tool or field.
 
 ## Tool catalogue
 
@@ -136,62 +136,35 @@ Manage tools using `GET /api/tools`, `POST /api/tools`, `PUT /api/tools/{name}` 
 
 Supported argument types are `string`, `integer`, `number` and `boolean`; locations are `query`, `path` and `body`. GET arguments default to query parameters; other methods default to JSON body parameters. Path placeholders must be required parameters declared with `"location":"path"`. Supported methods are GET, POST, PUT, PATCH and DELETE.
 
-The assistant uses three read-only RH capabilities:
+A tool also carries `sensitive` (its raw result is never persisted) and an
+`actionLevel` (see the action channel below). The current catalogue, kept in
+`scripts/config/tools.json`:
 
-- `search_agents` sends a validated boolean query AST in the `criteriaJson`
-  string and a `resultMode` (`LIST` or `COUNT`) to
-  `POST /api/recherche/agents/avancee`. The API supports `must` (AND),
-  `should` (OR/preference), `must_not` (NOT), and nested `bool` groups.
-  Leaf criteria use an allowlisted field/operator/value contract; SQL identifiers
-  are never supplied by Gemini. `FUZZY_PERSON` compares full names, reversed
-  order, word similarity, trigrams, edit distance and a phonetic recall signal.
-  Phonetics never identifies a person by itself. Text, age, career grade and
-  absolute/relative date criteria can be combined in one query. The engine
-  returns a privacy-minimized candidate projection (internal id, name, current
-  post/service/direction and match score), not matricule or contact details.
-  Pages are capped at 50 and exact counts are computed by the API. The assistant
-  must send the complete AST again on follow-ups, preserving criteria that the
-  user did not change. “Recently hired” defaults to the last 12 months and must
-  be disclosed; vague “young/old” descriptions require clarification.
-- `get_agent_profile` retrieves the concise professional profile by exact full
-  name or matricule:
+| Tool | Level | Target |
+| --- | --- | --- |
+| `search_agents` | READ | `POST /api/recherche/agents/avancee` — boolean AST (`must`/`should`/`must_not`), fuzzy identity, `LIST` or exact `COUNT` |
+| `get_agent_profile` | READ | `GET /api/profil/agent?query=` — detailed profile of an identified agent |
+| `get_organization_info` | READ | `GET /api/assistant/organization` — directions, services, posts |
+| `get_my_profile` | READ | `GET /api/profil/agent/mon-profil` — the signed-in user's profile |
+| `get_my_activities` | READ | `GET /api/activites` — the signed-in user's actions |
+| `list_document_types` | READ | `GET /api/documents/types` — active document types |
+| `open_agent_record` | NAVIGATE | `/agents/{agentId}` |
+| `open_page` | NAVIGATE | `/{page}` with `agents`, `documents` or `activites` |
+| `prepare_new_document` | PREPARE | `/documents/nouveau` form |
+| `prepare_agent_update` | PREPARE | `/agents/{agentId}` edit form |
 
-```json
-{
-  "name": "get_agent_profile",
-  "description": "Récupère le profil professionnel concis d’un agent identifié par son nom ou matricule.",
-  "whenToUse": "Pour une question sur l’âge, les diplômes, le parcours, le poste actuel ou les informations professionnelles d’un agent. Réutiliser le profil déjà chargé dans la conversation. En cas de correspondance ambiguë, demander le matricule.",
-  "method": "GET",
-  "url": "http://localhost:8080/api/profil/agent",
-  "enabled": true,
-  "sensitive": true,
-  "parameters": [
-    {
-      "name": "query",
-      "type": "string",
-      "description": "Nom complet ou matricule de l’agent.",
-      "required": true,
-      "location": "query"
-    }
-  ]
-}
-```
-
-- `get_organization_info` calls the protected, read-only
-  `GET /api/assistant/organization?query=…&scope=…` route. It returns the real
-  direction → service → post hierarchy and available descriptions, capped at
-  100 rows with an explicit truncation flag. It does not synthesize missing
-  responsibilities.
+Every rule about how to use a tool (search AST, fields, dates, follow-ups,
+acronyms) lives in its `description`, `whenToUse` and parameter descriptions.
+API refusals (4xx) are returned to Gemini as data (`{ok:false, status,
+message}`) so it explains them; the API, not Bandy, decides rights.
 
 `.\scripts\configure-assistant.ps1` registers or updates the tools of
 `scripts/config/tools.json` and verifies that their texts, URL, flags and
 parameter names were stored unchanged. Other tool definitions are reported and
 left unchanged unless `-RemoveLegacyTools` is explicitly supplied. The engine
 prompt holds only generic rules; every tool-specific rule (search AST, fields,
-dates, follow-ups) lives in the tool's description in this catalogue. The registration step requires a reachable Bandy instance and the
-registration key. The RH API rejects partial-name profile matches and returns
-a conflict when multiple agents share the same exact name, so Bandy can ask
-for a matricule instead of choosing arbitrarily.
+dates, follow-ups) lives in the tool's description in this catalogue. The
+registration step requires a reachable Bandy instance and the registration key.
 
 ## Connecting the frontend and RH backend
 
@@ -199,16 +172,13 @@ Configure the frontend build with `VITE_BANDY_API_URL` pointing to Bandy's publi
 
 The RH backend owns only RH data and endpoints. It does not call Bandy, store a Bandy URL or registration key, or need a Gemini API key. Bandy calls the registered RH profile endpoint and forwards the user's bearer token so the RH API can apply its existing authentication checks.
 
-Gemini receives only the three explicitly allowlisted schemas. It uses the
-profile tool for identified-agent details, the search tool for structured
-queries and exact counts, and the organization tool for documented hierarchy.
-Raw agent search/profile results are treated as sensitive. For the immediate
-search response, Bandy sends the frontend a strict card projection only
-(internal navigation id, name, first name, post, service, direction and
-similarity score); it never returns matricule, contact details or full profiles
-in those cards. The raw tool payload and the projected candidates are excluded
-from conversation history, memory and idempotent response replay; only search
-criteria are retained for continuity.
+Results of sensitive tools are excluded from conversation history, memory and
+idempotent response replay; only their arguments are retained for continuity.
+For the immediate `search_agents` response, Bandy still sends the frontend a
+strict card projection (internal navigation id, name, first name, post,
+service, direction and similarity score). This projection is the last
+tool-specific code in Bandy; it stays until the frontend uses the action
+channel.
 This is targeted retrieval of structured RH data, not vector-database or
 document-search RAG. Run `.\scripts\configure-assistant.ps1` after deploying
 both APIs to apply the profile and the tool definitions.
@@ -296,17 +266,16 @@ client cannot submit an owner ID:
 | `PATCH /api/conversations/{id}` | Rename with `{"label":"..."}` |
 | `POST /api/conversations/{id}/archive` | Archive the conversation |
 | `POST /api/conversations/{id}/messages` | Send `{"message":"..."}` to a conversation |
-| `POST /api/chat` | Backward-compatible chat; accepts optional `conversationId` |
+| `POST /api/conversations/{id}/messages/stream` | Same, streamed as SSE |
+| `POST /api/conversations/{id}/confirmations/{confirmationId}` | Confirm a pending task |
+| `DELETE /api/conversations/{id}/confirmations/{confirmationId}` | Cancel a pending task |
 
-`POST /api/chat` creates a conversation when the old client omits
-`conversationId`, and returns that ID in the response. New clients should create
-or select a conversation explicitly, then send messages to its messages route.
-Both send routes accept an optional UUID `Idempotency-Key`; reuse the same key
+The send routes accept an optional UUID `Idempotency-Key`; reuse the same key
 for a network retry to replay a completed response without duplicating messages.
 Bandy stores a SHA-256 fingerprint of the submitted message and returns `409`
 if a caller reuses that key for different content.
-The response shape remains `message` and `toolResults`, with additive
-`conversationId`; each tool result also returns its `arguments`.
+The response contains `message`, `toolResults` (each with its `arguments`),
+`conversationId` and `actions`.
 
 The application identifier is never accepted from a request header or body.
 By default it is configured by the service (`BANDY_APPLICATION_ID`), which
@@ -331,24 +300,22 @@ transcript remains stored in PostgreSQL and is not resent. Summary updates are
 incremental and deterministic (older text turns are compacted), and a missing
 memory record can be rebuilt from saved messages.
 
-The active tool state records the last `get_agent_profile` lookup. When a
-follow-up refers to the same agent, Bandy can pass that profile back in
-conversation context so Gemini can answer without another RH request. The
-conversation resolver treats ambiguous short follow-ups conservatively rather
-than carrying tool state into a new question. If multiple agents match the
-exact name, the RH API returns a conflict and Bandy asks for a matricule or
-another distinguishing identifier.
-Tool calls continue to use the registered HTTP contract, forward the caller's
-bearer token and idempotency key, and now use bounded connection/read timeouts.
-The current `get_agent_profile` endpoint is a read-only GET. Any future
-state-changing RH tool must also enforce `Idempotency-Key` on the RH side.
+The active tool state records the arguments of the last tool call. Gemini always
+receives it with the recent turns and decides itself whether a message continues
+the subject or opens a new one; the Java code never reads the user's text to
+decide. Sensitive results such as profiles are not kept between turns, so Gemini
+calls the tool again when a follow-up needs data that is no longer in the
+conversation. Navigations and prepared tasks do not replace the active state.
+Messages of failed turns stay stored but are not sent back to Gemini.
+Tool calls use the registered HTTP contract, forward the caller's bearer token
+and idempotency key, and use bounded connection/read timeouts.
 
 ### Performance telemetry
 
 Bandy writes structured `bandy_perf` INFO events to its application log.
-`event=stage` records conversation creation, request/memory setup, intent
-resolution, context preparation, assistant preparation, persistence, and total
-conversation-service time. `event=model_call` records the duration and outcome
+`event=stage` records conversation creation, request/memory setup, context
+preparation, assistant preparation, persistence, and total conversation-service
+time. `event=model_call` records the duration and outcome
 of each synchronous Gemini SDK call; `event=model_call_failure` records the
 exception class, bounded credential-redacted error message, and a limited
 credential-redacted cause chain when one fails.
@@ -390,15 +357,33 @@ limited to that turn and is reported as `tool_cache_hit`.
 
 ### Client integration changes
 
-`chatfronty` is not modified in this repository. To enable resume after logout
-or refresh, it should retain the returned `conversationId`, load the list and
-paginated messages after sign-in, and send new messages to
-`POST /api/conversations/{id}/messages`. Generate one UUID idempotency key per
-user submission and reuse it only for retries. The legacy `/api/chat` call
-continues to work but starts a new conversation for each request without an ID.
+`chatfronty` is not modified in this repository. It should retain the returned
+`conversationId`, load the list and paginated messages after sign-in, send new
+messages to `POST /api/conversations/{id}/messages` with one UUID idempotency
+key per submission (reused only for retries), and handle `actions`: offer the
+`NAVIGATE` route, prefill and highlight `PREPARE` fields, and show
+« Confirmer » / « Annuler » buttons for `CONFIRM` actions.
 
-No changes are required in `assistant-rh-api` for the existing read-only
-structured search tool. If future registered tools perform writes, the RH API
-must implement idempotency for the forwarded key. The live conversation
-controller continues to pass the user's token to the configured tool endpoint;
-it does not access RH tables directly.
+For `assistant-rh-api`: the organization route used by `get_organization_info`
+must exist, empty search criteria must be refused with a 4xx and a readable
+message, and any write route used by a `CONFIRM` tool must deduplicate on the
+forwarded `Idempotency-Key`. Bandy never accesses RH tables directly.
+
+## Conversation bench
+
+`ConversationBenchTest` measures what Gemini understands (tool chosen,
+arguments, follow-ups) on fictitious data, with stubbed tools and the real
+model. It never runs during `mvn test`:
+
+```powershell
+$env:BANDY_BENCH_DB_URL = "jdbc:postgresql://localhost:5433/bandy_akama_v2"
+$env:GEMINI_API_KEY = "…"
+$env:BANDY_BENCH_SCENARIOS = "S19,S20"   # optional subset
+mvn test -Dtest=ConversationBenchTest -Dbench=true
+```
+
+It uses the profile and catalogue stored in that database, paces calls
+(`BANDY_BENCH_CALLS_PER_MINUTE`, default 12), stops at `BANDY_BENCH_MAX_CALLS`
+(default 50) and writes a report to `target/bench`. Scenarios and fixtures are
+in `src/test/resources/bench`; `BANDY_BENCH_DRY_RUN=true` only prints the
+expected number of calls.

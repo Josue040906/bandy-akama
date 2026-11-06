@@ -131,7 +131,7 @@ class ConversationApiTest {
     void forwardsGeneratedTokensBeforeTheFinalConversationEvent()
             throws Exception {
         doAnswer(invocation -> {
-            Consumer<String> tokenConsumer = invocation.getArgument(5);
+            Consumer<String> tokenConsumer = invocation.getArgument(4);
             tokenConsumer.accept("Le parcours ");
             tokenConsumer.accept("est stable.");
             return new ChatResponse("Le parcours est stable.", List.of());
@@ -140,7 +140,6 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 nullable(UUID.class),
-                nullable(JsonNode.class),
                 any(Consumer.class)
         );
 
@@ -271,7 +270,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse("Bonjour, que puis-je faire pour vous ?", List.of()));
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
@@ -289,7 +288,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         Integer persistedMessages = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM bandy_conversation_message
@@ -311,7 +310,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse(
                 "Quatre agents correspondent.",
                 List.of(new ChatResponse.ToolResult(
@@ -351,7 +350,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
     }
 
@@ -364,7 +363,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Je n’ai pas trouvé cet agent.",
@@ -425,13 +424,12 @@ class ConversationApiTest {
 
         var requestedMessages = org.mockito.ArgumentCaptor.forClass(String.class);
         var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
-        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
         verify(assistant, times(4)).respond(
                 requestedMessages.capture(),
                 anyString(),
                 contexts.capture(),
                 any(UUID.class),
-                states.capture()
+                nullable(Consumer.class)
         );
 
         String academicContext = contexts.getAllValues().get(2);
@@ -474,18 +472,10 @@ class ConversationApiTest {
                 "Et quelles responsabilités exerce-t-il au quotidien ?",
                 requestedMessages.getAllValues().get(3)
         );
-        assertEquals(
-                "get_agent_profile",
-                states.getAllValues().get(1).path("toolName").asText()
-        );
-        assertEquals(
-                "get_agent_profile",
-                states.getAllValues().get(2).path("toolName").asText()
-        );
-        assertEquals(
-                "get_agent_profile",
-                states.getAllValues().get(3).path("toolName").asText()
-        );
+        for (int turn = 1; turn <= 3; turn++) {
+            assertTrue(activeStateBlock(contexts.getAllValues().get(turn))
+                    .contains("\"toolName\":\"get_agent_profile\""));
+        }
         assertEquals(
                 "Il appartient à la catégorie III.",
                 objectMapper.readTree(
@@ -514,7 +504,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Quatre agentes trouvées.",
@@ -566,7 +556,7 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         String followUpContext = context.getAllValues().get(1);
         assertTrue(followUpContext.contains("Direction générale"));
@@ -589,7 +579,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "J’ai trouvé l’agent.",
@@ -619,19 +609,17 @@ class ConversationApiTest {
                 objectMapper.readTree(acknowledgement.getResponse().getContentAsString())
                         .path("message").asText()
         );
-        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(assistant, times(3)).respond(
                 anyString(),
                 anyString(),
-                anyString(),
+                contexts.capture(),
                 any(UUID.class),
-                states.capture()
+                nullable(Consumer.class)
         );
         // Le code n'efface plus l'état sur un mot-clé : Gemini le reçoit et juge.
-        assertEquals(
-                "searchEmployees",
-                states.getAllValues().get(1).path("toolName").asText()
-        );
+        assertTrue(activeStateBlock(contexts.getAllValues().get(1))
+                .contains("\"toolName\":\"searchEmployees\""));
     }
 
     @Test
@@ -642,7 +630,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Femmes du Service du Personnel.",
@@ -685,7 +673,7 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         String finalContext = context.getAllValues().get(2);
         String stateBlock = finalContext.substring(
@@ -708,7 +696,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Recherche dans la Direction générale.",
@@ -752,16 +740,15 @@ class ConversationApiTest {
         );
 
         var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
-        var states = org.mockito.ArgumentCaptor.forClass(JsonNode.class);
         verify(assistant, times(2)).respond(
                 anyString(),
                 anyString(),
                 contexts.capture(),
                 any(UUID.class),
-                states.capture()
+                nullable(Consumer.class)
         );
         // Gemini reçoit les filtres précédents ; ses nouveaux arguments les remplacent.
-        assertTrue(states.getAllValues().get(1).toString().contains("Direction Générale"));
+        assertTrue(activeStateBlock(contexts.getAllValues().get(1)).contains("Direction Générale"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
         String stateJson = storedState.toString();
         assertTrue(stateJson.contains("Service du Personnel"), stateJson);
@@ -777,7 +764,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Agent trouvé.",
@@ -806,7 +793,7 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         String rebuiltContext = context.getAllValues().get(1);
         assertTrue(rebuiltContext.contains("Personnel"));
@@ -821,7 +808,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(
                 new ChatResponse(
                         "Un ancien agent a été trouvé.",
@@ -860,7 +847,7 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         String rebuiltContext = context.getAllValues().get(6);
 
@@ -881,7 +868,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenThrow(new IllegalStateException("provider unavailable"))
                 .thenReturn(new ChatResponse("Réponse disponible.", List.of()));
 
@@ -919,7 +906,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenThrow(new ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_GATEWAY,
                 "Backend indisponible."
@@ -951,7 +938,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenAnswer(invocation -> {
             assistantStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
@@ -1004,7 +991,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenAnswer(invocation -> {
             bothRequestsStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
@@ -1070,7 +1057,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenAnswer(invocation -> new ChatResponse(
                 "Réponse " + invocation.getArgument(0),
                 List.of()
@@ -1091,7 +1078,7 @@ class ConversationApiTest {
                 anyString(),
                 context.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         String finalContext = context.getAllValues().get(10);
         assertTrue(finalContext
@@ -1138,7 +1125,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse(
                 "J’ai trouvé un agent.",
                 List.of(new ChatResponse.ToolResult(
@@ -1228,7 +1215,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse(
                 "Votre profil est chargé.",
                 List.of(new ChatResponse.ToolResult(
@@ -1290,7 +1277,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse(
                 "Je vous propose d’ouvrir sa fiche.",
                 List.of(),
@@ -1315,7 +1302,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
     }
 
@@ -1340,7 +1327,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse(
                 "Un agent correspond.",
                 List.of(new ChatResponse.ToolResult(
@@ -1430,7 +1417,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         )).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
         send(conversationId, "42", "Question conservée.");
 
@@ -1500,36 +1487,6 @@ class ConversationApiTest {
     }
 
     @Test
-    void legacyChatCreatesAndReturnsAConversationForExistingClients()
-            throws Exception {
-        when(assistant.respond(
-                anyString(),
-                anyString(),
-                anyString(),
-                any(UUID.class),
-                nullable(JsonNode.class)
-        )).thenReturn(new ChatResponse("Bonjour.", List.of()));
-
-        MvcResult chatResult = mockMvc.perform(post("/api/chat")
-                        .header("Authorization", bearerToken("42"))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"message\":\"Bonjour\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Bonjour."))
-                .andExpect(jsonPath("$.conversationId").isNotEmpty())
-                .andReturn();
-        UUID conversationId = UUID.fromString(
-                objectMapper.readTree(chatResult.getResponse().getContentAsString())
-                        .get("conversationId")
-                        .asText()
-        );
-        mockMvc.perform(get("/api/conversations/{id}/messages", conversationId)
-                        .header("Authorization", bearerToken("42")))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.items.length()").value(2));
-    }
-
-    @Test
     void rejectsBlankMessagesAndUnknownConversationIds() throws Exception {
         mockMvc.perform(post("/api/conversations/{id}/messages", UUID.randomUUID())
                         .header("Authorization", bearerToken("42"))
@@ -1566,7 +1523,7 @@ class ConversationApiTest {
                 anyString(),
                 anyString(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         ))
                 .thenThrow(new ResponseStatusException(
                         org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
@@ -1587,7 +1544,7 @@ class ConversationApiTest {
                 anyString(),
                 contexts.capture(),
                 any(UUID.class),
-                nullable(JsonNode.class)
+                nullable(Consumer.class)
         );
         var history = ConversationPromptContext.parse(
                 contexts.getAllValues().get(1),
@@ -1633,6 +1590,18 @@ class ConversationApiTest {
         return parsed.isTextual()
                 ? objectMapper.readTree(parsed.textValue())
                 : parsed;
+    }
+
+    /** Ligne de l'état actif transmise à Gemini dans le contexte du tour. */
+    private String activeStateBlock(String serializedContext) {
+        String context = ConversationPromptContext.parse(serializedContext, objectMapper).context();
+        int heading = context.indexOf("État structuré précédent");
+        if (heading < 0) {
+            return "";
+        }
+        int start = context.indexOf('\n', heading) + 1;
+        int end = context.indexOf('\n', start);
+        return context.substring(start, end < 0 ? context.length() : end);
     }
 
     private String bearerToken(String subject) {

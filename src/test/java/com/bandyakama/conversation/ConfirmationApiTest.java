@@ -31,6 +31,7 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -188,7 +189,7 @@ class ConfirmationApiTest {
     }
 
     private UUID proposeConfirmation(UUID conversationId, String subject) throws Exception {
-        when(assistant.respond(anyString(), anyString(), anyString(), any(UUID.class), nullable(JsonNode.class)))
+        when(assistant.respond(anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)))
                 .thenReturn(new ChatResponse(
                         "Je prépare la demande de congé ; cliquez sur « Confirmer » pour l’envoyer.",
                         List.of(),

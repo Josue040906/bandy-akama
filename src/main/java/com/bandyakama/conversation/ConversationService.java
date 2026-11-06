@@ -228,22 +228,13 @@ public class ConversationService {
             ChatResponse response = measured(
                     requestId,
                     "assistant_turn",
-                    () -> tokenConsumer == null
-                            ? assistant.respond(
-                                    message,
-                                    authorization,
-                                    context,
-                                    requestId,
-                                    activeState
-                            )
-                            : assistant.respond(
-                                    message,
-                                    authorization,
-                                    context,
-                                    requestId,
-                                    activeState,
-                                    tokenConsumer
-                            )
+                    () -> assistant.respond(
+                            message,
+                            authorization,
+                            context,
+                            requestId,
+                            tokenConsumer
+                    )
             );
             // Les tâches à confirmer reçoivent leur identifiant avant la
             // persistance : un rejeu idempotent renvoie les mêmes.
@@ -288,9 +279,11 @@ public class ConversationService {
             if (failure instanceof ResponseStatusException statusFailure) {
                 throw statusFailure;
             }
+            // Les pannes de Gemini ou de l'API métier arrivent déjà avec leur
+            // statut précis ; ce qui reste est une erreur interne de Bandy.
             throw new ResponseStatusException(
-                    HttpStatus.BAD_GATEWAY,
-                    "Le fournisseur IA n’a pas pu traiter la demande.",
+                    HttpStatus.INTERNAL_SERVER_ERROR,
+                    "Bandy n’a pas pu traiter la demande à cause d’une erreur interne.",
                     failure
             );
         }

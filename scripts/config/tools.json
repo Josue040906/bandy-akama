@@ -114,7 +114,7 @@
   {
     "name": "open_page",
     "description": "Propose à l’interface d’ouvrir une page principale de SYGPERS.",
-    "whenToUse": "Quand l’utilisateur veut aller sur la liste des agents, la page des documents ou la page de ses activités. Aucune autre page n’est accessible par l’assistant : pour une autre page, dis simplement que tu ne peux pas l’ouvrir. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
+    "whenToUse": "Quand l’utilisateur veut aller sur la liste des agents, la page des documents ou la page de ses activités. Aucune autre page n’est accessible par l’assistant : pour une autre page, n’appelle pas cet outil (pas même avec une page voisine) et dis simplement que tu ne peux pas l’ouvrir. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
     "method": "GET",
     "url": "/{page}",
     "enabled": true,

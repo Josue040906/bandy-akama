@@ -31,7 +31,7 @@ class ToolExecutorTest {
     void rejectsMissingRequiredArgumentsBeforeMakingTheRequest() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> executor.execute(tool(), Map.of())
+                () -> executor.execute(tool(), Map.of(), null, null)
         );
     }
 
@@ -42,7 +42,7 @@ class ToolExecutorTest {
                 () -> executor.execute(tool(), Map.of(
                         "query", "agent",
                         "unexpected", "value"
-                ))
+                ), null, null)
         );
     }
 
@@ -50,7 +50,7 @@ class ToolExecutorTest {
     void rejectsArgumentsWithTheWrongTypeBeforeMakingTheRequest() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> executor.execute(tool(), Map.of("query", 42))
+                () -> executor.execute(tool(), Map.of("query", 42), null, null)
         );
     }
 
@@ -58,7 +58,7 @@ class ToolExecutorTest {
     void rejectsBlankValuesForRequiredStringArguments() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> executor.execute(tool(), Map.of("query", "  "))
+                () -> executor.execute(tool(), Map.of("query", "  "), null, null)
         );
     }
 
@@ -164,7 +164,9 @@ class ToolExecutorTest {
                             "{\"filters\":[{\"field\":\"age\",\"operator\":\"GT\",\"value\":40}]}",
                             "resultMode",
                             "COUNT"
-                    )
+                    ),
+                    null,
+                    null
             );
 
             assertEquals("POST", method.get());
@@ -201,7 +203,9 @@ class ToolExecutorTest {
                             tool("http://127.0.0.1:"
                                     + server.getAddress().getPort()
                                     + "/api/agents"),
-                            Map.of("query", "agent")
+                            Map.of("query", "agent"),
+                            null,
+                            null
                     )
             );
             assertFalse(receivedRequest.get());
@@ -251,7 +255,9 @@ class ToolExecutorTest {
                                 tool("http://127.0.0.1:"
                                         + server.getAddress().getPort()
                                         + "/api/agents"),
-                                Map.of("query", "agent")
+                                Map.of("query", "agent"),
+                                null,
+                                null
                         )
                 );
             }

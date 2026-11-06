@@ -29,7 +29,6 @@ import com.google.genai.types.Part;
 import com.google.genai.types.Schema;
 import com.google.genai.types.Tool;
 import com.google.genai.types.ThinkingConfig;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -108,50 +107,15 @@ public class GeminiAssistant {
         this.maxOutputTokens = maxOutputTokens;
     }
 
-    public ChatResponse respond(String message, String authorization) {
-        return respond(message, authorization, "");
-    }
-
-    public ChatResponse respond(
-            String message,
-            String authorization,
-            String conversationContext
-    ) {
-        return respond(message, authorization, conversationContext, null, null);
-    }
-
-    public ChatResponse respond(
-            String message,
-            String authorization,
-            String conversationContext,
-            UUID requestId
-    ) {
-        return respond(message, authorization, conversationContext, requestId, null);
-    }
-
+    /**
+     * Un tour de conversation. tokenConsumer reçoit le texte au fil de l'eau
+     * en streaming ; il est null pour une réponse en une fois.
+     */
     public ChatResponse respond(
             String message,
             String authorization,
             String conversationContext,
             UUID requestId,
-            JsonNode initialState
-    ) {
-        return respond(
-                message,
-                authorization,
-                conversationContext,
-                requestId,
-                initialState,
-                null
-        );
-    }
-
-    public ChatResponse respond(
-            String message,
-            String authorization,
-            String conversationContext,
-            UUID requestId,
-            JsonNode initialState,
             Consumer<String> tokenConsumer
     ) {
         long startedAt = System.nanoTime();
@@ -163,7 +127,6 @@ public class GeminiAssistant {
                     authorization,
                     conversationContext,
                     requestId,
-                    initialState,
                     metrics,
                     tokenConsumer
             );
@@ -196,7 +159,6 @@ public class GeminiAssistant {
             String authorization,
             String conversationContext,
             UUID requestId,
-            JsonNode initialState,
             TurnMetrics metrics,
             Consumer<String> tokenConsumer
     ) {
