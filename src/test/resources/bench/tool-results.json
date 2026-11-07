@@ -19,12 +19,25 @@
     ]
   },
   "get_organization_info": {
-    "total": 3,
-    "directions": [
-      { "id": 1, "code": "DGB", "nom": "Direction Générale du Budget", "responsable": "RAVELO Nirina", "services": ["Service Finances", "Service Comptabilité"] },
-      { "id": 2, "code": "DSI", "nom": "Direction des Systèmes d'Information", "responsable": "RANDRIA Hery", "services": ["Service Informatique"] },
-      { "id": 3, "code": "DGI", "nom": "Direction Générale des Impôts", "responsable": "RAZAFY Lova", "services": ["Service Contentieux"] }
-    ]
+    "operations": {
+      "LIST_DIRECTIONS": [
+        { "id": 1, "nom": "Direction Générale du Budget", "description": "Prépare et suit le budget de l'État.", "nombre_services": 2, "nombre_postes": 6 },
+        { "id": 2, "nom": "Direction des Systèmes d'Information", "description": "Conçoit et maintient les systèmes d'information.", "nombre_services": 1, "nombre_postes": 3 },
+        { "id": 3, "nom": "Direction Générale des Impôts", "description": "Établit et recouvre l'impôt.", "nombre_services": 1, "nombre_postes": 2 }
+      ],
+      "COUNT_DIRECTIONS": { "nombre_directions": 3 },
+      "LIST_SERVICES": [
+        { "id": 11, "code": "SFIN", "nom": "Service Finances", "direction_id": 1, "direction": "Direction Générale du Budget", "nombre_postes": 3 },
+        { "id": 12, "code": "SCOMPT", "nom": "Service Comptabilité", "direction_id": 1, "direction": "Direction Générale du Budget", "nombre_postes": 2 },
+        { "id": 21, "code": "SINFO", "nom": "Service Informatique", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "nombre_postes": 3 },
+        { "id": 31, "code": "SCONT", "nom": "Service Contentieux", "direction_id": 3, "direction": "Direction Générale des Impôts", "nombre_postes": 2 }
+      ],
+      "GET_RESPONSIBLE": [
+        { "poste_id": 101, "fonction": "Directrice", "service_id": 10, "service": "Direction", "direction_id": 1, "direction": "Direction Générale du Budget", "employe_id": 104, "matricule": "FIC-0104", "nom": "RAVELO", "prenom": "Nirina" },
+        { "poste_id": 201, "fonction": "Chef de service", "service_id": 21, "service": "Service Informatique", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "employe_id": 103, "matricule": "FIC-0103", "nom": "RANDRIA", "prenom": "Hery" },
+        { "poste_id": 301, "fonction": "Inspectrice principale", "service_id": 31, "service": "Service Contentieux", "direction_id": 3, "direction": "Direction Générale des Impôts", "employe_id": 107, "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova" }
+      ]
+    }
   },
   "get_my_profile": {
     "matricule": "FIC-0105", "nom": "ANDRIA", "prenom": "Tiana", "email": "tiana.andria@exemple.test",

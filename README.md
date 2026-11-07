@@ -144,9 +144,9 @@ A tool also carries `sensitive` (its raw result is never persisted) and an
 | --- | --- | --- |
 | `search_agents` | READ | `POST /api/recherche/agents/avancee` — boolean AST (`must`/`should`/`must_not`), fuzzy identity, `LIST` or exact `COUNT` |
 | `get_agent_profile` | READ | `GET /api/profil/agent?query=` — detailed profile of an identified agent |
-| `get_organization_info` | READ | `GET /api/assistant/organization` — directions, services, posts |
+| `get_organization_info` | READ | `GET /api/organisation?operation=` — directions, services, posts, hierarchy, post holders, structure counts |
 | `get_my_profile` | READ | `GET /api/profil/agent/mon-profil` — the signed-in user's profile |
-| `get_my_activities` | READ | `GET /api/activites` — the signed-in user's actions |
+| `get_my_activities` | READ | `GET /api/activites?limit=` — the signed-in user's latest actions |
 | `list_document_types` | READ | `GET /api/documents/types` — active document types |
 | `open_agent_record` | NAVIGATE | `/agents/{agentId}` |
 | `open_page` | NAVIGATE | `/{page}` with `agents`, `documents` or `activites` |
@@ -364,10 +364,12 @@ key per submission (reused only for retries), and handle `actions`: offer the
 `NAVIGATE` route, prefill and highlight `PREPARE` fields, and show
 « Confirmer » / « Annuler » buttons for `CONFIRM` actions.
 
-For `assistant-rh-api`: the organization route used by `get_organization_info`
-must exist, empty search criteria must be refused with a 4xx and a readable
-message, and any write route used by a `CONFIRM` tool must deduplicate on the
-forwarded `Idempotency-Key`. Bandy never accesses RH tables directly.
+For `assistant-rh-api`, branch `integration/rh-v1` provides what this catalogue
+expects: `GET /api/organisation`, readable 400/404/409 refusals (the profile is
+returned for an exact identity only), optional `limit`/`offset` on
+`/api/activites`, and `Idempotency-Key` on `PUT /api/employes/{id}` and
+`POST /api/documents/demandes` for future `CONFIRM` tools. Bandy never accesses
+RH tables directly.
 
 ## Conversation bench
 

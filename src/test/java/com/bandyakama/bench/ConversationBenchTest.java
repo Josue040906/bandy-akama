@@ -153,6 +153,13 @@ class ConversationBenchTest {
                         fixture.get("agents"), criteria, "COUNT".equals(arguments.get("resultMode"))
                 );
             }
+            // Une route à opérations (operation=...) a une réponse fictive par opération.
+            if (arguments.get("operation") instanceof String operation && fixture.has("operations")) {
+                JsonNode reponse = fixture.get("operations").get(operation);
+                return reponse == null
+                        ? Map.of("message", "Opération d'organisation inconnue : " + operation)
+                        : mapper.convertValue(reponse, Object.class);
+            }
             return mapper.convertValue(fixture, Object.class);
         }).when(toolExecutor).execute(
                 any(), anyMap(), nullable(String.class), nullable(String.class)

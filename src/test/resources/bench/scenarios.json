@@ -25,7 +25,7 @@
     "id": "S07", "titre": "Changement de sujet sans formule consacrée",
     "tours": [
       { "message": "agents du service informatique", "outil": "search_agents", "attendus": ["*~informatique"] },
-      { "message": "ok autre chose : il y a combien de directions ?", "outil": "get_organization_info" }
+      { "message": "ok autre chose : il y a combien de directions ?", "outil": "get_organization_info", "attendus": ["operation"] }
     ]
   },
   {
@@ -38,7 +38,7 @@
   {
     "id": "S09", "titre": "Retrait explicite d'un filtre",
     "tours": [
-      { "message": "les femmes de moins de 30 ans", "outil": "search_agents", "attendus": ["sexe=F", "age"] },
+      { "message": "les femmes de moins de 30 ans", "outil": "search_agents", "attendus": ["sexe=F", "age=30"] },
       { "message": "enlève la condition d'âge", "outil": "search_agents", "attendus": ["sexe=F"], "interdits": ["age"] }
     ]
   },
@@ -69,7 +69,7 @@
     "tours": [
       { "message": "agents du service compta", "outil": "search_agents", "attendus": ["*~compta"] },
       { "message": "j'ai une nouvelle question", "outil": "aucun" },
-      { "message": "qui dirige la DGB ?", "outil": "get_organization_info" }
+      { "message": "qui dirige la DGB ?", "outil": "get_organization_info", "attendus": ["operation=GET_RESPONSIBLE"], "reponseContient": ["ravelo"] }
     ]
   },
   {
@@ -89,7 +89,7 @@
   },
   {
     "id": "S18", "titre": "Activités de l'utilisateur connecté",
-    "tours": [{ "message": "qu'est-ce que j'ai fait dernièrement sur l'appli ?", "outil": "get_my_activities" }]
+    "tours": [{ "message": "qu'est-ce que j'ai fait dernièrement sur l'appli ?", "outil": "get_my_activities", "attendus": ["limit=10"] }]
   },
   {
     "id": "S19", "titre": "Navigation vers la fiche d'un agent à retrouver",

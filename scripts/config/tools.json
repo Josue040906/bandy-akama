@@ -2,7 +2,7 @@
   {
     "name": "search_agents",
     "description": "Recherche, filtre et compte les agents RH : identité approximative (nom, prénom, ordre inversé, fautes, phonétique) et critères combinés en ET/OU/NON, avec un score de correspondance par candidat.",
-    "whenToUse": "Pour toute demande qui recherche, liste, filtre, identifie ou compte des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent, ni pour l’utilisateur lui-même (get_my_profile).\nCritères : il faut au moins un critère positif (must non vide, ou should avec minimum_should_match=1). Sans critère positif ni recherche active, n’appelle pas l’outil : demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité complète : un seul critère field=personne, operator=FUZZY_PERSON. Nom ou prénom seul : champ nom ou prenom avec FUZZY. Ne retiens jamais un candidat sur le seul signal phonétique : si plusieurs identités restent plausibles, présente-les avec leurs scores et demande une précision.\nStructures : pour un service, une direction ou un poste, utilise CONTAINS avec un mot significatif du libellé (« budget », « informatique », « compta »). Un libellé écrit en toutes lettres (« direction du budget ») s’utilise directement, sans appel préalable. Seulement pour un sigle en majuscules (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info puis filtre sur ce libellé ; ne filtre jamais sur le sigle seul.\nDates : bornes ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires explicites ; demande l’année si elle est incertaine. « Jeune », « vieux » ou un âge approximatif sans seuil : demande une précision.\nSuivis : renvoie toujours l’AST COMPLET mis à jour, en conservant les critères non modifiés ; pour retirer une condition, renvoie l’AST sans elle. Pour un total, resultMode=COUNT avec l’AST actif inchangé ; ne compte jamais les agents affichés. Pour une autre page ou un autre nombre d’agents, réutilise l’AST actif et ne modifie que limit et offset.\nUn appel suffit par demande ; n’enchaîne pas get_agent_profile sans demande explicite.",
+    "whenToUse": "Pour toute demande qui recherche, liste, filtre, identifie ou compte des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent, ni pour l’utilisateur lui-même (get_my_profile).\nCritères : il faut au moins un critère positif (must non vide, ou should avec minimum_should_match=1). Sans critère positif ni recherche active, n’appelle pas l’outil : demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité complète : un seul critère field=personne, operator=FUZZY_PERSON. Nom ou prénom seul : champ nom ou prenom avec FUZZY. Ne retiens jamais un candidat sur le seul signal phonétique : si plusieurs identités restent plausibles, présente-les avec leurs scores et demande une précision.\nStructures : pour un service, une direction ou un poste, utilise CONTAINS avec un mot significatif du libellé (« budget », « informatique », « compta »). Un libellé écrit en toutes lettres (« direction du budget ») s’utilise directement, sans appel préalable. Seulement pour un sigle en majuscules (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info (LIST_DIRECTIONS, ou LIST_SERVICES pour un code de service) puis filtre sur ce libellé ; ne filtre jamais sur le sigle seul.\nDates : bornes ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires explicites ; demande l’année si elle est incertaine. « Jeune », « vieux » ou un âge approximatif sans seuil : demande une précision.\nSuivis : renvoie toujours l’AST COMPLET mis à jour, en conservant les critères non modifiés ; pour retirer une condition, renvoie l’AST sans elle. Pour un total, resultMode=COUNT avec l’AST actif inchangé ; ne compte jamais les agents affichés. Pour une autre page ou un autre nombre d’agents, réutilise l’AST actif et ne modifie que limit et offset.\nUn appel suffit par demande ; n’enchaîne pas get_agent_profile sans demande explicite.",
     "method": "POST",
     "url": "{RH_API_URL}/api/recherche/agents/avancee",
     "enabled": true,
@@ -12,7 +12,7 @@
       {
         "name": "criteriaJson",
         "type": "string",
-        "description": "AST JSON en chaîne : {\"must\":[],\"should\":[],\"must_not\":[],\"minimum_should_match\":0,\"limit\":20,\"offset\":0}. must=ET, should=OU, must_not=NON ; groupe imbriqué {\"bool\":{…}}. Feuille : field, operator, value, upperValue (BETWEEN). Champs : matricule, nom, prenom, personne, nom_complet, sexe (F ou M uniquement), adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. Opérateurs texte : EQ, NE, CONTAINS, FUZZY (pas sur matricule ni sexe) ; identité : FUZZY_PERSON ; nombres : EQ, NE, GT, GTE, LT, LTE, BETWEEN ; dates : EQ, BEFORE, AFTER, BETWEEN, WITHIN_LAST_MONTHS, WITHIN_LAST_YEARS, OLDER_THAN_YEARS. limit 1 à 50 ; offset 0 à 10000 ; sortBy : score, nom, prenom, age, date_embauche, poste, service, direction ; sortDirection : ASC ou DESC.",
+        "description": "AST JSON en chaîne : {\"must\":[],\"should\":[],\"must_not\":[],\"minimum_should_match\":0,\"limit\":20,\"offset\":0}. must=ET, should=OU, must_not=NON ; groupe imbriqué {\"bool\":{…}}. Feuille : field, operator, value ; un seuil va toujours dans value (GT, GTE, LT, LTE, EQ…), upperValue ne sert qu’à la borne haute de BETWEEN. Champs : matricule, nom, prenom, personne, nom_complet, sexe (F ou M uniquement), adresse, poste, service, direction, categorie, corps, type_emploi, classe, age, echelon, date_naissance, date_embauche. Opérateurs texte : EQ, NE, CONTAINS, FUZZY (pas sur matricule ni sexe) ; identité : FUZZY_PERSON ; nombres : EQ, NE, GT, GTE, LT, LTE, BETWEEN ; dates : EQ, BEFORE, AFTER, BETWEEN, WITHIN_LAST_MONTHS, WITHIN_LAST_YEARS, OLDER_THAN_YEARS. limit 1 à 50 ; offset 0 à 10000 ; sortBy : score, nom, prenom, age, date_embauche, poste, service, direction ; sortDirection : ASC ou DESC.",
         "required": true,
         "location": "body"
       },
@@ -46,25 +46,46 @@
   },
   {
     "name": "get_organization_info",
-    "description": "Recherche les directions, services et postes avec leurs rattachements et les descriptions réellement enregistrées.",
-    "whenToUse": "Pour les directions, services et postes : liste, nombre, rattachements et descriptions enregistrées. Aussi pour trouver le libellé d’un sigle de structure (DGB, DSI…) avant de l’utiliser dans search_agents, mais pas pour un libellé déjà écrit en toutes lettres. N’invente ni structure ni responsabilité absente des données ; si l’information demandée n’y figure pas, dis-le.",
+    "description": "Consulte l’organigramme réellement enregistré : directions, services (avec leur code), postes, hiérarchie direction → service → poste, titulaires des postes de responsable, et comptages de structures.",
+    "whenToUse": "Pour la structure de l’organisation, jamais pour lister ou compter des agents (utilise search_agents). Opérations : LIST_DIRECTIONS, GET_DIRECTION (id), LIST_SERVICES (directionId facultatif), GET_SERVICE (id), LIST_POSTES (serviceId facultatif), GET_POSTE (id), GET_HIERARCHY (directionId facultatif), GET_RESPONSIBLE (directionId ou serviceId), COUNT_DIRECTIONS, COUNT_SERVICES (directionId facultatif), COUNT_POSTES (directionId ou serviceId facultatifs). Les identifiants viennent d’une liste obtenue d’abord. Les directions n’ont pas de sigle enregistré : pour un sigle de direction (DGB, DSI…), appelle LIST_DIRECTIONS sans query et reconnais toi-même la direction ; un libellé écrit en toutes lettres s’utilise directement. Les responsables sont déduits de l’intitulé du poste (chef, directeur, responsable) : présente-les comme titulaires de ce poste, pas comme une relation hiérarchique certaine. Le supérieur d’un agent n’est pas enregistré : dis-le. N’invente ni structure ni responsabilité absente des données.",
     "method": "GET",
-    "url": "{RH_API_URL}/api/assistant/organization",
+    "url": "{RH_API_URL}/api/organisation",
     "enabled": true,
     "sensitive": false,
     "actionLevel": "READ",
     "parameters": [
       {
-        "name": "query",
+        "name": "operation",
         "type": "string",
-        "description": "Nom, sigle ou terme à rechercher dans les directions, services, postes et descriptions.",
+        "description": "Une des opérations listées dans la consigne, par exemple LIST_DIRECTIONS ou GET_RESPONSIBLE.",
         "required": true,
         "location": "query"
       },
       {
-        "name": "scope",
+        "name": "id",
+        "type": "integer",
+        "description": "Identifiant de la direction, du service ou du poste, pour GET_DIRECTION, GET_SERVICE ou GET_POSTE.",
+        "required": false,
+        "location": "query"
+      },
+      {
+        "name": "directionId",
+        "type": "integer",
+        "description": "Identifiant d’une direction, pour filtrer.",
+        "required": false,
+        "location": "query"
+      },
+      {
+        "name": "serviceId",
+        "type": "integer",
+        "description": "Identifiant d’un service, pour filtrer.",
+        "required": false,
+        "location": "query"
+      },
+      {
+        "name": "query",
         "type": "string",
-        "description": "ALL (défaut), DIRECTION, SERVICE ou POSTE.",
+        "description": "Recherche partielle sur les noms, codes ou descriptions, pour les opérations LIST_.",
         "required": false,
         "location": "query"
       }
@@ -84,13 +105,21 @@
   {
     "name": "get_my_activities",
     "description": "Liste les actions effectuées par l’utilisateur connecté dans SYGPERS (connexion, déconnexion, création, modification, suppression, validation, refus, génération de document, téléversement), de la plus récente à la plus ancienne, avec la date, la description et l’agent concerné le cas échéant.",
-    "whenToUse": "Quand l’utilisateur demande ce qu’il a fait dans l’application : ses dernières actions, son historique, ses modifications ou ce qu’il a fait à une date donnée. Son identité vient de sa connexion : n’envoie aucun paramètre. Pour une période ou un type d’action, filtre toi-même la liste reçue et dis-le. Si la liste est vide, dis qu’aucune activité n’est enregistrée. Sauf demande contraire, présente au plus les dix plus récentes.",
+    "whenToUse": "Quand l’utilisateur demande ce qu’il a fait dans l’application : ses dernières actions, son historique, ses modifications ou ce qu’il a fait à une date donnée. Son identité vient de sa connexion. Envoie limit=10 pour ses dernières actions ; pour une période ou un type d’action, envoie limit=100, filtre toi-même la liste reçue et dis-le. Si la liste est vide, dis qu’aucune activité n’est enregistrée.",
     "method": "GET",
     "url": "{RH_API_URL}/api/activites",
     "enabled": true,
     "sensitive": true,
     "actionLevel": "READ",
-    "parameters": []
+    "parameters": [
+      {
+        "name": "limit",
+        "type": "integer",
+        "description": "Nombre d’activités les plus récentes à recevoir, de 1 à 100.",
+        "required": false,
+        "location": "query"
+      }
+    ]
   },
   {
     "name": "open_agent_record",
