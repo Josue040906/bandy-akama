@@ -7,22 +7,45 @@
       { "id": 104, "matricule": "FIC-0104", "nom": "RAVELO", "prenom": "Nirina", "sexe": "F", "age": 51, "date_embauche": "2003-06-10", "poste": "Directrice", "service": "Direction", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 6 },
       { "id": 105, "matricule": "FIC-0105", "nom": "ANDRIA", "prenom": "Tiana", "sexe": "F", "age": 34, "date_embauche": "2016-01-04", "poste": "Comptable", "service": "Service Comptabilité", "direction": "Direction Générale du Budget", "categorie": "B", "echelon": 2 },
       { "id": 106, "matricule": "FIC-0106", "nom": "RAKOTOBE", "prenom": "Fidy", "sexe": "M", "age": 58, "date_embauche": "1995-09-01", "poste": "Technicien", "service": "Service Informatique", "direction": "Direction des Systèmes d'Information", "categorie": "B", "echelon": 6 },
-      { "id": 107, "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova", "sexe": "F", "age": 45, "date_embauche": "2008-11-17", "poste": "Inspectrice", "service": "Service Contentieux", "direction": "Direction Générale des Impôts", "categorie": "A", "echelon": 4 }
+      { "id": 107, "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova", "sexe": "F", "age": 45, "date_embauche": "2008-11-17", "poste": "Inspectrice", "service": "Service Contentieux", "direction": "Direction Générale des Impôts", "categorie": "A", "echelon": 4 },
+      { "id": 108, "matricule": "FIC-0108", "nom": "RAMANANA", "prenom": "Haja", "sexe": "M", "age": 47, "date_embauche": "2005-04-11", "poste": "Chef de service", "service": "Service Réseaux", "direction": "Direction des Systèmes d'Information", "categorie": "A", "echelon": 5 }
     ]
   },
   "get_agent_profile": {
-    "agent": { "matricule": "FIC-0101", "nom": "RAKOTO", "prenom": "Jean", "sexe": "M", "date_embauche": "2012-03-01", "poste": "Comptable", "service": "Service Finances", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 3 },
-    "diplomes": [ { "niveau": "Master", "domaine": "Finances publiques", "etablissement": "Université d'Antananarivo", "annee": 2010 } ],
-    "carriere": [
-      { "date": "2012-03-01", "evenement": "Recrutement", "poste": "Comptable" },
-      { "date": "2018-01-01", "evenement": "Avancement", "echelon": 3 }
+    "profils": [
+      {
+        "agent": { "matricule": "FIC-0101", "nom": "RAKOTO", "prenom": "Jean", "sexe": "M", "date_embauche": "2012-03-01", "poste": "Comptable", "service": "Service Finances", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 3 },
+        "diplomes": [ { "niveau": "Master", "domaine": "Finances publiques", "etablissement": "Université d'Antananarivo", "annee": 2010 } ],
+        "carriere": [
+          { "date": "2012-03-01", "evenement": "Recrutement", "poste": "Comptable" },
+          { "date": "2018-01-01", "evenement": "Avancement", "echelon": 3 }
+        ]
+      },
+      {
+        "agent": { "matricule": "FIC-0103", "nom": "RANDRIA", "prenom": "Hery", "sexe": "M", "date_embauche": "1998-02-02", "poste": "Chef de service", "service": "Service Informatique", "direction": "Direction des Systèmes d'Information", "categorie": "A", "echelon": 5 },
+        "diplomes": [ { "niveau": "Ingénieur", "domaine": "Informatique", "etablissement": "École Supérieure Polytechnique", "annee": 1997 } ],
+        "carriere": [ { "date": "1998-02-02", "evenement": "Recrutement", "poste": "Analyste" } ]
+      },
+      {
+        "agent": { "matricule": "FIC-0108", "nom": "RAMANANA", "prenom": "Haja", "sexe": "M", "date_embauche": "2005-04-11", "poste": "Chef de service", "service": "Service Réseaux", "direction": "Direction des Systèmes d'Information", "categorie": "A", "echelon": 5 },
+        "diplomes": [ { "niveau": "Master", "domaine": "Réseaux et télécommunications", "etablissement": "Université de Fianarantsoa", "annee": 2004 } ],
+        "carriere": [ { "date": "2005-04-11", "evenement": "Recrutement", "poste": "Administrateur réseaux" } ]
+      },
+      {
+        "agent": { "matricule": "FIC-0104", "nom": "RAVELO", "prenom": "Nirina", "sexe": "F", "date_embauche": "2003-06-10", "poste": "Directrice", "service": "Direction", "direction": "Direction Générale du Budget", "categorie": "A", "echelon": 6 },
+        "diplomes": [], "carriere": []
+      },
+      {
+        "agent": { "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova", "sexe": "F", "date_embauche": "2008-11-17", "poste": "Inspectrice principale", "service": "Service Contentieux", "direction": "Direction Générale des Impôts", "categorie": "A", "echelon": 4 },
+        "diplomes": [], "carriere": []
+      }
     ]
   },
   "get_organization_info": {
     "operations": {
       "LIST_DIRECTIONS": [
         { "id": 1, "nom": "Direction Générale du Budget", "description": "Prépare et suit le budget de l'État.", "nombre_services": 2, "nombre_postes": 6 },
-        { "id": 2, "nom": "Direction des Systèmes d'Information", "description": "Conçoit et maintient les systèmes d'information.", "nombre_services": 1, "nombre_postes": 3 },
+        { "id": 2, "nom": "Direction des Systèmes d'Information", "description": "Conçoit et maintient les systèmes d'information.", "nombre_services": 2, "nombre_postes": 5 },
         { "id": 3, "nom": "Direction Générale des Impôts", "description": "Établit et recouvre l'impôt.", "nombre_services": 1, "nombre_postes": 2 }
       ],
       "COUNT_DIRECTIONS": { "nombre_directions": 3 },
@@ -30,12 +53,14 @@
         { "id": 11, "code": "SFIN", "nom": "Service Finances", "direction_id": 1, "direction": "Direction Générale du Budget", "nombre_postes": 3 },
         { "id": 12, "code": "SCOMPT", "nom": "Service Comptabilité", "direction_id": 1, "direction": "Direction Générale du Budget", "nombre_postes": 2 },
         { "id": 21, "code": "SINFO", "nom": "Service Informatique", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "nombre_postes": 3 },
+        { "id": 22, "code": "SRES", "nom": "Service Réseaux", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "nombre_postes": 2 },
         { "id": 31, "code": "SCONT", "nom": "Service Contentieux", "direction_id": 3, "direction": "Direction Générale des Impôts", "nombre_postes": 2 }
       ],
       "GET_RESPONSIBLE": [
         { "poste_id": 101, "fonction": "Directrice", "service_id": 10, "service": "Direction", "direction_id": 1, "direction": "Direction Générale du Budget", "employe_id": 104, "matricule": "FIC-0104", "nom": "RAVELO", "prenom": "Nirina" },
+        { "poste_id": 301, "fonction": "Inspectrice principale", "service_id": 31, "service": "Service Contentieux", "direction_id": 3, "direction": "Direction Générale des Impôts", "employe_id": 107, "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova" },
         { "poste_id": 201, "fonction": "Chef de service", "service_id": 21, "service": "Service Informatique", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "employe_id": 103, "matricule": "FIC-0103", "nom": "RANDRIA", "prenom": "Hery" },
-        { "poste_id": 301, "fonction": "Inspectrice principale", "service_id": 31, "service": "Service Contentieux", "direction_id": 3, "direction": "Direction Générale des Impôts", "employe_id": 107, "matricule": "FIC-0107", "nom": "RAZAFY", "prenom": "Lova" }
+        { "poste_id": 202, "fonction": "Chef de service", "service_id": 22, "service": "Service Réseaux", "direction_id": 2, "direction": "Direction des Systèmes d'Information", "employe_id": 108, "matricule": "FIC-0108", "nom": "RAMANANA", "prenom": "Haja" }
       ]
     }
   },

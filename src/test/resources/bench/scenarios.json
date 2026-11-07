@@ -109,5 +109,12 @@
   {
     "id": "S22", "titre": "Tâche préparée : seul le champ modifié est transmis",
     "tours": [{ "message": "change le numéro de téléphone de Jean Rakoto : 034 12 345 67", "outil": "prepare_agent_update", "attendus": ["agentId~101", "telephone~034"], "interdits": ["nom", "prenom", "sexe"] }]
+  },
+  {
+    "id": "S23", "titre": "Référent d'un pronom : les personnes citées juste avant",
+    "tours": [
+      { "message": "qui dirige la direction des systèmes d'information ?", "outil": "get_organization_info", "reponseContient": ["randria", "ramanana"] },
+      { "message": "j'aimerais voir leurs profils", "interdits": ["*~ravelo", "*~razafy", "*~FIC-0104", "*~FIC-0107"], "reponseContient": ["randria", "ramanana"] }
+    ]
   }
 ]

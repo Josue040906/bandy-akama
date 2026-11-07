@@ -153,12 +153,17 @@ class ConversationBenchTest {
                         fixture.get("agents"), criteria, "COUNT".equals(arguments.get("resultMode"))
                 );
             }
-            // Une route à opérations (operation=...) a une réponse fictive par opération.
+            // Une route à opérations (operation=...) a une réponse fictive par opération,
+            // filtrée par directionId / serviceId comme la vraie route.
             if (arguments.get("operation") instanceof String operation && fixture.has("operations")) {
                 JsonNode reponse = fixture.get("operations").get(operation);
                 return reponse == null
                         ? Map.of("message", "Opération d'organisation inconnue : " + operation)
-                        : mapper.convertValue(reponse, Object.class);
+                        : mapper.convertValue(filtrerParStructure(reponse, arguments), Object.class);
+            }
+            // Profil : identité exacte (matricule, ou nom et prénom), 404 sinon, comme l'API.
+            if (fixture.has("profils") && arguments.get("query") instanceof String query) {
+                return profilExact(fixture.get("profils"), query);
             }
             return mapper.convertValue(fixture, Object.class);
         }).when(toolExecutor).execute(
@@ -334,6 +339,49 @@ class ConversationBenchTest {
         String expected = normalize(rule.substring(operator + 1));
         String actual = normalize(pair[1]);
         return rule.charAt(operator) == '=' ? actual.equals(expected) : actual.contains(expected);
+    }
+
+    private static JsonNode filtrerParStructure(JsonNode reponse, Map<String, Object> arguments) {
+        if (!reponse.isArray()) {
+            return reponse;
+        }
+        com.fasterxml.jackson.databind.node.ArrayNode filtre =
+                com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.arrayNode();
+        reponse.forEach(ligne -> {
+            boolean garde = true;
+            for (String[] cle : new String[][]{{"directionId", "direction_id"}, {"serviceId", "service_id"}}) {
+                Object attendu = arguments.get(cle[0]);
+                if (attendu instanceof Number n && ligne.has(cle[1])) {
+                    garde &= ligne.get(cle[1]).asLong() == n.longValue();
+                }
+            }
+            if (garde) {
+                filtre.add(ligne);
+            }
+        });
+        return filtre;
+    }
+
+    private Object profilExact(JsonNode profils, String query) {
+        String requete = query.trim().toLowerCase(java.util.Locale.ROOT);
+        java.util.Set<String> mots = java.util.Set.of(requete.split("\\s+"));
+        for (JsonNode profil : profils) {
+            JsonNode agent = profil.path("agent");
+            boolean matricule = requete.equals(agent.path("matricule").asText().toLowerCase(java.util.Locale.ROOT));
+            boolean identite = mots.contains(agent.path("nom").asText().toLowerCase(java.util.Locale.ROOT))
+                    && mots.contains(agent.path("prenom").asText().toLowerCase(java.util.Locale.ROOT));
+            if (matricule || identite) {
+                return mapper.convertValue(profil, Object.class);
+            }
+        }
+        throw org.springframework.web.client.HttpClientErrorException.create(
+                org.springframework.http.HttpStatus.NOT_FOUND,
+                "Not Found",
+                org.springframework.http.HttpHeaders.EMPTY,
+                ("{\"code\":\"AGENT_INTROUVABLE\",\"message\":\"Aucun agent ne correspond exactement à « "
+                        + query.trim() + " ».\"}").getBytes(StandardCharsets.UTF_8),
+                StandardCharsets.UTF_8
+        );
     }
 
     /**
