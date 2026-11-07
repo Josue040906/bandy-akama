@@ -1269,6 +1269,47 @@ class ConversationApiTest {
     }
 
     @Test
+    void eachResultReferenceKeepsTheRequestItAnswered() throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(Consumer.class)
+        )).thenReturn(
+                new ChatResponse(
+                        "Les services de la DSI sont dirigés par Tiana et Hanta.",
+                        List.of(new ChatResponse.ToolResult(
+                                "get_organization_info",
+                                List.of(Map.of("nom", "RAKOTOMALALA", "prenom", "Hery"),
+                                        Map.of("nom", "ANDRIAMIHARISOA", "prenom", "Tiana")),
+                                Map.of("operation", "GET_RESPONSIBLE")
+                        ))
+                ),
+                new ChatResponse("Voici leurs profils.", List.of())
+        );
+
+        send(conversationId, "42", "qui dirige la direction des systèmes d'information ?");
+        send(conversationId, "42", "j'aimerais voir leurs profils");
+
+        assertEquals(
+                "qui dirige la direction des systèmes d'information ?",
+                readMemoryJson(conversationId, "result_references").get(0).path("question").asText()
+        );
+        // Gemini voit à quelle demande répondait la liste brute, et sa propre réponse.
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant, times(2)).respond(
+                anyString(), anyString(), contexts.capture(), any(UUID.class), nullable(Consumer.class)
+        );
+        String context = ConversationPromptContext.parse(
+                contexts.getAllValues().get(1), objectMapper
+        ).context();
+        assertTrue(context.contains("\"question\":\"qui dirige la direction des systèmes d'information ?\""));
+        assertFalse(context.contains("priment"));
+    }
+
+    @Test
     void returnsNavigationActionsAndReplaysThemIdempotently() throws Exception {
         UUID conversationId = createConversation("42");
         UUID requestId = UUID.randomUUID();
