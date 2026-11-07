@@ -514,11 +514,14 @@ public class ConversationRepository {
             );
         }
         ObjectNode assistantMetadata = objectMapper.createObjectNode();
+        // Tous les outils appelés pendant le tour, sensibles et actions
+        // d'interface compris : leurs noms seulement, jamais leurs résultats.
         assistantMetadata.set(
                 "toolNames",
-                objectMapper.valueToTree(response.toolResults().stream()
-                        .map(ChatResponse.ToolResult::name)
-                        .toList())
+                objectMapper.valueToTree(java.util.stream.Stream.concat(
+                        stateUpdates(response).stream().map(ChatResponse.ToolState::name),
+                        response.actions().stream().map(ChatResponse.Action::tool)
+                ).toList())
         );
         insertMessage(
                 conversationId,

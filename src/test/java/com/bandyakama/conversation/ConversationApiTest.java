@@ -1269,6 +1269,33 @@ class ConversationApiTest {
     }
 
     @Test
+    void recordsEveryCalledToolNameIncludingSensitiveOnesAndActions() throws Exception {
+        UUID conversationId = createConversation("42");
+        when(assistant.respond(
+                anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)
+        )).thenReturn(new ChatResponse(
+                "Je propose le formulaire prérempli.",
+                List.of(),
+                null,
+                List.of(new ChatResponse.Action(
+                        "PREPARE", "prepare_agent_update", "/agents/3", Map.of("telephone", "034")
+                )),
+                List.of(new ChatResponse.ToolState("get_agent_profile", Map.of("query", "DEMO-010")))
+        ));
+
+        send(conversationId, "42", "change le téléphone de Toky");
+
+        String metadata = jdbcTemplate.queryForObject("""
+                SELECT metadata::text FROM bandy_conversation_message
+                WHERE conversation_id = ? AND role = 'ASSISTANT'
+                """, String.class, conversationId);
+        assertTrue(metadata.contains("get_agent_profile"), metadata);
+        assertTrue(metadata.contains("prepare_agent_update"), metadata);
+        // Le nom seulement : ni argument, ni résultat.
+        assertFalse(metadata.contains("DEMO-010"), metadata);
+    }
+
+    @Test
     void eachResultReferenceKeepsTheRequestItAnswered() throws Exception {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
