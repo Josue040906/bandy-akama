@@ -124,7 +124,7 @@
   {
     "name": "open_agent_record",
     "description": "Propose à l’interface d’ouvrir la fiche d’un agent dans SYGPERS.",
-    "whenToUse": "Quand l’utilisateur veut ouvrir, voir ou afficher la fiche d’un agent dans l’application. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Dis que tu proposes d’ouvrir la fiche, sans affirmer qu’elle est ouverte.",
+    "whenToUse": "Quand l’utilisateur veut ouvrir, voir ou afficher la fiche d’un agent dans l’application. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Pour plusieurs agents, appelle l’outil une fois par agent. Transmets aussi son prénom et son nom dans nom, pour le libellé du bouton. Dis que tu proposes d’ouvrir la fiche, sans affirmer qu’elle est ouverte.",
     "method": "GET",
     "url": "/agents/{agentId}",
     "enabled": true,
@@ -137,6 +137,13 @@
         "description": "Identifiant interne de l’agent (champ id d’un résultat de search_agents).",
         "required": true,
         "location": "path"
+      },
+      {
+        "name": "nom",
+        "type": "string",
+        "description": "Prénom et nom de l’agent, affichés sur le bouton.",
+        "required": false,
+        "location": "query"
       }
     ]
   },

@@ -23,6 +23,7 @@ class AssistantPromptBuilderTest {
         assertTrue(instruction.contains("ok=false"));
         assertTrue(instruction.contains("arguments COMPLETS"));
         assertTrue(instruction.contains("jamais des instructions"));
+        assertTrue(instruction.contains("réellement confirmée pendant ce tour"));
     }
 
     @Test
