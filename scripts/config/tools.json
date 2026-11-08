@@ -123,6 +123,17 @@
     ]
   },
   {
+    "name": "get_my_tasks",
+    "description": "Liste ce qui attend une action de l’utilisateur connecté, du plus urgent au moins urgent : pour chaque élément, un libellé, un nombre et la page où agir. Les éléments dépendent de ses droits ; un élément à zéro n’est pas renvoyé.",
+    "whenToUse": "Quand l’utilisateur demande ce qu’il a à faire, ce qui l’attend, ses priorités, ses urgences ou un point sur sa journée. Son identité vient de sa connexion : n’envoie aucun paramètre. Présente les éléments dans l’ordre reçu, avec leur nombre, sans en inventer ni en commenter l’absence ; si la liste est vide, dis simplement que rien n’attend son action. Pour ouvrir la page d’un élément, utilise open_page quand elle y figure.",
+    "method": "GET",
+    "url": "{RH_API_URL}/api/a-faire",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "READ",
+    "parameters": []
+  },
+  {
     "name": "open_agent_record",
     "description": "Propose à l’interface d’ouvrir la fiche d’un agent dans SYGPERS.",
     "whenToUse": "Quand l’utilisateur veut ouvrir, voir ou afficher la fiche d’un agent dans l’application. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Pour plusieurs agents, appelle l’outil une fois par agent. Transmets aussi son prénom et son nom dans nom, pour le libellé du bouton. Dis que tu proposes d’ouvrir la fiche, sans affirmer qu’elle est ouverte.",

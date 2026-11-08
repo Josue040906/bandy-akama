@@ -78,6 +78,12 @@
     { "id": 2, "code": "ORDRE_MISSION", "libelle": "Ordre de mission", "description": "Autorise un déplacement professionnel.", "dateDebutValidite": "2020-01-01", "dateFinValidite": null },
     { "id": 3, "code": "MUTATION", "libelle": "Demande de mutation", "description": "Demande de changement d'affectation.", "dateDebutValidite": "2020-01-01", "dateFinValidite": null }
   ],
+  "get_my_tasks": {
+    "elements": [
+      { "code": "documents_a_verifier", "libelle": "Documents à vérifier", "nombre": 3, "route": "/documents" },
+      { "code": "dossiers_incomplets", "libelle": "Dossiers d'agents incomplets", "nombre": 24, "route": "/agents" }
+    ]
+  },
   "get_my_activities": [
     { "id": 3, "acteurId": 5, "employeId": 101, "typeAction": "MODIFICATION", "description": "Mise à jour de l'affectation de RAKOTO Jean", "dateHeure": "2026-11-05T15:42:00", "acteurEmail": "tiana.andria@exemple.test", "employeMatricule": "FIC-0101", "employeNom": "RAKOTO", "employePrenom": "Jean" },
     { "id": 2, "acteurId": 5, "employeId": null, "typeAction": "GENERATION", "description": "Génération d'une attestation de travail", "dateHeure": "2026-11-04T10:15:00", "acteurEmail": "tiana.andria@exemple.test", "employeMatricule": null, "employeNom": null, "employePrenom": null },

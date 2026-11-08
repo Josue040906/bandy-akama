@@ -122,5 +122,12 @@
     "tours": [
       { "message": "bonjour", "outil": "aucun", "reponseContient": ["tiana"], "relire": true }
     ]
+  },
+  {
+    "id": "S25", "titre": "À faire : ce qui attend l'utilisateur, puis ouverture de la page",
+    "tours": [
+      { "message": "qu'est-ce que j'ai à faire aujourd'hui ?", "outil": "get_my_tasks", "reponseContient": ["3", "24"] },
+      { "message": "ouvre-moi les documents", "outil": "open_page", "attendus": ["page=documents"] }
+    ]
   }
 ]
