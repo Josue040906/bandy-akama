@@ -34,6 +34,13 @@ public class ToolDefinition {
 
     private ToolActionLevel actionLevel = ToolActionLevel.READ;
 
+    /**
+     * Champs gardés comme contexte de l'utilisateur connecté (par exemple son
+     * prénom). Vide pour un outil ordinaire. Bandy appelle l'outil une fois
+     * par conversation, sans argument, et ne conserve que ces champs.
+     */
+    private List<String> userContextFields = List.of();
+
     @NotBlank
     @Size(max = 2000)
     private String whenToUse;
@@ -86,6 +93,11 @@ public class ToolDefinition {
                 || actionLevel == ToolActionLevel.PREPARE;
     }
 
+    public List<String> getUserContextFields() { return userContextFields; }
+    public void setUserContextFields(List<String> userContextFields) {
+        this.userContextFields = userContextFields == null ? List.of() : List.copyOf(userContextFields);
+    }
+
     public ToolActionLevel getActionLevel() { return actionLevel; }
     public void setActionLevel(ToolActionLevel actionLevel) {
         this.actionLevel = actionLevel == null ? ToolActionLevel.READ : actionLevel;
@@ -114,6 +126,21 @@ public class ToolDefinition {
         if (parameters.stream().map(ToolParameter::getName).distinct().count()
                 != parameters.size()) {
             throw new IllegalArgumentException("Les noms des paramètres doivent être uniques.");
+        }
+        if (!userContextFields.isEmpty()) {
+            // Lu sans argument, une fois par conversation : seulement une consultation.
+            if (actionLevel != ToolActionLevel.READ
+                    || parameters.stream().anyMatch(ToolParameter::isRequired)) {
+                throw new IllegalArgumentException(
+                        "Un outil de contexte utilisateur doit être une consultation sans paramètre obligatoire."
+                );
+            }
+            if (userContextFields.size() > 5 || userContextFields.stream()
+                    .anyMatch(field -> field == null || !field.matches("[A-Za-z_][A-Za-z0-9_]{0,63}"))) {
+                throw new IllegalArgumentException(
+                        "userContextFields : au plus 5 noms de champs simples."
+                );
+            }
         }
         if (targetsInterface()) {
             // Navigation et tâche préparée ouvrent une page : méthode GET,

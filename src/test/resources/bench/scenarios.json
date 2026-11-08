@@ -116,5 +116,11 @@
       { "message": "qui dirige la direction des systèmes d'information ?", "outil": "get_organization_info", "reponseContient": ["randria", "ramanana"] },
       { "message": "j'aimerais voir leurs profils", "interdits": ["*~ravelo", "*~razafy", "*~FIC-0104", "*~FIC-0107"], "reponseContient": ["randria", "ramanana"] }
     ]
+  },
+  {
+    "id": "S24", "titre": "Salut : réponse chaleureuse avec le prénom de l'utilisateur connecté",
+    "tours": [
+      { "message": "bonjour", "outil": "aucun", "reponseContient": ["tiana"], "relire": true }
+    ]
   }
 ]

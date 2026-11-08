@@ -85,6 +85,8 @@ class ConversationBenchTest {
 
     private final List<ToolCall> calls = new ArrayList<>();
     private final List<Long> modelCallTimes = new ArrayList<>();
+    /** Appels au modèle avant le tour : ce qui précède son premier appel est le contexte. */
+    private int turnStartModelCalls;
 
     /** S'exécute avant le démarrage de Spring : nomme les variables absentes du terminal. */
     @BeforeAll
@@ -143,7 +145,10 @@ class ConversationBenchTest {
             String name = invocation.<ToolDefinition>getArgument(0).getName();
             Map<String, Object> arguments =
                     new LinkedHashMap<>(invocation.<Map<String, Object>>getArgument(1));
-            calls.add(new ToolCall(name, arguments));
+            // La lecture du contexte utilisateur précède le modèle : ce n'est pas son choix.
+            if (modelCalls() > turnStartModelCalls) {
+                calls.add(new ToolCall(name, arguments));
+            }
             JsonNode fixture = toolResults.get(name);
             if (fixture == null) {
                 return Map.of("message", "Outil inconnu du banc.");
@@ -216,6 +221,7 @@ class ConversationBenchTest {
                 }
                 waitForRateLimit(worstCasePerTurn, callsPerMinute);
                 int callsBefore = modelCalls();
+                turnStartModelCalls = callsBefore;
                 calls.clear();
                 String answer = "";
                 String verdict;

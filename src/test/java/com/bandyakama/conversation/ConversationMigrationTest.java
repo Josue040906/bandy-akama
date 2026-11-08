@@ -48,6 +48,18 @@ class ConversationMigrationTest {
                 )
                 """);
         jdbc.execute("""
+                CREATE TABLE bandy_conversation_memory (
+                    conversation_id UUID PRIMARY KEY
+                        REFERENCES bandy_conversation(id) ON DELETE CASCADE,
+                    summary TEXT NOT NULL DEFAULT '',
+                    active_state JSONB NOT NULL,
+                    result_references JSONB NOT NULL,
+                    summarized_through_sequence BIGINT NOT NULL DEFAULT 0,
+                    schema_version INTEGER NOT NULL DEFAULT 1,
+                    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """);
+        jdbc.execute("""
                 CREATE TABLE bandy_conversation_request (
                     conversation_id UUID NOT NULL,
                     idempotency_key UUID NOT NULL,
@@ -107,6 +119,8 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_conversation_request", "request_hash"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "sensitive"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "action_level"));
+        assertTrue(hasColumn(jdbc, "bandy_tool", "user_context_fields"));
+        assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "user_context"));
     }
 
     private boolean hasColumn(

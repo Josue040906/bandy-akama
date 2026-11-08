@@ -426,6 +426,29 @@ public class ConversationRepository {
         );
     }
 
+    /** Faux tant que le contexte de l'utilisateur n'a pas été lu. */
+    public boolean hasUserContext(UUID conversationId) {
+        Boolean loaded = jdbcTemplate.queryForObject("""
+                SELECT user_context IS NOT NULL FROM bandy_conversation_memory
+                WHERE conversation_id = ?
+                """,
+                Boolean.class,
+                conversationId
+        );
+        return Boolean.TRUE.equals(loaded);
+    }
+
+    /** Un objet vide marque une lecture faite sans résultat : pas de nouvel essai. */
+    public void saveUserContext(UUID conversationId, JsonNode userContext) {
+        jdbcTemplate.update("""
+                UPDATE bandy_conversation_memory SET user_context = ?
+                WHERE conversation_id = ?
+                """,
+                toJson(userContext),
+                conversationId
+        );
+    }
+
     public String contextForModelRequest(
             UUID conversationId,
             UUID requestId,
@@ -811,17 +834,22 @@ public class ConversationRepository {
             int contextCharacterLimit
     ) {
         ContextMemory memory = jdbcTemplate.queryForObject("""
-                        SELECT summary, result_references::text AS result_references
+                        SELECT summary, result_references::text AS result_references,
+                               user_context
                         FROM bandy_conversation_memory
                         WHERE conversation_id = ?
                         """,
                 (resultSet, rowNumber) -> new ContextMemory(
                         resultSet.getString("summary"),
-                        resultSet.getString("result_references")
+                        resultSet.getString("result_references"),
+                        resultSet.getString("user_context")
                 ),
                 conversationId
         );
         JsonNode resultReferences = readStoredJson(memory.resultReferences());
+        JsonNode userContext = memory.userContext() == null
+                ? null
+                : readStoredJson(memory.userContext());
 
         // Aucune hiérarchie imposée entre les sources : Gemini juge de quoi ou
         // de qui parle l'utilisateur à partir de l'échange, ou il demande.
@@ -836,6 +864,16 @@ public class ConversationRepository {
                         + "actuelle, appelle l’outil autorisé. N’invente jamais de "
                         + "résultat.\n"
         );
+        if (userContext != null && userContext.isObject() && !userContext.isEmpty()) {
+            appendContextBlock(
+                    context,
+                    "Utilisateur connecté (lu depuis son profil, à utiliser pour "
+                            + "t’adresser à lui) :",
+                    compactJson(userContext, 300),
+                    300,
+                    contextCharacterLimit
+            );
+        }
         appendContextBlock(
                 context,
                 "État structuré précédent (à conserver uniquement si la demande "
@@ -1332,7 +1370,8 @@ public class ConversationRepository {
 
     private record ContextMemory(
             String summary,
-            String resultReferences
+            String resultReferences,
+            String userContext
     ) {
     }
 

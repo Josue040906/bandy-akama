@@ -27,6 +27,10 @@ public class ToolRepository {
                 tool.setEnabled(resultSet.getBoolean("enabled"));
                 tool.setSensitive(resultSet.getBoolean("sensitive"));
                 tool.setActionLevel(ToolActionLevel.valueOf(resultSet.getString("action_level")));
+                String contextFields = resultSet.getString("user_context_fields");
+                tool.setUserContextFields(contextFields == null || contextFields.isBlank()
+                        ? List.of()
+                        : List.of(contextFields.split(",")));
                 return tool;
             };
 
@@ -50,7 +54,7 @@ public class ToolRepository {
 
     public List<ToolDefinition> findAll() {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level, user_context_fields "
                         + "FROM bandy_tool ORDER BY name",
                 TOOL_ROW_MAPPER
         );
@@ -59,7 +63,7 @@ public class ToolRepository {
 
     public List<ToolDefinition> findEnabled() {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level, user_context_fields "
                         + "FROM bandy_tool WHERE enabled = TRUE ORDER BY name",
                 TOOL_ROW_MAPPER
         );
@@ -68,7 +72,7 @@ public class ToolRepository {
 
     public Optional<ToolDefinition> findByName(String name) {
         List<ToolDefinition> tools = jdbcTemplate.query(
-                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level "
+                "SELECT name, description, when_to_use, http_method, endpoint_url, enabled, sensitive, action_level, user_context_fields "
                         + "FROM bandy_tool WHERE name = ? AND enabled = TRUE",
                 TOOL_ROW_MAPPER,
                 name
@@ -84,8 +88,8 @@ public class ToolRepository {
                 jdbcTemplate.update("""
                         INSERT INTO bandy_tool (
                             name, description, when_to_use, http_method, endpoint_url,
-                            enabled, sensitive, action_level, updated_at
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            enabled, sensitive, action_level, user_context_fields, updated_at
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                         """,
                         tool.getName(),
                         tool.getDescription(),
@@ -94,7 +98,8 @@ public class ToolRepository {
                         tool.getUrl(),
                         tool.isEnabled(),
                         tool.isSensitive(),
-                        tool.getActionLevel().name()
+                        tool.getActionLevel().name(),
+                        contextFields(tool)
                 );
             } catch (DuplicateKeyException concurrentInsert) {
                 updateTool(tool);
@@ -135,6 +140,7 @@ public class ToolRepository {
                     enabled = ?,
                     sensitive = ?,
                     action_level = ?,
+                    user_context_fields = ?,
                     updated_at = CURRENT_TIMESTAMP
                 WHERE name = ?
                 """,
@@ -145,8 +151,15 @@ public class ToolRepository {
                 tool.isEnabled(),
                 tool.isSensitive(),
                 tool.getActionLevel().name(),
+                contextFields(tool),
                 tool.getName()
         );
+    }
+
+    private static String contextFields(ToolDefinition tool) {
+        return tool.getUserContextFields().isEmpty()
+                ? null
+                : String.join(",", tool.getUserContextFields());
     }
 
     public boolean delete(String name) {

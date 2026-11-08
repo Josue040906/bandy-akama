@@ -98,13 +98,16 @@ foreach ($tool in $tools) {
     }
     $savedParameters = (@($saved.parameters | ForEach-Object { $_.name }) | Sort-Object) -join ','
     $expectedParameters = (@($tool.parameters | ForEach-Object { $_.name }) | Sort-Object) -join ','
+    $savedContextFields = @($saved.userContextFields) -join ','
+    $expectedContextFields = @($tool.userContextFields) -join ','
     if ($saved.description -ne $tool.description -or
         $saved.whenToUse -ne $tool.whenToUse -or
         $saved.url -ne $tool.url -or
         [bool]$saved.enabled -ne [bool]$tool.enabled -or
         [bool]$saved.sensitive -ne [bool]$tool.sensitive -or
         $saved.actionLevel -ne $tool.actionLevel -or
-        $savedParameters -ne $expectedParameters) {
+        $savedParameters -ne $expectedParameters -or
+        $savedContextFields -ne $expectedContextFields) {
         throw "Bandy did not store tool $($tool.name) unchanged (check the encoding and the schema)."
     }
     Write-Output "Tool applied: $($tool.name) ($savedParameters)"

@@ -73,6 +73,7 @@ class ConversationServiceBudgetTest {
                         ConfirmationService.class,
                         invocation -> invocation.getArgument(2)
                 ),
+                mock(UserContextService.class),
                 100
         );
 

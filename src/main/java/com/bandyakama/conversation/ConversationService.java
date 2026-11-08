@@ -21,6 +21,7 @@ public class ConversationService {
     private final GeminiAssistant assistant;
     private final PerformanceTelemetry performanceTelemetry;
     private final ConfirmationService confirmationService;
+    private final UserContextService userContextService;
     private final int turnBudgetMillis;
 
     public ConversationService(
@@ -28,6 +29,7 @@ public class ConversationService {
             GeminiAssistant assistant,
             PerformanceTelemetry performanceTelemetry,
             ConfirmationService confirmationService,
+            UserContextService userContextService,
             @Value("${bandy.ai.turn-budget-millis:30000}")
             int turnBudgetMillis
     ) {
@@ -35,6 +37,7 @@ public class ConversationService {
         this.assistant = assistant;
         this.performanceTelemetry = performanceTelemetry;
         this.confirmationService = confirmationService;
+        this.userContextService = userContextService;
         if (turnBudgetMillis < 1) {
             throw new IllegalArgumentException(
                     "Le budget de requête doit être positif."
@@ -216,6 +219,15 @@ public class ConversationService {
             // Gemini reçoit toujours l'état actif et le fil complet : c'est lui
             // qui décide si le message poursuit le sujet ou en ouvre un nouveau.
             JsonNode activeState = request.activeState();
+            measured(
+                    requestId,
+                    "user_context",
+                    () -> userContextService.ensureLoaded(
+                            conversationId,
+                            authorization,
+                            requestId
+                    )
+            );
             String context = measured(
                     requestId,
                     "context_preparation",

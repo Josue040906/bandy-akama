@@ -1337,6 +1337,29 @@ class ConversationApiTest {
     }
 
     @Test
+    void theConnectedUserContextReachesTheModel() throws Exception {
+        UUID conversationId = createConversation("42");
+        conversationRepository.saveUserContext(
+                conversationId, objectMapper.readTree("{\"prenom\":\"Tiana\"}")
+        );
+        when(assistant.respond(
+                anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)
+        )).thenReturn(new ChatResponse("Bonjour Tiana !", List.of()));
+
+        send(conversationId, "42", "bonjour");
+
+        var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
+        verify(assistant).respond(
+                anyString(), anyString(), contexts.capture(), any(UUID.class), nullable(Consumer.class)
+        );
+        String context = ConversationPromptContext.parse(
+                contexts.getValue(), objectMapper
+        ).context();
+        assertTrue(context.contains("Utilisateur connecté"), context);
+        assertTrue(context.contains("\"prenom\":\"Tiana\""), context);
+    }
+
+    @Test
     void returnsNavigationActionsAndReplaysThemIdempotently() throws Exception {
         UUID conversationId = createConversation("42");
         UUID requestId = UUID.randomUUID();

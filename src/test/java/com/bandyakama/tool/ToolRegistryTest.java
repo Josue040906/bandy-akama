@@ -74,6 +74,31 @@ class ToolRegistryTest {
     }
 
     @Test
+    void persistsUserContextFieldsOnlyForAConsultationWithoutRequiredParameters() {
+        ToolDefinition profile = new ToolDefinition(
+                "myProfile", "Profile of the connected user.", "GET",
+                "https://example.test/api/me", List.of()
+        );
+        profile.setWhenToUse("When the user talks about himself.");
+        profile.setUserContextFields(List.of("prenom"));
+        registry.register(profile);
+        assertEquals(List.of("prenom"),
+                registry.findByName("myProfile").orElseThrow().getUserContextFields());
+
+        ToolDefinition action = tool("contextAction", "POST");
+        action.setActionLevel(ToolActionLevel.CONFIRM);
+        action.setUserContextFields(List.of("prenom"));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> registry.register(action)
+        );
+        ToolDefinition badField = tool("badField", "GET");
+        badField.setUserContextFields(List.of("prenom; DROP"));
+        org.junit.jupiter.api.Assertions.assertThrows(
+                IllegalArgumentException.class, () -> registry.register(badField)
+        );
+    }
+
+    @Test
     void registersNavigationToFrontRoutesOnly() {
         ToolParameter agentId = new ToolParameter("agentId", "integer", "Agent.", true);
         agentId.setLocation("path");
