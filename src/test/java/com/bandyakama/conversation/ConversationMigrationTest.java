@@ -142,6 +142,10 @@ class ConversationMigrationTest {
                 SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE LOWER(TABLE_NAME) = 'bandy_tool_parameter' AND LOWER(COLUMN_NAME) = 'description'
                 """, Integer.class));
+        assertEquals(64, jdbc.queryForObject("""
+                SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE LOWER(TABLE_NAME) = 'bandy_tool_parameter' AND LOWER(COLUMN_NAME) = 'location'
+                """, Integer.class));
     }
 
     private boolean hasColumn(

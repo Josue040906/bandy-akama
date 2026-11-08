@@ -163,5 +163,11 @@
       { "message": "combien d'hommes et de femmes dans chaque direction ?", "outil": "search_agents", "attendus": ["resultMode=GROUP"] },
       { "message": "et l'âge moyen par classe ?", "outil": "search_agents", "attendus": ["resultMode=GROUP", "age"] }
     ]
+  },
+  {
+    "id": "S31", "titre": "Brouillon de document en une phrase, à confirmer",
+    "tours": [
+      { "message": "fais une demande de congé pour Jean RAKOTO du 1er au 15 décembre 2026, motif congé annuel, adressée au Directeur des Ressources Humaines", "outil": "create_document_draft", "attendus": ["dateDebut=2026-12-01", "dateFin=2026-12-15", "destinataire~directeur"] }
+    ]
   }
 ]

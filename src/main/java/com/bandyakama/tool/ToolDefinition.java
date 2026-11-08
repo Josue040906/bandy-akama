@@ -177,7 +177,7 @@ public class ToolDefinition {
             String location = parameter.getLocation();
             // Pour une tâche préparée, les paramètres body sont les champs
             // du formulaire ; ailleurs, une fonction GET n'a pas de corps.
-            if (location != null && location.equalsIgnoreCase("body")
+            if (parameter.inBody()
                     && method.equalsIgnoreCase("GET")
                     && actionLevel != ToolActionLevel.PREPARE) {
                 throw new IllegalArgumentException(

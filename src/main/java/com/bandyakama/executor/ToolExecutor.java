@@ -91,19 +91,20 @@ public class ToolExecutor {
                             ? "query"
                             : "body";
                 }
+                Object value = arguments.get(parameter.getName());
+                String bodyObject = parameter.bodyObject();
+                if (bodyObject != null) {
+                    // « body.donnees » : l'argument rejoint l'objet donnees du corps.
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> nested = (Map<String, Object>) bodyArguments
+                            .computeIfAbsent(bodyObject, key -> new java.util.LinkedHashMap<String, Object>());
+                    nested.put(parameter.getName(), value);
+                    continue;
+                }
                 switch (location.toLowerCase()) {
-                    case "path" -> pathArguments.put(
-                            parameter.getName(),
-                            arguments.get(parameter.getName())
-                    );
-                    case "query" -> queryArguments.put(
-                            parameter.getName(),
-                            arguments.get(parameter.getName())
-                    );
-                    case "body" -> bodyArguments.put(
-                            parameter.getName(),
-                            arguments.get(parameter.getName())
-                    );
+                    case "path" -> pathArguments.put(parameter.getName(), value);
+                    case "query" -> queryArguments.put(parameter.getName(), value);
+                    case "body" -> bodyArguments.put(parameter.getName(), value);
                     default -> throw new IllegalArgumentException(
                             "Emplacement de paramètre non pris en charge : " + location
                     );
@@ -176,9 +177,10 @@ public class ToolExecutor {
             Object normalized = value instanceof Number number && isWholeNumber(number)
                     ? number.longValue()
                     : value;
-            String location = parameter.getLocation() == null
-                    ? "query"
-                    : parameter.getLocation().toLowerCase();
+            // Pour un formulaire, tout argument du corps est un champ, même imbriqué.
+            String location = parameter.inBody()
+                    ? "body"
+                    : parameter.getLocation() == null ? "query" : parameter.getLocation().toLowerCase();
             switch (location) {
                 case "body" -> fields.put(parameter.getName(), normalized);
                 case "path" -> variables.put(parameter.getName(), normalized);

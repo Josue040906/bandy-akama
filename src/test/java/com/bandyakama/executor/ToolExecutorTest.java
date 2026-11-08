@@ -180,6 +180,46 @@ class ToolExecutorTest {
     }
 
     @Test
+    void placesABodyDotObjectArgumentInsideThatObjectOfTheBody() throws IOException {
+        AtomicReference<String> body = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/requests", exchange -> {
+            body.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] responseBody = "{\"id\":7}".getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(201, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            ToolParameter type = new ToolParameter("typeId", "integer", "Type", true);
+            type.setLocation("body");
+            ToolParameter reason = new ToolParameter("motif", "string", "Reason", false);
+            reason.setLocation("body.donnees");
+            ToolParameter start = new ToolParameter("dateDebut", "string", "Start", false);
+            start.setLocation("body.donnees");
+            ToolDefinition tool = new ToolDefinition("create_request", "Create a request", "POST",
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/api/requests",
+                    List.of(type, reason, start));
+            tool.setWhenToUse("Use when creating a request.");
+            tool.validate();
+
+            executorFor(server).execute(tool,
+                    Map.of("typeId", 3, "motif", "Congé annuel", "dateDebut", "2026-12-01"), null, null);
+
+            assertTrue(body.get().contains("\"typeId\":3"));
+            assertTrue(body.get().contains("\"donnees\":{"));
+            assertTrue(body.get().contains("\"motif\":\"Congé annuel\""));
+            assertTrue(!body.get().startsWith("{\"motif\""));
+            assertEquals(Map.of("typeId", 3L), executorFor(server).interfaceAction(tool, Map.of("typeId", 3)).fields());
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
     void doesNotStartToolHttpRequestAfterTurnBudgetExpires() throws IOException {
         AtomicBoolean receivedRequest = new AtomicBoolean();
         HttpServer server = HttpServer.create(
