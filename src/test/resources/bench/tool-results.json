@@ -78,6 +78,13 @@
     { "id": 2, "code": "ORDRE_MISSION", "libelle": "Ordre de mission", "description": "Autorise un déplacement professionnel.", "dateDebutValidite": "2020-01-01", "dateFinValidite": null },
     { "id": 3, "code": "MUTATION", "libelle": "Demande de mutation", "description": "Demande de changement d'affectation.", "dateDebutValidite": "2020-01-01", "dateFinValidite": null }
   ],
+  "list_documents": {
+    "value": [
+      { "id": 41, "reference_document": "DOC-2026-041", "objet": "Attestation de travail", "type_document": "Attestation de travail", "statut": "BROUILLON", "date_document": "2026-11-02", "agent_nom": "RAKOTO", "agent_prenom": "Jean", "service": "Service Finances", "direction": "Direction Générale du Budget" },
+      { "id": 42, "reference_document": "DOC-2026-042", "objet": "Demande de congé", "type_document": "Demande de congé", "statut": "BROUILLON", "date_document": "2026-11-05", "agent_nom": "ANDRIA", "agent_prenom": "Tiana", "service": "Service Comptabilité", "direction": "Direction Générale du Budget" }
+    ],
+    "Count": 2
+  },
   "get_my_tasks": {
     "elements": [
       { "code": "documents_a_verifier", "libelle": "Documents à vérifier", "nombre": 3, "route": "/documents" },

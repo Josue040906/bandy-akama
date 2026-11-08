@@ -129,5 +129,12 @@
       { "message": "qu'est-ce que j'ai à faire aujourd'hui ?", "outil": "get_my_tasks", "reponseContient": ["3", "24"] },
       { "message": "ouvre-moi les documents", "outil": "open_page", "attendus": ["page=documents"] }
     ]
+  },
+  {
+    "id": "S26", "titre": "Détail des documents d'un statut, puis la page filtrée",
+    "tours": [
+      { "message": "détaille-moi les documents en brouillon", "outil": "list_documents", "attendus": ["statut=BROUILLON"], "reponseContient": ["rakoto", "tiana"] },
+      { "message": "ouvre-les moi", "outil": "open_page", "attendus": ["page=documents", "statut=BROUILLON"] }
+    ]
   }
 ]
