@@ -156,5 +156,12 @@
     "tours": [
       { "message": "laquelle de nos agents a fait un parcours spécialisé en informatique de niveau licence minimum ?", "outil": "search_agents", "attendus": ["collection=diplomes", "domaine~informatique", "niveau~licence"] }
     ]
+  },
+  {
+    "id": "S30", "titre": "Statistiques : répartition par direction et sexe, puis âge moyen par classe",
+    "tours": [
+      { "message": "combien d'hommes et de femmes dans chaque direction ?", "outil": "search_agents", "attendus": ["resultMode=GROUP"] },
+      { "message": "et l'âge moyen par classe ?", "outil": "search_agents", "attendus": ["resultMode=GROUP", "age"] }
+    ]
   }
 ]
