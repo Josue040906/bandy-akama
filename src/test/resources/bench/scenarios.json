@@ -136,5 +136,19 @@
       { "message": "détaille-moi les documents en brouillon", "outil": "list_documents", "attendus": ["statut=BROUILLON"], "reponseContient": ["rakoto", "tiana"] },
       { "message": "ouvre-les moi", "outil": "open_page", "attendus": ["page=documents", "statut=BROUILLON"] }
     ]
+  },
+  {
+    "id": "S27", "titre": "Filtrage multicritère : sexe, décennie d'âge, direction, puis diplôme",
+    "tours": [
+      { "message": "cherche toutes les femmes dans la trentaine de la direction de l'Administration", "outil": "search_agents", "attendus": ["sexe=F", "age=30", "*~administration"] },
+      { "message": "je cherche les agents de niveau bacc à la direction financière", "outil": "search_agents", "attendus": ["diplome~baccalaur", "*~financ"], "interdits": ["sexe"] }
+    ]
+  },
+  {
+    "id": "S28", "titre": "Condition d'ancienneté d'échelon remplie, puis à venir",
+    "tours": [
+      { "message": "quels agents ont rempli leur condition d'ancienneté d'échelon ?", "outil": "search_agents", "attendus": ["date_anciennete_echelon"] },
+      { "message": "et ceux qui l'atteindront dans les 3 prochains mois ?", "outil": "search_agents", "attendus": ["date_anciennete_echelon"] }
+    ]
   }
 ]
