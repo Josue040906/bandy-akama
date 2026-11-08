@@ -141,7 +141,7 @@
     "id": "S27", "titre": "Filtrage multicritère : sexe, décennie d'âge, direction, puis diplôme",
     "tours": [
       { "message": "cherche toutes les femmes dans la trentaine de la direction de l'Administration", "outil": "search_agents", "attendus": ["sexe=F", "age=30", "*~administration"] },
-      { "message": "je cherche les agents de niveau bacc à la direction financière", "outil": "search_agents", "attendus": ["diplome~baccalaur", "*~financ"], "interdits": ["sexe"] }
+      { "message": "je cherche les agents de niveau bacc à la direction financière", "outil": "search_agents", "attendus": ["collection=diplomes", "niveau~baccalaur", "*~financ"], "interdits": ["sexe"] }
     ]
   },
   {
@@ -149,6 +149,12 @@
     "tours": [
       { "message": "quels agents ont rempli leur condition d'ancienneté d'échelon ?", "outil": "search_agents", "attendus": ["date_anciennete_echelon"] },
       { "message": "et ceux qui l'atteindront dans les 3 prochains mois ?", "outil": "search_agents", "attendus": ["date_anciennete_echelon"] }
+    ]
+  },
+  {
+    "id": "S29", "titre": "Recherche dans une liste de l'agent : diplômes d'un domaine, niveau minimum",
+    "tours": [
+      { "message": "laquelle de nos agents a fait un parcours spécialisé en informatique de niveau licence minimum ?", "outil": "search_agents", "attendus": ["collection=diplomes", "domaine~informatique", "niveau~licence"] }
     ]
   }
 ]

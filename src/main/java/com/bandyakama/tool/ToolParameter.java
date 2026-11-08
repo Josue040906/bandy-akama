@@ -15,7 +15,7 @@ public class ToolParameter {
     private String type;
 
     @NotBlank
-    @Size(max = 1000)
+    @Size(max = 2000)
     private String description;
 
     @Pattern(regexp = "(?i)query|path|body")

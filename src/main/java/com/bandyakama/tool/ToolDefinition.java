@@ -42,7 +42,7 @@ public class ToolDefinition {
     private List<String> userContextFields = List.of();
 
     @NotBlank
-    @Size(max = 2000)
+    @Size(max = 4000)
     private String whenToUse;
 
     public ToolDefinition() {

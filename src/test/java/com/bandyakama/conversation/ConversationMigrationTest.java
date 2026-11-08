@@ -33,6 +33,19 @@ class ConversationMigrationTest {
                 )
                 """);
         jdbc.execute("""
+                CREATE TABLE bandy_tool_parameter (
+                    tool_name VARCHAR(64) NOT NULL REFERENCES bandy_tool(name) ON DELETE CASCADE,
+                    name VARCHAR(64) NOT NULL,
+                    type VARCHAR(20) NOT NULL,
+                    description VARCHAR(1000) NOT NULL,
+                    location VARCHAR(10),
+                    required BOOLEAN NOT NULL DEFAULT FALSE,
+                    position INTEGER NOT NULL,
+                    PRIMARY KEY (tool_name, name),
+                    UNIQUE (tool_name, position)
+                )
+                """);
+        jdbc.execute("""
                 CREATE TABLE bandy_conversation (
                     id UUID PRIMARY KEY,
                     application_id VARCHAR(120) NOT NULL,
@@ -121,6 +134,14 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_tool", "action_level"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "user_context_fields"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "user_context"));
+        assertEquals(4000, jdbc.queryForObject("""
+                SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE LOWER(TABLE_NAME) = 'bandy_tool' AND LOWER(COLUMN_NAME) = 'when_to_use'
+                """, Integer.class));
+        assertEquals(2000, jdbc.queryForObject("""
+                SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE LOWER(TABLE_NAME) = 'bandy_tool_parameter' AND LOWER(COLUMN_NAME) = 'description'
+                """, Integer.class));
     }
 
     private boolean hasColumn(
