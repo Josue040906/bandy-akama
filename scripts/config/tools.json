@@ -162,7 +162,7 @@
   {
     "name": "open_page",
     "description": "Propose à l’interface d’ouvrir une page principale de SYGPERS.",
-    "whenToUse": "Quand l’utilisateur veut aller sur la liste des agents, la page des documents ou la page de ses activités. Aucune autre page n’est accessible par l’assistant : pour une autre page, n’appelle pas cet outil (pas même avec une page voisine) et dis simplement que tu ne peux pas l’ouvrir. Pour une liste filtrée, ajoute statut (documents) ou dossier (agents) quand la demande le précise. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
+    "whenToUse": "Quand l’utilisateur veut aller sur la liste des agents, la page des documents ou la page de ses activités. Aucune autre page n’est accessible par l’assistant : pour une autre page, n’appelle pas cet outil (pas même avec une page voisine) et dis simplement que tu ne peux pas l’ouvrir. Pour une liste filtrée, ajoute statut (documents) ou dossier (agents) quand la demande le précise. Pour montrer dans la page agents les agents d’une recherche (« montre-les dans la liste », « ouvre la page agents avec ces agents »), ajoute recherche : le criteriaJson de la recherche demandée, tel que search_agents le reçoit ; si cette recherche n’a pas encore été faite dans la conversation, fais-la d’abord avec search_agents. Dis que tu proposes d’ouvrir la page, sans affirmer qu’elle est ouverte.",
     "method": "GET",
     "url": "/{page}",
     "enabled": true,
@@ -187,6 +187,13 @@
         "name": "dossier",
         "type": "string",
         "description": "Page agents seulement, facultatif : incomplet, pour les dossiers incomplets.",
+        "required": false,
+        "location": "query"
+      },
+      {
+        "name": "recherche",
+        "type": "string",
+        "description": "Page agents seulement, facultatif : AST JSON en chaîne d’une recherche d’agents (même format que criteriaJson de search_agents, avec au moins un critère dans must ou should). La page n’affiche que les agents qui y répondent.",
         "required": false,
         "location": "query"
       }

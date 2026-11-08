@@ -169,5 +169,12 @@
     "tours": [
       { "message": "fais une demande de congé pour Jean RAKOTO du 1er au 15 décembre 2026, motif congé annuel, adressée au Directeur des Ressources Humaines", "outil": "create_document_draft", "attendus": ["dateDebut=2026-12-01", "dateFin=2026-12-15", "destinataire~directeur"] }
     ]
+  },
+  {
+    "id": "S32", "titre": "Une recherche, puis la page Agents sur ces agents à la demande",
+    "tours": [
+      { "message": "les femmes du service du personnel de plus de 26 ans", "outil": "search_agents", "attendus": ["sexe=F", "age=26", "*~personnel"] },
+      { "message": "montre-les dans la page agents", "outil": "open_page", "attendus": ["page=agents", "recherche~personnel"] }
+    ]
   }
 ]

@@ -372,6 +372,18 @@ class ToolExecutorTest {
                 executor.interfaceAction(anyPage, Map.of("page", "../administration")).route());
         assertThrows(IllegalArgumentException.class,
                 () -> executor.interfaceAction(navigation, Map.of("agentId", "abc")).route());
+
+        // Des critères JSON en paramètre restent un seul paramètre de la route, entièrement encodé.
+        ToolParameter search = new ToolParameter("recherche", "string", "Criteria.", false);
+        search.setLocation("query");
+        ToolDefinition agentsPage = new ToolDefinition(
+                "open_page", "Opens a page.", "GET", "/{page}", List.of(page, search)
+        );
+        String route = executor.interfaceAction(agentsPage, Map.of("page", "agents",
+                "recherche", "{\"must\":[{\"field\":\"service\",\"operator\":\"CONTAINS\",\"value\":\"du personnel\"}]}"
+        )).route();
+        assertTrue(route.startsWith("/agents?recherche=%7B%22must%22"), route);
+        assertTrue(!route.contains(" ") && !route.contains("{") && !route.contains("&"), route);
     }
 
     @Test
