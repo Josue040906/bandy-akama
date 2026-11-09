@@ -354,6 +354,93 @@
     ]
   },
   {
+    "name": "list_diploma_options",
+    "description": "Liste les référentiels du formulaire de diplôme, avec leurs identifiants : niveaux, domaines (du niveau donné), établissements (du niveau et du domaine donnés) et mentions.",
+    "whenToUse": "Avant prepare_new_diploma, pour obtenir les identifiants. D’abord sans paramètre (niveaux, domaines, mentions), puis avec niveauId et domaineId pour les établissements qui délivrent ce diplôme. Choisis toi-même la valeur qui correspond à ce qui est écrit sur la pièce ; si rien ne correspond, ne choisis pas.",
+    "method": "GET",
+    "url": "{RH_API_URL}/api/referentiels/diplomes/options",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "READ",
+    "parameters": [
+      {
+        "name": "niveauId",
+        "type": "integer",
+        "description": "Facultatif : identifiant du niveau, pour ses domaines.",
+        "required": false,
+        "location": "query"
+      },
+      {
+        "name": "domaineId",
+        "type": "integer",
+        "description": "Facultatif, avec niveauId : identifiant du domaine, pour ses établissements.",
+        "required": false,
+        "location": "query"
+      }
+    ]
+  },
+  {
+    "name": "prepare_new_diploma",
+    "description": "Propose à l’interface le formulaire d’ajout d’un diplôme à un agent, prérempli avec les champs connus. Rien n’est enregistré tant que l’utilisateur n’a pas vérifié et enregistré le formulaire.",
+    "whenToUse": "Pour ajouter un diplôme à un agent, le plus souvent lu sur une pièce jointe. agentId : champ id de search_agents, ou de get_my_profile pour l’utilisateur lui-même. Identifiants du niveau, du domaine, de l’établissement et de la mention : avec list_diploma_options. Ne transmets que ce qui est lisible sur la pièce ; un établissement absent du référentiel reste vide, dis-le (le formulaire permet de le proposer). observation : les constats sur la pièce (tampon, signature, numéro du diplôme) et chaque écart avec la fiche de l’agent, par exemple un nom écrit différemment. Dis que le formulaire est prérempli et qu’il faut le vérifier puis l’enregistrer ; ne dis jamais que le diplôme est enregistré.",
+    "method": "GET",
+    "url": "/carrieres/{agentId}/analyse",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "PREPARE",
+    "parameters": [
+      {
+        "name": "agentId",
+        "type": "integer",
+        "description": "Identifiant interne de l’agent (champ id de search_agents ou de get_my_profile).",
+        "required": true,
+        "location": "path"
+      },
+      {
+        "name": "niveauId",
+        "type": "integer",
+        "description": "Identifiant du niveau (list_diploma_options).",
+        "required": false,
+        "location": "body"
+      },
+      {
+        "name": "domaineId",
+        "type": "integer",
+        "description": "Identifiant du domaine (list_diploma_options).",
+        "required": false,
+        "location": "body"
+      },
+      {
+        "name": "etablissementId",
+        "type": "integer",
+        "description": "Identifiant de l’établissement de délivrance (list_diploma_options avec niveauId et domaineId).",
+        "required": false,
+        "location": "body"
+      },
+      {
+        "name": "dateObtention",
+        "type": "string",
+        "description": "Date d’obtention, au format AAAA-MM-JJ.",
+        "required": false,
+        "location": "body"
+      },
+      {
+        "name": "mentionId",
+        "type": "integer",
+        "description": "Identifiant de la mention, si elle est indiquée (list_diploma_options).",
+        "required": false,
+        "location": "body"
+      },
+      {
+        "name": "observation",
+        "type": "string",
+        "description": "Constats sur la pièce et écarts avec la fiche de l’agent.",
+        "required": false,
+        "location": "body"
+      }
+    ]
+  },
+  {
     "name": "prepare_agent_update",
     "description": "Propose à l’interface le formulaire de modification des informations personnelles d’un agent, prérempli avec les seules valeurs à changer. Rien n’est enregistré tant que l’utilisateur n’a pas validé.",
     "whenToUse": "Quand l’utilisateur veut modifier une information personnelle d’un agent : nom, prénom, sexe, adresse, CIN, téléphone, date ou lieu de naissance. agentId est l’identifiant interne (champ id) renvoyé par search_agents ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Ne transmets QUE les champs que l’utilisateur veut changer, avec leur nouvelle valeur ; ne recopie jamais les valeurs actuelles, car l’interface signale chaque champ transmis comme modifié. Dis que le formulaire est prérempli et que les champs modifiés sont à vérifier puis valider ; ne dis jamais que la modification est enregistrée.",
