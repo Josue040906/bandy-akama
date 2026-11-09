@@ -194,7 +194,9 @@ class ConfirmationApiTest {
                         "Je prépare la demande de congé ; cliquez sur « Confirmer » pour l’envoyer.",
                         List.of(),
                         null,
-                        List.of(new ChatResponse.Action("CONFIRM", "submit_leave_request", null, ARGUMENTS)),
+                        // Le résumé vérifié par l'API (aperçu) accompagne la carte, sans changer les arguments.
+                        List.of(new ChatResponse.Action("CONFIRM", "submit_leave_request", null, ARGUMENTS)
+                                .withSummary(Map.of("Agent", "RAKOTO Jean (AG-042)"))),
                         List.of()
                 ));
         String body = mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
@@ -204,6 +206,7 @@ class ConfirmationApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.actions[0].type").value("CONFIRM"))
                 .andExpect(jsonPath("$.actions[0].fields.motif").value("Congé annuel"))
+                .andExpect(jsonPath("$.actions[0].summary.Agent").value("RAKOTO Jean (AG-042)"))
                 .andReturn().getResponse().getContentAsString();
         return UUID.fromString(objectMapper.readTree(body)
                 .path("actions").get(0).path("confirmationId").asText());

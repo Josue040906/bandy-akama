@@ -134,6 +134,7 @@ class ConversationMigrationTest {
         assertTrue(hasColumn(jdbc, "bandy_tool", "action_level"));
         assertTrue(hasColumn(jdbc, "bandy_tool", "user_context_fields"));
         assertTrue(hasColumn(jdbc, "bandy_conversation_memory", "user_context"));
+        assertTrue(hasColumn(jdbc, "bandy_tool", "preview_query"));
         assertEquals(4000, jdbc.queryForObject("""
                 SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS
                 WHERE LOWER(TABLE_NAME) = 'bandy_tool' AND LOWER(COLUMN_NAME) = 'when_to_use'

@@ -220,6 +220,51 @@ class ToolExecutorTest {
     }
 
     @Test
+    void previewsAConfirmedTaskWithTheCatalogueQueryAndNoIdempotencyKey() throws IOException {
+        AtomicReference<String> query = new AtomicReference<>();
+        AtomicReference<String> idempotency = new AtomicReference<>();
+        AtomicReference<String> authorization = new AtomicReference<>();
+        HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext("/api/requests", exchange -> {
+            query.set(exchange.getRequestURI().getRawQuery());
+            idempotency.set(exchange.getRequestHeaders().getFirst("Idempotency-Key"));
+            authorization.set(exchange.getRequestHeaders().getFirst("Authorization"));
+            byte[] responseBody = "{\"apercu\":true,\"resume\":{\"Agent\":\"RAKOTO Jean\"}}"
+                    .getBytes(StandardCharsets.UTF_8);
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, responseBody.length);
+            exchange.getResponseBody().write(responseBody);
+            exchange.close();
+        });
+        server.start();
+
+        try {
+            ToolParameter reason = new ToolParameter("motif", "string", "Reason", true);
+            reason.setLocation("body");
+            ToolDefinition tool = new ToolDefinition("create_request", "Create a request", "POST",
+                    "http://127.0.0.1:" + server.getAddress().getPort() + "/api/requests", List.of(reason));
+            tool.setWhenToUse("Use when creating a request.");
+            tool.setActionLevel(com.bandyakama.tool.ToolActionLevel.CONFIRM);
+            tool.setPreviewQuery("apercu=true");
+            tool.validate();
+
+            Object result = executorFor(server).preview(tool, Map.of("motif", "Congé"), "Bearer user-token");
+
+            assertEquals("apercu=true", query.get());
+            assertEquals(null, idempotency.get());
+            assertEquals("Bearer user-token", authorization.get());
+            assertEquals(Map.of("apercu", true, "resume", Map.of("Agent", "RAKOTO Jean")), result);
+        } finally {
+            server.stop(0);
+        }
+
+        ToolDefinition reading = new ToolDefinition("read", "Read", "GET", "https://example.test/api", List.of());
+        reading.setWhenToUse("Use when reading.");
+        reading.setPreviewQuery("apercu=true");
+        assertThrows(IllegalArgumentException.class, reading::validate);
+    }
+
+    @Test
     void doesNotStartToolHttpRequestAfterTurnBudgetExpires() throws IOException {
         AtomicBoolean receivedRequest = new AtomicBoolean();
         HttpServer server = HttpServer.create(

@@ -41,6 +41,7 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -771,7 +772,7 @@ public class GeminiAssistant {
             return interfaceAction(definition, arguments);
         }
         if (definition.getActionLevel() == ToolActionLevel.CONFIRM) {
-            return confirmationRequest(definition, arguments);
+            return confirmationRequest(definition, arguments, authorization);
         }
         // Seul le catalogue décide qu'un résultat est sensible.
         boolean sensitive = definition.isSensitive();
@@ -883,7 +884,8 @@ public class GeminiAssistant {
      */
     private ToolExecutionResult confirmationRequest(
             ToolDefinition definition,
-            Map<String, Object> arguments
+            Map<String, Object> arguments,
+            String authorization
     ) {
         ChatResponse.Action action;
         try {
@@ -891,16 +893,36 @@ public class GeminiAssistant {
         } catch (IllegalArgumentException exception) {
             return refusal(Map.of("ok", false, "message", exception.getMessage()));
         }
-        return new ToolExecutionResult(
-                Map.of(
-                        "ok", true,
-                        "message", "La demande est prête et attend que l’utilisateur "
-                                + "clique sur « Confirmer » ; elle n’est pas exécutée."
-                ),
-                false,
-                false,
-                action
-        );
+        Map<String, Object> answer = new LinkedHashMap<>();
+        answer.put("ok", true);
+        answer.put("message", "La demande est prête et attend que l’utilisateur "
+                + "clique sur « Confirmer » ; elle n’est pas exécutée.");
+        if (definition.getPreviewQuery() != null) {
+            // L'API vérifie d'abord la tâche : un refus s'explique avant toute carte.
+            try {
+                Object preview = toolExecutor.preview(definition, arguments, authorization);
+                if (preview instanceof Map<?, ?> verified && verified.get("resume") instanceof Map<?, ?> resume) {
+                    Map<String, Object> summary = new LinkedHashMap<>();
+                    resume.forEach((key, value) -> summary.put(String.valueOf(key), value));
+                    action = action.withSummary(summary);
+                    answer.put("verifieParLApi", summary);
+                }
+            } catch (RestClientResponseException exception) {
+                if (exception.getStatusCode().is4xxClientError()) {
+                    return refusal(apiRefusal(
+                            exception.getStatusCode().value(),
+                            exception.getResponseBodyAsString(),
+                            objectMapper
+                    ));
+                }
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_GATEWAY,
+                        "Le service métier n’a pas pu vérifier la demande.",
+                        exception
+                );
+            }
+        }
+        return new ToolExecutionResult(answer, false, false, action);
     }
 
     /**

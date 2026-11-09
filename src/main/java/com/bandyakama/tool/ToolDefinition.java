@@ -41,6 +41,14 @@ public class ToolDefinition {
      */
     private List<String> userContextFields = List.of();
 
+    /**
+     * Tâche confirmée seulement : paramètre d'adresse (« apercu=true ») qui
+     * demande à l'API de vérifier la tâche sans l'exécuter. Bandy l'appelle
+     * avant d'afficher la carte : un refus est expliqué tout de suite, et la
+     * carte montre le résumé de l'API (champ resume) plutôt que des identifiants.
+     */
+    private String previewQuery;
+
     @NotBlank
     @Size(max = 4000)
     private String whenToUse;
@@ -93,6 +101,11 @@ public class ToolDefinition {
                 || actionLevel == ToolActionLevel.PREPARE;
     }
 
+    public String getPreviewQuery() { return previewQuery; }
+    public void setPreviewQuery(String previewQuery) {
+        this.previewQuery = previewQuery == null || previewQuery.isBlank() ? null : previewQuery.trim();
+    }
+
     public List<String> getUserContextFields() { return userContextFields; }
     public void setUserContextFields(List<String> userContextFields) {
         this.userContextFields = userContextFields == null ? List.of() : List.copyOf(userContextFields);
@@ -141,6 +154,12 @@ public class ToolDefinition {
                         "userContextFields : au plus 5 noms de champs simples."
                 );
             }
+        }
+        if (previewQuery != null && (actionLevel != ToolActionLevel.CONFIRM
+                || !previewQuery.matches("[A-Za-z][A-Za-z0-9_]{0,40}=[A-Za-z0-9_]{1,40}"))) {
+            throw new IllegalArgumentException(
+                    "previewQuery est réservé à une tâche confirmée et s'écrit nom=valeur (par exemple apercu=true)."
+            );
         }
         if (targetsInterface()) {
             // Navigation et tâche préparée ouvrent une page : méthode GET,

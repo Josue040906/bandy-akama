@@ -70,6 +70,28 @@ public class ToolExecutor {
             String authorization,
             String idempotencyKey
     ) {
+        return send(tool, arguments, authorization, idempotencyKey, null);
+    }
+
+    /**
+     * Aperçu d'une tâche confirmée : la même requête, avec le paramètre
+     * d'aperçu du catalogue et sans clé d'idempotence. L'API vérifie et
+     * résume ; elle n'exécute rien.
+     */
+    public Object preview(ToolDefinition tool, Map<String, Object> arguments, String authorization) {
+        if (tool.getPreviewQuery() == null) {
+            throw new IllegalStateException("L'outil " + tool.getName() + " ne déclare pas d'aperçu.");
+        }
+        return send(tool, arguments, authorization, null, tool.getPreviewQuery());
+    }
+
+    private Object send(
+            ToolDefinition tool,
+            Map<String, Object> arguments,
+            String authorization,
+            String idempotencyKey,
+            String previewQuery
+    ) {
         long startedAt = System.nanoTime();
         boolean succeeded = false;
         Integer httpStatus = null;
@@ -111,6 +133,10 @@ public class ToolExecutor {
                 }
             }
             queryArguments.forEach(uriBuilder::queryParam);
+            if (previewQuery != null) {
+                String[] parts = previewQuery.split("=", 2);
+                uriBuilder.queryParam(parts[0], parts[1]);
+            }
 
             java.net.URI target = uriBuilder.buildAndExpand(pathArguments).encode().toUri();
             // Barrière avant tout envoi : le jeton de l'utilisateur ne part

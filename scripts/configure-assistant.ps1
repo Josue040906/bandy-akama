@@ -107,7 +107,8 @@ foreach ($tool in $tools) {
         [bool]$saved.sensitive -ne [bool]$tool.sensitive -or
         $saved.actionLevel -ne $tool.actionLevel -or
         $savedParameters -ne $expectedParameters -or
-        $savedContextFields -ne $expectedContextFields) {
+        $savedContextFields -ne $expectedContextFields -or
+        [string]$saved.previewQuery -ne [string]$tool.previewQuery) {
         throw "Bandy did not store tool $($tool.name) unchanged (check the encoding and the schema)."
     }
     Write-Output "Tool applied: $($tool.name) ($savedParameters)"

@@ -107,7 +107,8 @@ class AssistantConfigurationRepositoryTest {
                     endpoint_url VARCHAR(2048),
                     enabled BOOLEAN,
                     sensitive BOOLEAN,
-                    action_level VARCHAR(16) DEFAULT 'READ' NOT NULL
+                    action_level VARCHAR(16) DEFAULT 'READ' NOT NULL,
+                    preview_query VARCHAR(100)
                 )
                 """);
         jdbcTemplate.execute("""

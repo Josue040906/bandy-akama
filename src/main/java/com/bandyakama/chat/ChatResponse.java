@@ -62,20 +62,29 @@ public record ChatResponse(
             String tool,
             @JsonInclude(JsonInclude.Include.NON_NULL) String route,
             @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> fields,
-            @JsonInclude(JsonInclude.Include.NON_NULL) UUID confirmationId
+            @JsonInclude(JsonInclude.Include.NON_NULL) UUID confirmationId,
+            // Ce que l'API a vérifié et dit en clair de la tâche (aperçu) : seulement affiché.
+            @JsonInclude(JsonInclude.Include.NON_EMPTY) Map<String, Object> summary
     ) {
         public Action {
             fields = fields == null
                     ? Map.of()
                     : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(fields));
+            summary = summary == null
+                    ? Map.of()
+                    : java.util.Collections.unmodifiableMap(new java.util.LinkedHashMap<>(summary));
         }
 
         public Action(String type, String tool, String route, Map<String, Object> fields) {
-            this(type, tool, route, fields, null);
+            this(type, tool, route, fields, null, null);
         }
 
         public Action withConfirmationId(UUID id) {
-            return new Action(type, tool, route, fields, id);
+            return new Action(type, tool, route, fields, id, summary);
+        }
+
+        public Action withSummary(Map<String, Object> verified) {
+            return new Action(type, tool, route, fields, confirmationId, verified);
         }
     }
 }

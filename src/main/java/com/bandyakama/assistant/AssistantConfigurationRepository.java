@@ -25,6 +25,7 @@ public class AssistantConfigurationRepository {
                    t.enabled AS tool_enabled,
                    t.sensitive AS tool_sensitive,
                    t.action_level AS tool_action_level,
+                   t.preview_query AS tool_preview_query,
                    parameter.name AS parameter_name,
                    parameter.type AS parameter_type,
                    parameter.description AS parameter_description,
@@ -83,6 +84,7 @@ public class AssistantConfigurationRepository {
                         definition.setActionLevel(ToolActionLevel.valueOf(
                                 resultSet.getString("tool_action_level")
                         ));
+                        definition.setPreviewQuery(resultSet.getString("tool_preview_query"));
                     } catch (java.sql.SQLException exception) {
                         throw new IllegalStateException(
                                 "Impossible de lire la configuration d’un outil.",
