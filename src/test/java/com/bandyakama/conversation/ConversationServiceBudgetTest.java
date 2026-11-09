@@ -52,7 +52,7 @@ class ConversationServiceBudgetTest {
                 anyString(),
                 any(),
                 any()
-        )).thenAnswer(invocation -> {
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenAnswer(invocation -> {
             Thread.sleep(250);
             return new ChatResponse("late response", java.util.List.of());
         });

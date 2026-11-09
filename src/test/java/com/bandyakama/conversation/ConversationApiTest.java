@@ -141,7 +141,7 @@ class ConversationApiTest {
                 anyString(),
                 nullable(UUID.class),
                 any(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
 
         UUID conversationId = createConversation("42");
         MvcResult pending = mockMvc.perform(post(
@@ -271,7 +271,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse("Bonjour, que puis-je faire pour vous ?", List.of()));
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse("Bonjour, que puis-je faire pour vous ?", List.of()));
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
                         .header("Authorization", bearerToken("42"))
@@ -289,7 +289,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         Integer persistedMessages = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM bandy_conversation_message
                 WHERE conversation_id = ?
@@ -311,7 +311,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "Quatre agents correspondent.",
                 List.of(new ChatResponse.ToolResult(
                         "searchEmployees",
@@ -351,7 +351,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
     }
 
     @Test
@@ -364,7 +364,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Je n’ai pas trouvé cet agent.",
                         List.of(new ChatResponse.ToolResult(
@@ -430,7 +430,7 @@ class ConversationApiTest {
                 contexts.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
 
         String academicContext = contexts.getAllValues().get(2);
         assertTrue(academicContext.contains("Licence en Gestion RH"));
@@ -505,7 +505,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Quatre agentes trouvées.",
                         List.of(new ChatResponse.ToolResult(
@@ -557,7 +557,7 @@ class ConversationApiTest {
                 context.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String followUpContext = context.getAllValues().get(1);
         assertTrue(followUpContext.contains("Direction générale"));
         assertTrue(followUpContext.contains("\"age\""), followUpContext);
@@ -580,7 +580,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "J’ai trouvé l’agent.",
                         List.of(new ChatResponse.ToolResult(
@@ -616,7 +616,7 @@ class ConversationApiTest {
                 contexts.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         // Le code n'efface plus l'état sur un mot-clé : Gemini le reçoit et juge.
         assertTrue(activeStateBlock(contexts.getAllValues().get(1))
                 .contains("\"toolName\":\"searchEmployees\""));
@@ -631,7 +631,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Femmes du Service du Personnel.",
                         List.of(new ChatResponse.ToolResult(
@@ -674,7 +674,7 @@ class ConversationApiTest {
                 context.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String finalContext = context.getAllValues().get(2);
         String stateBlock = finalContext.substring(
                 finalContext.indexOf(") :\n") + 4,
@@ -697,7 +697,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Recherche dans la Direction générale.",
                         List.of(new ChatResponse.ToolResult(
@@ -746,7 +746,7 @@ class ConversationApiTest {
                 contexts.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         // Gemini reçoit les filtres précédents ; ses nouveaux arguments les remplacent.
         assertTrue(activeStateBlock(contexts.getAllValues().get(1)).contains("Direction Générale"));
         JsonNode storedState = readMemoryJson(conversationId, "active_state");
@@ -765,7 +765,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Agent trouvé.",
                         List.of(new ChatResponse.ToolResult(
@@ -794,7 +794,7 @@ class ConversationApiTest {
                 context.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String rebuiltContext = context.getAllValues().get(1);
         assertTrue(rebuiltContext.contains("Personnel"));
         assertTrue(rebuiltContext.contains("R-9"));
@@ -809,7 +809,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Un ancien agent a été trouvé.",
                         List.of(new ChatResponse.ToolResult(
@@ -848,7 +848,7 @@ class ConversationApiTest {
                 context.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String rebuiltContext = context.getAllValues().get(6);
 
         assertTrue(rebuiltContext.contains("Résumé extractif"), rebuiltContext);
@@ -869,7 +869,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenThrow(new IllegalStateException("provider unavailable"))
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenThrow(new IllegalStateException("provider unavailable"))
                 .thenReturn(new ChatResponse("Réponse disponible.", List.of()));
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
@@ -907,7 +907,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenThrow(new ResponseStatusException(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenThrow(new ResponseStatusException(
                 org.springframework.http.HttpStatus.BAD_GATEWAY,
                 "Backend indisponible."
         ));
@@ -939,7 +939,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenAnswer(invocation -> {
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenAnswer(invocation -> {
             assistantStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("Timed out waiting for the test.");
@@ -992,7 +992,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenAnswer(invocation -> {
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenAnswer(invocation -> {
             bothRequestsStarted.countDown();
             if (!releaseAssistant.await(5, TimeUnit.SECONDS)) {
                 throw new IllegalStateException("Timed out waiting for the test.");
@@ -1058,7 +1058,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenAnswer(invocation -> new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenAnswer(invocation -> new ChatResponse(
                 "Réponse " + invocation.getArgument(0),
                 List.of()
         ));
@@ -1079,7 +1079,7 @@ class ConversationApiTest {
                 context.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String finalContext = context.getAllValues().get(10);
         assertTrue(finalContext
                 .contains("Résumé extractif des échanges plus anciens"));
@@ -1126,7 +1126,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "J’ai trouvé un agent.",
                 List.of(new ChatResponse.ToolResult(
                         "searchEmployees",
@@ -1216,7 +1216,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "Votre profil est chargé.",
                 List.of(new ChatResponse.ToolResult(
                         "getMyProfile",
@@ -1273,7 +1273,7 @@ class ConversationApiTest {
         UUID conversationId = createConversation("42");
         when(assistant.respond(
                 anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "Je propose le formulaire prérempli.",
                 List.of(),
                 null,
@@ -1304,7 +1304,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(
                 new ChatResponse(
                         "Les services de la DSI sont dirigés par Tiana et Hanta.",
                         List.of(new ChatResponse.ToolResult(
@@ -1328,7 +1328,7 @@ class ConversationApiTest {
         var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(assistant, times(2)).respond(
                 anyString(), anyString(), contexts.capture(), any(UUID.class), nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String context = ConversationPromptContext.parse(
                 contexts.getAllValues().get(1), objectMapper
         ).context();
@@ -1344,14 +1344,14 @@ class ConversationApiTest {
         );
         when(assistant.respond(
                 anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)
-        )).thenReturn(new ChatResponse("Bonjour Tiana !", List.of()));
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse("Bonjour Tiana !", List.of()));
 
         send(conversationId, "42", "bonjour");
 
         var contexts = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(assistant).respond(
                 anyString(), anyString(), contexts.capture(), any(UUID.class), nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         String context = ConversationPromptContext.parse(
                 contexts.getValue(), objectMapper
         ).context();
@@ -1369,7 +1369,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "Je vous propose d’ouvrir sa fiche.",
                 List.of(),
                 null,
@@ -1394,7 +1394,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
     }
 
     @Test
@@ -1419,7 +1419,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse(
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse(
                 "Un agent correspond.",
                 List.of(new ChatResponse.ToolResult(
                         "search_agents",
@@ -1509,7 +1509,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        )).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse("Réponse conservée.", List.of()));
         send(conversationId, "42", "Question conservée.");
 
         mockMvc.perform(delete(
@@ -1590,6 +1590,65 @@ class ConversationApiTest {
                 .andExpect(status().isNotFound());
     }
 
+    @Test
+    void anAttachmentReachesTheModelForThisTurnOnlyAndHistoryKeepsItsMention() throws Exception {
+        UUID conversationId = createConversation("42");
+        byte[] photo = "fausse-photo-de-diplome".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        when(assistant.respond(anyString(), anyString(), anyString(), any(UUID.class),
+                nullable(Consumer.class), nullable(com.bandyakama.chat.UserAttachment.class)))
+                .thenReturn(new ChatResponse("J’ai lu le diplôme.", List.of()));
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "message", "Ajoute ce diplôme à Zo",
+                                "attachment", Map.of(
+                                        "name", "diplome.jpg",
+                                        "mimeType", "image/jpeg",
+                                        "data", java.util.Base64.getEncoder().encodeToString(photo)
+                                )
+                        ))))
+                .andExpect(status().isOk());
+        // Une pièce seule, sans texte, est aussi un message.
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "attachment", Map.of("name", "cin.pdf", "mimeType", "application/pdf",
+                                        "data", java.util.Base64.getEncoder().encodeToString(photo))
+                        ))))
+                .andExpect(status().isOk());
+
+        var messages = org.mockito.ArgumentCaptor.forClass(String.class);
+        var attachments = org.mockito.ArgumentCaptor.forClass(com.bandyakama.chat.UserAttachment.class);
+        verify(assistant, times(2)).respond(messages.capture(), anyString(), anyString(), any(UUID.class),
+                nullable(Consumer.class), attachments.capture());
+        assertEquals("Ajoute ce diplôme à Zo\n[Pièce jointe : diplome.jpg, 1 Ko]", messages.getAllValues().get(0));
+        assertEquals("[Pièce jointe : cin.pdf, 1 Ko]", messages.getAllValues().get(1));
+        assertEquals("image/jpeg", attachments.getAllValues().get(0).mimeType());
+        assertTrue(java.util.Arrays.equals(photo, attachments.getAllValues().get(0).data()));
+
+        // L'historique ne garde que la mention, jamais le contenu.
+        String stored = jdbcTemplate.queryForObject(
+                "SELECT string_agg(CAST(content AS VARCHAR), ' ') FROM bandy_conversation_message WHERE conversation_id = ?",
+                String.class, conversationId);
+        assertTrue(stored.contains("[Pièce jointe : diplome.jpg, 1 Ko]"), stored);
+        assertTrue(!stored.contains(java.util.Base64.getEncoder().encodeToString(photo)), stored);
+
+        mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
+                        .header("Authorization", bearerToken("42"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(Map.of(
+                                "message", "Lis ceci",
+                                "attachment", Map.of("name", "script.exe", "mimeType", "application/x-msdownload",
+                                        "data", java.util.Base64.getEncoder().encodeToString(photo))
+                        ))))
+                .andExpect(status().isBadRequest());
+        verify(assistant, times(2)).respond(anyString(), anyString(), anyString(), any(UUID.class),
+                nullable(Consumer.class), nullable(com.bandyakama.chat.UserAttachment.class));
+    }
+
     private UUID createConversation(String subject) throws Exception {
         return createConversation(subject, null);
     }
@@ -1615,7 +1674,7 @@ class ConversationApiTest {
                 anyString(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        ))
+        , nullable(com.bandyakama.chat.UserAttachment.class)))
                 .thenThrow(new ResponseStatusException(
                         org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
                         "Gemini est temporairement indisponible."
@@ -1636,7 +1695,7 @@ class ConversationApiTest {
                 contexts.capture(),
                 any(UUID.class),
                 nullable(Consumer.class)
-        );
+        , nullable(com.bandyakama.chat.UserAttachment.class));
         var history = ConversationPromptContext.parse(
                 contexts.getAllValues().get(1),
                 objectMapper

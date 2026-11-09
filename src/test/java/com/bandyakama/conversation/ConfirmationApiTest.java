@@ -189,7 +189,7 @@ class ConfirmationApiTest {
     }
 
     private UUID proposeConfirmation(UUID conversationId, String subject) throws Exception {
-        when(assistant.respond(anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class)))
+        when(assistant.respond(anyString(), anyString(), anyString(), any(UUID.class), nullable(Consumer.class), nullable(com.bandyakama.chat.UserAttachment.class)))
                 .thenReturn(new ChatResponse(
                         "Je prépare la demande de congé ; cliquez sur « Confirmer » pour l’envoyer.",
                         List.of(),

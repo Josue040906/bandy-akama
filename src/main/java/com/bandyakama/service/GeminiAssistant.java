@@ -1,6 +1,7 @@
 package com.bandyakama.service;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.chat.UserAttachment;
 import com.bandyakama.conversation.ConversationPromptContext;
 import com.bandyakama.assistant.AssistantConfigurationRepository;
 import com.bandyakama.assistant.AssistantProfile;
@@ -110,14 +111,16 @@ public class GeminiAssistant {
 
     /**
      * Un tour de conversation. tokenConsumer reçoit le texte au fil de l'eau
-     * en streaming ; il est null pour une réponse en une fois.
+     * en streaming ; il est null pour une réponse en une fois. attachment
+     * (facultatif) est une photo ou un PDF que le modèle lit avec le message.
      */
     public ChatResponse respond(
             String message,
             String authorization,
             String conversationContext,
             UUID requestId,
-            Consumer<String> tokenConsumer
+            Consumer<String> tokenConsumer,
+            UserAttachment attachment
     ) {
         long startedAt = System.nanoTime();
         TurnMetrics metrics = new TurnMetrics();
@@ -129,7 +132,8 @@ public class GeminiAssistant {
                     conversationContext,
                     requestId,
                     metrics,
-                    tokenConsumer
+                    tokenConsumer,
+                    attachment
             );
             succeeded = true;
             return response;
@@ -161,7 +165,8 @@ public class GeminiAssistant {
             String conversationContext,
             UUID requestId,
             TurnMetrics metrics,
-            Consumer<String> tokenConsumer
+            Consumer<String> tokenConsumer,
+            UserAttachment attachment
     ) {
         long preparationStartedAt = System.nanoTime();
         long configurationLoadStartedAt = System.nanoTime();
@@ -222,7 +227,10 @@ public class GeminiAssistant {
         );
         initialMessages.add(Content.builder()
                 .role("user")
-                .parts(List.of(Part.fromText(prompt)))
+                .parts(attachment == null
+                        ? List.of(Part.fromText(prompt))
+                        // La pièce jointe accompagne la demande actuelle, pour ce tour seulement.
+                        : List.of(Part.fromText(prompt), Part.fromBytes(attachment.data(), attachment.mimeType())))
                 .build());
         performanceTelemetry.contextSize(
                 requestId,

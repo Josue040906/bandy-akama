@@ -1,6 +1,7 @@
 package com.bandyakama.conversation;
 
 import com.bandyakama.chat.ChatResponse;
+import com.bandyakama.chat.UserAttachment;
 import com.bandyakama.observability.PerformanceTelemetry;
 import com.bandyakama.observability.RequestBudget;
 import com.bandyakama.security.UserIdentity;
@@ -122,14 +123,19 @@ public class ConversationService {
             String authorization,
             UUID idempotencyKey
     ) {
-        return sendMessage(
-                conversationId,
-                identity,
-                message,
-                authorization,
-                idempotencyKey,
-                null
-        );
+        return sendMessage(conversationId, identity, message, authorization, idempotencyKey, (UserAttachment) null);
+    }
+
+    /** attachment (facultatif) part au modèle pour ce tour ; l'historique n'en garde que la mention. */
+    public ChatResponse sendMessage(
+            UUID conversationId,
+            UserIdentity identity,
+            String message,
+            String authorization,
+            UUID idempotencyKey,
+            UserAttachment attachment
+    ) {
+        return send(conversationId, identity, message, authorization, idempotencyKey, null, attachment);
     }
 
     public ChatResponse sendMessageStreaming(
@@ -140,23 +146,29 @@ public class ConversationService {
             UUID idempotencyKey,
             Consumer<String> tokenConsumer
     ) {
-        return sendMessage(
-                conversationId,
-                identity,
-                message,
-                authorization,
-                idempotencyKey,
-                tokenConsumer
-        );
+        return sendMessageStreaming(conversationId, identity, message, authorization, idempotencyKey, null, tokenConsumer);
     }
 
-    private ChatResponse sendMessage(
+    public ChatResponse sendMessageStreaming(
             UUID conversationId,
             UserIdentity identity,
             String message,
             String authorization,
             UUID idempotencyKey,
+            UserAttachment attachment,
             Consumer<String> tokenConsumer
+    ) {
+        return send(conversationId, identity, message, authorization, idempotencyKey, tokenConsumer, attachment);
+    }
+
+    private ChatResponse send(
+            UUID conversationId,
+            UserIdentity identity,
+            String message,
+            String authorization,
+            UUID idempotencyKey,
+            Consumer<String> tokenConsumer,
+            UserAttachment attachment
     ) {
         UUID effectiveRequestId = idempotencyKey == null
                 ? UUID.randomUUID()
@@ -177,7 +189,8 @@ public class ConversationService {
                     identity,
                     message,
                     authorization,
-                    tokenConsumer
+                    tokenConsumer,
+                    attachment
             );
             succeeded = true;
             return response;
@@ -195,10 +208,16 @@ public class ConversationService {
             UUID conversationId,
             UUID requestId,
             UserIdentity identity,
-            String message,
+            String typedMessage,
             String authorization,
-            Consumer<String> tokenConsumer
+            Consumer<String> tokenConsumer,
+            UserAttachment attachment
     ) {
+        // Le message enregistré (et son empreinte anti-doublon) porte la mention
+        // de la pièce jointe, jamais son contenu.
+        String message = attachment == null
+                ? typedMessage
+                : typedMessage.isBlank() ? attachment.mention() : typedMessage + "\n" + attachment.mention();
         ConversationRepository.RequestStart request = measured(
                 requestId,
                 "request_claim_and_memory",
@@ -245,7 +264,8 @@ public class ConversationService {
                             authorization,
                             context,
                             requestId,
-                            tokenConsumer
+                            tokenConsumer,
+                            attachment
                     )
             );
             // Les tâches à confirmer reçoivent leur identifiant avant la

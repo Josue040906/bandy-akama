@@ -37,6 +37,18 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/conversations")
 public class ConversationController {
+    /** Le texte et la pièce jointe vérifiés d'un message, ou un refus 400 lisible. */
+    private static Turn turn(SendConversationMessageRequest request) {
+        try {
+            return new Turn(request.text(), request.decodedAttachment());
+        } catch (IllegalArgumentException refused) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, refused.getMessage());
+        }
+    }
+
+    private record Turn(String text, com.bandyakama.chat.UserAttachment attachment) {
+    }
+
     private static final int MAX_PAGE_SIZE = 100;
 
     private final ConversationService conversationService;
@@ -192,12 +204,15 @@ public class ConversationController {
             @PathVariable UUID conversationId,
             @Valid @RequestBody SendConversationMessageRequest request
     ) {
+        var identity = userTokenValidator.validate(authorization);
+        Turn turn = turn(request);
         return conversationService.sendMessage(
                 conversationId,
-                userTokenValidator.validate(authorization),
-                request.message(),
+                identity,
+                turn.text(),
                 authorization,
-                parseIdempotencyKey(idempotencyKey)
+                parseIdempotencyKey(idempotencyKey),
+                turn.attachment()
         );
     }
 
@@ -215,14 +230,17 @@ public class ConversationController {
     ) {
         var identity = userTokenValidator.validate(authorization);
         UUID requestId = parseIdempotencyKey(idempotencyKey);
+        // Vérifiée avant le flux : une pièce refusée répond 400, pas un flux en erreur.
+        Turn turn = turn(request);
         StreamingResponseBody body = outputStream -> {
             try {
                 ChatResponse response = conversationService.sendMessageStreaming(
                         conversationId,
                         identity,
-                        request.message(),
+                        turn.text(),
                         authorization,
                         requestId,
+                        turn.attachment(),
                         token -> writeEvent(
                                 outputStream,
                                 "token",
