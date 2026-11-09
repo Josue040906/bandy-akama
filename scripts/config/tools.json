@@ -252,7 +252,7 @@
   {
     "name": "create_document_draft",
     "description": "Crée directement le brouillon d’un document RH après confirmation de l’utilisateur : une carte récapitulative s’affiche, rien n’est créé avant son clic « Confirmer ». Le document créé est toujours un brouillon, à vérifier ensuite dans Documents.",
-    "whenToUse": "Pour aller vite quand l’utilisateur demande un document RH et que tout est connu : type (typeDocumentId de list_document_types), agent (employeId : champ id de search_agents, ou de get_my_profile pour l’utilisateur lui-même), destinataire et données du type. S’il manque une information obligatoire, demande-la en une question ; si l’utilisateur veut relire un formulaire, utilise prepare_new_document.\nDonnées par type : congé : dateDebut, dateFin, motif ; avancement : motif ; retraite : dateDepartSouhaitee, motif, observation ; mutation : motif obligatoire et au moins un de directionSouhaiteeId, serviceSouhaiteId (get_organization_info), lieuTravailSouhaite, dateEffetSouhaitee. N’envoie que les données du type choisi, dates au format AAAA-MM-JJ, sans rien inventer.\nL’API vérifie la demande avant la carte : un refus te revient, explique-le et propose de corriger. Sinon, récapitule en une phrase à partir de verifieParLApi (type, agent, dates) et invite à confirmer. Après confirmation, dis que le brouillon est créé et qu’il reste à le vérifier dans Documents.",
+    "whenToUse": "Pour aller vite quand l’utilisateur demande un document RH et que tout est connu : type (typeDocumentId de list_document_types), agent (employeId : champ id de search_agents, ou de get_my_profile pour l’utilisateur lui-même), destinataire et données du type. S’il manque une information obligatoire, demande-la en une question ; si l’utilisateur veut relire un formulaire, utilise prepare_new_document.\nDonnées par type : congé : dateDebut, dateFin, motif ; avancement : motif ; retraite : dateDepartSouhaitee, motif, observation ; mutation : motif obligatoire et au moins un de directionSouhaiteeId, serviceSouhaiteId (get_organization_info), lieuTravailSouhaite, dateEffetSouhaitee. N’envoie que les données du type choisi, dates au format AAAA-MM-JJ, sans rien inventer.\nL’API vérifie la demande avant la carte : un refus te revient, explique-le et propose de corriger. Sinon, récapitule en une phrase à partir de verifieParLApi (type, agent, dates) et invite à confirmer. Après confirmation, dis que le brouillon est créé et qu’il reste à le vérifier dans Documents.\nDemande venue d’une pièce jointe : renseigne constatsPiece avec ce que la pièce montre et que les données ne disent pas (tampon et signature présents ou absents, date, nom écrit) et ce qu’elle demande quand l’API le calcule elle-même (par exemple la situation demandée écrite sur une demande d’avancement). Puis compare la pièce à verifieParLApi et signale chaque écart dans ta réponse, sans le corriger.",
     "method": "POST",
     "url": "{RH_API_URL}/api/documents/demandes",
     "enabled": true,
@@ -343,6 +343,13 @@
         "description": "Mutation : identifiant du service souhaité (get_organization_info).",
         "required": false,
         "location": "body.donnees"
+      },
+      {
+        "name": "constatsPiece",
+        "type": "string",
+        "description": "Facultatif, pour une demande venue d’une pièce jointe : ce qui a été constaté sur la pièce (tampon, signature, date, ce qu’elle demande, écarts). Gardé avec le brouillon pour la personne qui le vérifiera.",
+        "required": false,
+        "location": "body"
       }
     ]
   },
