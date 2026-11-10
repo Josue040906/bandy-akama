@@ -246,13 +246,14 @@
       { "name": "dateFin", "type": "string", "description": "Date de fin, au format AAAA-MM-JJ.", "required": false, "location": "body" },
       { "name": "motif", "type": "string", "description": "Motif ou objet de la demande.", "required": false, "location": "body" },
       { "name": "lieuTravailSouhaite", "type": "string", "description": "Lieu de travail souhaité, pour une demande de mutation.", "required": false, "location": "body" },
-      { "name": "dateEffetSouhaitee", "type": "string", "description": "Avancement ou mutation : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.", "required": false, "location": "body" },
+      { "name": "dateEffetSouhaitee", "type": "string", "description": "Avancement, mutation ou titularisation : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.", "required": false, "location": "body" },
+      { "name": "gradeSouhaiteId", "type": "integer", "description": "Titularisation, facultatif : grade de fonctionnaire visé ; sans lui, le grade d’indice égal, sinon le premier supérieur, est proposé.", "required": false, "location": "body" },
       { "name": "dateDepartSouhaitee", "type": "string", "description": "Retraite : départ souhaité, à venir, AAAA-MM-JJ.", "required": false, "location": "body" }
     ]
   },
   {
     "name": "create_document_draft",
-    "description": "Crée directement une demande RH (statut Créé) après confirmation de l’utilisateur : une carte récapitulative s’affiche, rien n’est créé avant son clic « Confirmer ». La demande devient applicable à sa date d’effet ; son auteur l’applique ensuite dans Documents, ce qui produit son effet (avancement, mutation, retraite).",
+    "description": "Crée directement une demande RH (statut Créé) après confirmation de l’utilisateur : une carte récapitulative s’affiche, rien n’est créé avant son clic « Confirmer ». La demande devient applicable à sa date d’effet ; son auteur l’applique ensuite dans Documents, ce qui produit son effet (avancement, mutation, retraite, congé, titularisation).",
     "whenToUse": "Pour aller vite quand l’utilisateur demande un document RH et que tout est connu : type (typeDocumentId de list_document_types), agent (employeId : champ id de search_agents, ou de get_my_profile pour l’utilisateur lui-même), destinataire et données du type. S’il manque une information obligatoire, demande-la en une question ; si l’utilisateur veut relire un formulaire, utilise prepare_new_document.\nDonnées par type : congé : dateDebut, dateFin, motif ; avancement : motif ; retraite : dateDepartSouhaitee, motif, observation ; mutation : motif obligatoire et au moins un de directionSouhaiteeId, serviceSouhaiteId (get_organization_info), lieuTravailSouhaite, dateEffetSouhaitee. N’envoie que les données du type choisi, dates au format AAAA-MM-JJ, sans rien inventer.\nL’API vérifie la demande avant la carte : un refus te revient, explique-le et propose de corriger. Sinon, récapitule en une phrase à partir de verifieParLApi (type, agent, dates) et invite à confirmer. Après confirmation, dis que le brouillon est créé et qu’il reste à le vérifier dans Documents.\nDemande venue d’une pièce jointe : renseigne constatsPiece avec ce que la pièce seule permet de constater : dis toujours si un tampon est visible ou non, et si une signature l’est ; le nom tel qu’il est écrit s’il diffère du dossier ; ce qu’elle demande quand l’API le calcule elle-même (par exemple la situation demandée sur une demande d’avancement). Ne recopie ni les dates, ni le motif, ni le destinataire. Puis compare la pièce à verifieParLApi et signale chaque écart dans ta réponse, sans le corriger.",
     "method": "POST",
     "url": "{RH_API_URL}/api/documents/demandes",
@@ -327,7 +328,14 @@
       {
         "name": "dateEffetSouhaitee",
         "type": "string",
-        "description": "Avancement ou mutation (obligatoire) : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.",
+        "description": "Avancement, mutation ou titularisation (obligatoire) : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.",
+        "required": false,
+        "location": "body.donnees"
+      },
+      {
+        "name": "gradeSouhaiteId",
+        "type": "integer",
+        "description": "Titularisation, facultatif : grade de fonctionnaire visé (id) ; sans lui, le grade d’indice égal, sinon le premier supérieur.",
         "required": false,
         "location": "body.donnees"
       },
