@@ -1431,10 +1431,12 @@ class ConversationApiTest {
                                         "prenom", "Miora",
                                         "poste", "Gestionnaire",
                                         "service", "Finances",
-                                        "score_correspondance", 0.87
-                                ))
+                                        "score_correspondance", 0.87,
+                                        "correspondance", Map.of("diplomes", "Licence Informatique (2017)")
+                                )),
+                                "groupes", List.of(Map.of("direction", "Finances", "nombre", 1))
                         ),
-                        Map.of()
+                        Map.of("criteriaJson", "{\"must\":[{\"field\":\"nom\",\"operator\":\"FUZZY\",\"value\":\"Rakoto\"}]}")
                 ))
         ));
 
@@ -1446,7 +1448,11 @@ class ConversationApiTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.toolResults[0].name").value("search_agents"))
                 .andExpect(jsonPath("$.toolResults[0].result.agents[0].id").value(42))
-                .andExpect(jsonPath("$.toolResults[0].result.agents[0].score_correspondance").value(0.87));
+                .andExpect(jsonPath("$.toolResults[0].result.agents[0].score_correspondance").value(0.87))
+                // Tout ce que l'API a donné à cet utilisateur, pour ce tour seulement.
+                .andExpect(jsonPath("$.toolResults[0].result.agents[0].correspondance.diplomes").value("Licence Informatique (2017)"))
+                .andExpect(jsonPath("$.toolResults[0].result.groupes[0].nombre").value(1))
+                .andExpect(jsonPath("$.toolResults[0].arguments.criteriaJson").exists());
 
         mockMvc.perform(post("/api/conversations/{id}/messages", conversationId)
                         .header("Authorization", bearerToken("42"))
@@ -1473,6 +1479,8 @@ class ConversationApiTest {
                 requestId
         );
         assertFalse(savedResponse.contains("RAKOTO"));
+        assertFalse(savedResponse.contains("Licence Informatique"));
+        assertFalse(savedResponse.contains("criteriaJson"));
     }
 
     @Test
