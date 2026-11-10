@@ -179,7 +179,7 @@
       {
         "name": "statut",
         "type": "string",
-        "description": "Page documents seulement, facultatif : BROUILLON, A_VERIFIER, VALIDE, SIGNE ou ARCHIVE.",
+        "description": "Page documents seulement, facultatif : BROUILLON, VALIDE, ANNULE ou ARCHIVE.",
         "required": false,
         "location": "query"
       },
@@ -212,7 +212,7 @@
   },
   {
     "name": "list_documents",
-    "description": "Liste les documents RH (référence, objet, type, statut, dates, agent concerné avec son service et sa direction), éventuellement d’un seul statut : BROUILLON, A_VERIFIER, VALIDE, SIGNE ou ARCHIVE.",
+    "description": "Liste les documents RH (référence, objet, type, statut, dates, agent concerné avec son service et sa direction), éventuellement d’un seul statut : BROUILLON, VALIDE, ANNULE ou ARCHIVE.",
     "whenToUse": "Quand l’utilisateur veut voir ou détailler des documents existants : les documents en brouillon, ceux à vérifier, ceux d’un agent ou d’un type. Envoie statut quand la demande en vise un, sinon rien ; filtre toi-même la liste reçue pour un agent ou un type, et dis-le. Présente chaque document par son type, son agent et sa date, sans identifiant interne. Pour les ouvrir dans l’interface, utilise open_page avec page=documents et le même statut.",
     "method": "GET",
     "url": "{RH_API_URL}/api/documents",
@@ -223,7 +223,7 @@
       {
         "name": "statut",
         "type": "string",
-        "description": "Facultatif : BROUILLON, A_VERIFIER, VALIDE, SIGNE ou ARCHIVE.",
+        "description": "Facultatif : BROUILLON, VALIDE, ANNULE ou ARCHIVE.",
         "required": false,
         "location": "query"
       }
