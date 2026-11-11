@@ -124,8 +124,8 @@
   },
   {
     "name": "get_my_tasks",
-    "description": "Liste ce qui attend une action de l’utilisateur connecté, du plus urgent au moins urgent : pour chaque élément, un libellé, un nombre et la page où agir. Les éléments dépendent de ses droits ; un élément à zéro n’est pas renvoyé.",
-    "whenToUse": "Quand l’utilisateur demande ce qu’il a à faire, ce qui l’attend, ses priorités, ses urgences ou un point sur sa journée. Son identité vient de sa connexion : n’envoie aucun paramètre. Présente les éléments dans l’ordre reçu, avec leur nombre, sans en inventer ni en commenter l’absence ; si la liste est vide, dis simplement que rien n’attend son action. Pour ouvrir la page d’un élément, utilise open_page quand elle y figure.",
+    "description": "Le point du jour de l’utilisateur connecté : d’abord ce qui attend son action (demandes à appliquer, dossiers incomplets…), puis ce qui arrive (anciennetés d’échelon du mois, départs à la retraite possibles dans l’année, congés à poser avant le 31/12, postes qui se libèrent). Pour chaque élément : un libellé, un nombre et la page où agir. Un élément à zéro n’est pas renvoyé.",
+    "whenToUse": "Quand l’utilisateur demande ce qu’il a à faire, ce qui l’attend, ses priorités, ses urgences, un point sur sa journée ou sa semaine. Son identité vient de sa connexion : n’envoie aucun paramètre. Présente les éléments dans l’ordre reçu, avec leur nombre, sans en inventer ni en commenter l’absence ; si la liste est vide, dis simplement que rien n’attend son action. Pour ouvrir la page d’un élément, utilise open_page quand elle y figure.",
     "method": "GET",
     "url": "{RH_API_URL}/api/a-faire",
     "enabled": true,
@@ -473,5 +473,6 @@
       { "name": "dateNaissance", "type": "string", "description": "Nouvelle date de naissance, au format AAAA-MM-JJ.", "required": false, "location": "body" },
       { "name": "lieuNaissance", "type": "string", "description": "Nouveau lieu de naissance.", "required": false, "location": "body" }
     ]
-  }
+  },
+  {"name": "simulate_career", "description": "Simulation indicative de la carrière d’un agent : son passé réel, puis ses avancements projetés à chaque durée minimale, dans l’ordre de son parcours, jusqu’à son droit à la retraite (date, grade, indice à chaque étape, indice final). Pour un contractuel ou un stagiaire, une date de titularisation facultative le fait passer au parcours des fonctionnaires au grade que son indice désigne.", "whenToUse": "Quand l’utilisateur demande quand un agent atteindra un grade ou un indice, quelle sera sa carrière, son indice à la retraite, ou ce que changerait une titularisation à une date donnée (compare alors avec et sans titularisation). agentId : champ id de search_agents. Présente les étapes utiles (date, grade, indice) et précise toujours qu’il s’agit d’une projection indicative ; ne parle jamais d’un avancement accordé.", "method": "GET", "url": "{RH_API_URL}/api/carrieres/employes/{agentId}/simulation", "enabled": true, "sensitive": true, "actionLevel": "READ", "parameters": [{"name": "agentId", "type": "integer", "description": "Identifiant interne de l’agent (champ id de search_agents).", "required": true, "location": "path"}, {"name": "titularisation", "type": "string", "description": "Facultatif, contractuel ou stagiaire : date de titularisation simulée, AAAA-MM-JJ.", "required": false, "location": "query"}]}
 ]
