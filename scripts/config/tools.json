@@ -124,7 +124,7 @@
   },
   {
     "name": "get_my_tasks",
-    "description": "Le point du jour de l’utilisateur connecté : d’abord ce qui attend son action (demandes à appliquer, dossiers incomplets…), puis ce qui arrive (anciennetés d’échelon du mois, départs à la retraite possibles dans l’année, congés à poser avant le 31/12, postes qui se libèrent). Pour chaque élément : un libellé, un nombre et la page où agir. Un élément à zéro n’est pas renvoyé.",
+    "description": "Le point du jour de l’utilisateur connecté : d’abord ce qui attend son action (demandes dont la réponse signée n’est pas saisie, demandes acceptées à appliquer, dossiers incomplets…), puis ce qui arrive (anciennetés d’échelon du mois, départs à la retraite possibles dans l’année, congés à poser avant le 31/12, postes qui se libèrent). Pour chaque élément : un libellé, un nombre et la page où agir. Un élément à zéro n’est pas renvoyé.",
     "whenToUse": "Quand l’utilisateur demande ce qu’il a à faire, ce qui l’attend, ses priorités, ses urgences ou un point sur sa journée. Son identité vient de sa connexion : n’envoie aucun paramètre. Présente les éléments dans l’ordre reçu, avec leur nombre, sans en inventer ni en commenter l’absence ; si la liste est vide, dis simplement que rien n’attend son action. Pour ouvrir la page d’un élément, utilise open_page quand elle y figure.",
     "method": "GET",
     "url": "{RH_API_URL}/api/a-faire",
@@ -212,7 +212,7 @@
   },
   {
     "name": "list_documents",
-    "description": "Liste les documents RH (référence, objet, type, statut, date d’effet, applicable, agent concerné avec son service et sa direction), éventuellement d’un seul statut : CREE, APPLIQUE, ANNULE ou ARCHIVE, ou APPLICABLE. Une demande créée devient applicable à sa date d’effet et le reste jusqu’à ce que son auteur l’applique dans Documents ; appliquer produit son effet (avancement, mutation, retraite). applicable = créée et date d’effet atteinte : la demande attend qu’un humain l’applique.",
+    "description": "Liste les documents RH (référence, objet, type, statut, date d’effet, applicable, réponse signée : decision_acceptee, decision_signataire, decision_reference, decision_date, decision_motif ; agent concerné avec son service et sa direction), éventuellement d’un seul statut : CREE, ACCEPTE, REFUSE, APPLIQUE, ANNULE, ARCHIVE, ou APPLICABLE. CREE = lettre produite, réponse signée pas encore saisie ; ACCEPTE / REFUSE = réponse signée saisie ; APPLIQUE = effet produit (avancement, mutation, retraite, congé, titularisation). applicable = acceptée et date d’effet accordée atteinte.",
     "whenToUse": "Demandes existantes, filtrables par agent (employeId : champ id de search_agents), par type, par période de création (du, au : AAAA-MM-JJ, bornes incluses) et par statut ; sans filtre, toutes. Présente chaque demande par son type, son agent, sa date d’effet et son état (créée, à appliquer, appliquée, annulée), sans identifiant interne. Pour les ouvrir dans l’interface, utilise open_page avec page=documents et le même statut.",
     "method": "GET",
     "url": "{RH_API_URL}/api/documents",
@@ -223,7 +223,7 @@
       {
         "name": "statut",
         "type": "string",
-        "description": "Facultatif : APPLICABLE (créées, date d’effet atteinte), CREE, APPLIQUE, ANNULE ou ARCHIVE.",
+        "description": "Facultatif : APPLICABLE (acceptées, date d’effet atteinte), CREE, ACCEPTE, REFUSE, APPLIQUE, ANNULE ou ARCHIVE.",
         "required": false,
         "location": "query"
       },
@@ -256,7 +256,7 @@
   },
   {
     "name": "create_document_draft",
-    "description": "Crée directement une demande RH (statut Créé) après confirmation de l’utilisateur : une carte récapitulative s’affiche, rien n’est créé avant son clic « Confirmer ». La demande devient applicable à sa date d’effet ; son auteur l’applique ensuite dans Documents, ce qui produit son effet (avancement, mutation, retraite, congé, titularisation).",
+    "description": "Crée directement une demande RH (statut Créé) après confirmation de l’utilisateur : une carte récapitulative s’affiche, rien n’est créé avant son clic « Confirmer ». La demande produit la lettre à faire signer ; une fois la réponse signée saisie dans Documents (acceptée ou refusée), une demande acceptée s’applique à la date d’effet accordée, ce qui produit son effet (avancement, mutation, retraite, congé, titularisation).",
     "whenToUse": "Pour aller vite quand l’utilisateur demande un document RH et que tout est connu : type (typeDocumentId de list_document_types), agent (employeId : champ id de search_agents, ou de get_my_profile pour l’utilisateur lui-même), destinataire et données du type. S’il manque une information obligatoire, demande-la en une question ; si l’utilisateur veut relire un formulaire, utilise prepare_new_document.\nDonnées par type : congé : dateDebut, dateFin, motif ; avancement : motif ; retraite : dateDepartSouhaitee, motif, observation ; mutation : motif obligatoire et au moins un de directionSouhaiteeId, serviceSouhaiteId (get_organization_info), lieuTravailSouhaite, dateEffetSouhaitee. N’envoie que les données du type choisi, dates au format AAAA-MM-JJ, sans rien inventer.\nL’API vérifie la demande avant la carte : un refus te revient, explique-le et propose de corriger. Sinon, récapitule en une phrase à partir de verifieParLApi (type, agent, dates) et invite à confirmer. Après confirmation, dis que le brouillon est créé et qu’il reste à le vérifier dans Documents.\nDemande venue d’une pièce jointe : renseigne constatsPiece avec ce que la pièce seule permet de constater : dis toujours si un tampon est visible ou non, et si une signature l’est ; le nom tel qu’il est écrit s’il diffère du dossier ; ce qu’elle demande quand l’API le calcule elle-même (par exemple la situation demandée sur une demande d’avancement). Ne recopie ni les dates, ni le motif, ni le destinataire. Puis compare la pièce à verifieParLApi et signale chaque écart dans ta réponse, sans le corriger.",
     "method": "POST",
     "url": "{RH_API_URL}/api/documents/demandes",
