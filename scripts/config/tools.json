@@ -251,7 +251,6 @@
       { "name": "motif", "type": "string", "description": "Motif ou objet de la demande.", "required": false, "location": "body" },
       { "name": "lieuTravailSouhaite", "type": "string", "description": "Lieu de travail souhaité, pour une demande de mutation.", "required": false, "location": "body" },
       { "name": "dateEffetSouhaitee", "type": "string", "description": "Avancement, mutation ou titularisation : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.", "required": false, "location": "body" },
-      { "name": "gradeSouhaiteId", "type": "integer", "description": "Titularisation, facultatif : grade de fonctionnaire visé ; sans lui, le grade d’indice égal, sinon le premier supérieur, est proposé.", "required": false, "location": "body" },
       { "name": "dateDepartSouhaitee", "type": "string", "description": "Retraite : départ souhaité, à venir, AAAA-MM-JJ.", "required": false, "location": "body" }
     ]
   },
@@ -333,13 +332,6 @@
         "name": "dateEffetSouhaitee",
         "type": "string",
         "description": "Avancement, mutation ou titularisation (obligatoire) : date d’effet, aujourd’hui ou plus tard, AAAA-MM-JJ.",
-        "required": false,
-        "location": "body.donnees"
-      },
-      {
-        "name": "gradeSouhaiteId",
-        "type": "integer",
-        "description": "Titularisation, facultatif : grade de fonctionnaire visé (id) ; sans lui, le grade d’indice égal, sinon le premier supérieur.",
         "required": false,
         "location": "body.donnees"
       },
