@@ -24,10 +24,29 @@ function Test-PortListening([int]$port) {
     return [bool](Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue)
 }
 
-# 1. Database: bandy_akama_v2 unless BANDY_DB_URL says otherwise, never the legacy one.
+# The .env file of the project (read by Spring too); a session variable wins over it.
+$fileValues = @{}
+$environmentFile = Join-Path (Split-Path -Parent $PSScriptRoot) '.env'
+if (Test-Path -LiteralPath $environmentFile) {
+    foreach ($line in Get-Content -LiteralPath $environmentFile -Encoding UTF8) {
+        if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=(.*)$') {
+            $fileValues[$Matches[1]] = $Matches[2].Trim().Trim('"').Trim("'")
+        }
+    }
+}
+
+# 1. Database: bandy_akama_v2 unless BANDY_DB_URL says otherwise, never the legacy one,
+#    and never the online database for local work.
 $databaseUrl = [Environment]::GetEnvironmentVariable('BANDY_DB_URL')
 if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
+    $databaseUrl = $fileValues['BANDY_DB_URL']
+}
+if ([string]::IsNullOrWhiteSpace($databaseUrl)) {
     $databaseUrl = 'jdbc:postgresql://localhost:5433/bandy_akama_v2'
+}
+if ($databaseUrl -notmatch 'localhost|127\.0\.0\.1') {
+    throw ('BANDY_DB_URL points to an online database. For local work, set ' +
+        'BANDY_DB_URL=jdbc:postgresql://localhost:5433/bandy_akama_v2 in bandy-akama\.env.')
 }
 if ($databaseUrl -match '/bandy_akama(\?.*)?$') {
     throw ("BANDY_DB_URL points to the legacy database bandy_akama, which must not be used. " +
@@ -53,10 +72,14 @@ if (-not (Test-PortListening ([int]$rhPort))) {
     Write-Warning "The RH API does not answer on port $rhPort yet: start it, or Bandy's tools will fail."
 }
 
-# 4. Secrets.
+# 4. Secrets: from the session, else from .env, else asked once.
 foreach ($name in 'GEMINI_API_KEY', 'JWT_SECRET', 'BANDY_REGISTRATION_KEY') {
     if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($name))) {
-        Set-SecretForCurrentSession $name
+        if ([string]::IsNullOrWhiteSpace($fileValues[$name])) {
+            Set-SecretForCurrentSession $name
+        } else {
+            [Environment]::SetEnvironmentVariable($name, $fileValues[$name], 'Process')
+        }
     }
 }
 
