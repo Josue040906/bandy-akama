@@ -71,7 +71,7 @@ public class GeminiAssistant {
     public GeminiAssistant(
             @Value("${GEMINI_API_KEY:}") String apiKey,
             @Value("${bandy.ai.model:gemini-3.5-flash-lite}") String model,
-            @Value("${bandy.ai.max-tool-rounds:3}") int maxToolRounds,
+            @Value("${bandy.ai.max-tool-rounds:4}") int maxToolRounds,
             @Value("${bandy.ai.service-tier:standard}") String serviceTier,
             @Value("${bandy.ai.thinking-level:low}") String thinkingLevel,
             @Value("${bandy.ai.max-output-tokens:1024}") int maxOutputTokens,
@@ -390,13 +390,21 @@ public class GeminiAssistant {
                 + objectMapper.valueToTree(observedResults)
                 + "\n\nLe modèle avait demandé d’autres appels qui n’ont pas été "
                 + "exécutés car la limite d’orchestration a été atteinte. "
-                + "Réponds maintenant à partir des seuls résultats ci-dessus.";
+                + "Réponds maintenant à partir des seuls résultats ci-dessus et de la "
+                + "pièce jointe s’il y en a une. Dis clairement ce qui n’a pas pu être fait "
+                + "dans ce message (par exemple le formulaire qui n’a pas été préparé) et "
+                + "propose de le redemander ; n’affirme jamais que l’application ne sait pas "
+                + "le faire, et ne présente rien comme préparé ou enregistré.";
         List<Content> finalMessages = new ArrayList<>(
                 toGeminiHistory(promptContext.history())
         );
         finalMessages.add(Content.builder()
                 .role("user")
-                .parts(List.of(Part.fromText(finalPrompt)))
+                .parts(attachment == null
+                        ? List.of(Part.fromText(finalPrompt))
+                        // La pièce reste visible pour cette dernière réponse aussi.
+                        : List.of(Part.fromText(finalPrompt),
+                                Part.fromBytes(attachment.data(), attachment.mimeType())))
                 .build());
         GenerateContentResponse finalResponse = tokenConsumer == null
                 ? callModel(
