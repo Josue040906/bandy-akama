@@ -301,6 +301,37 @@ class ConversationApiTest {
     }
 
     @Test
+    void laPremiereQuestionTitreLaConversationSansRemplacerUnNomChoisi() throws Exception {
+        when(assistant.respond(
+                anyString(),
+                anyString(),
+                anyString(),
+                any(UUID.class),
+                nullable(Consumer.class)
+        , nullable(com.bandyakama.chat.UserAttachment.class))).thenReturn(new ChatResponse("D’accord.", List.of()));
+        UUID titree = createConversation("42");
+        UUID nommee = createConversation("42");
+        jdbcTemplate.update("UPDATE bandy_conversation SET label = 'Mon suivi' WHERE id = ?", nommee);
+
+        for (String[] envoi : new String[][] {
+                {titree.toString(), "combien d’agents contractuels ?"},
+                {titree.toString(), "Et les stagiaires ?"},
+                {nommee.toString(), "Montre-moi les stagiaires"}}) {
+            mockMvc.perform(post("/api/conversations/{id}/messages", envoi[0])
+                            .header("Authorization", bearerToken("42"))
+                            .header("Idempotency-Key", UUID.randomUUID().toString())
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"message\":\"" + envoi[1] + "\"}"))
+                    .andExpect(status().isOk());
+        }
+
+        String sql = "SELECT label FROM bandy_conversation WHERE id = ?";
+        assertEquals("Combien d’agents contractuels",
+                jdbcTemplate.queryForObject(sql, String.class, titree));
+        assertEquals("Mon suivi", jdbcTemplate.queryForObject(sql, String.class, nommee));
+    }
+
+    @Test
     void storesMessagesInOrderAndReplaysAnIdempotentRequest()
             throws Exception {
         UUID conversationId = createConversation("42");

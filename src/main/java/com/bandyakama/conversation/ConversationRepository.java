@@ -105,7 +105,7 @@ public class ConversationRepository {
                 id,
                 applicationId,
                 ownerId,
-                "Nouvelle conversation"
+                ConversationTitles.PAR_DEFAUT
         );
         jdbcTemplate.update("""
                 INSERT INTO bandy_conversation_memory (
@@ -408,6 +408,16 @@ public class ConversationRepository {
                     userMessage,
                     "TEXT",
                     "{}"
+            );
+            // La première question donne son titre à la conversation ; un nom choisi n'est jamais remplacé.
+            jdbcTemplate.update("""
+                    UPDATE bandy_conversation
+                    SET label = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ? AND label = ?
+                    """,
+                    ConversationTitles.depuisPremierMessage(userMessage),
+                    conversationId,
+                    ConversationTitles.PAR_DEFAUT
             );
         }
 
