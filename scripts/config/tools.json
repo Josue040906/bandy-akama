@@ -2,7 +2,7 @@
   {
     "name": "search_agents",
     "description": "Recherche, filtre, compte et répartit les agents RH (statistiques par champ) : identité approximative (nom, prénom, ordre inversé, fautes, phonétique) et critères combinés en ET/OU/NON, avec un score de correspondance par candidat.",
-    "whenToUse": "Pour rechercher, lister, filtrer, identifier, compter ou répartir des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent ni pour l’utilisateur lui-même (get_my_profile).\nCritères : pour une liste (LIST), au moins un critère positif (must, ou should avec minimum_should_match=1) ; sinon n’appelle pas l’outil et demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité (nom, prénom ou les deux) : un seul critère personne avec FUZZY_PERSON et limit 4. L’API renvoie les candidats les plus ressemblants, ou seulement les correspondances exactes s’il y en a. Le critère id (EQ) dans must_not exclut des agents déjà proposés.\nStructures : service, direction ou poste en CONTAINS avec un mot significatif du libellé (« budget », « informatique »), directement s’il est écrit en toutes lettres. service et corps contiennent aussi leur code : un sigle de service (SPERS…) se filtre tel quel sur service en CONTAINS ; get_organization_info (LIST_SERVICES) donne les codes des services en cas de doute. Les directions n’ont pas de sigle enregistré : pour un sigle de direction (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info (LIST_DIRECTIONS) ; ne filtre jamais une direction sur son sigle.\nDates : ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires ; année incertaine : demande-la. « Jeune », « vieux » sans seuil : demande une précision.\nTout ce que montrent le profil et la carrière se filtre : diplômes, parcours, affectations passées, avancements, documents, langues, compétences et formations, par leur liste (collection). Exemple, diplôme d’informatique de niveau licence ou plus : {\"collection\":\"diplomes\",\"must\":[{\"field\":\"domaine\",\"operator\":\"CONTAINS\",\"value\":\"informatique\"},{\"field\":\"niveau\",\"operator\":\"GTE\",\"value\":\"Licence\"}]} ; parle anglais couramment : {\"collection\":\"langues\",\"must\":[{\"field\":\"langue\",\"operator\":\"CONTAINS\",\"value\":\"anglais\"},{\"field\":\"niveau\",\"operator\":\"GTE\",\"value\":\"Courant\"}]}. niveau d’une langue : rang, du plus bas au plus haut « Notions », « Intermédiaire », « Courant », « Langue maternelle ». Compétence ou formation : CONTAINS avec un mot significatif. Peu de fiches renseignent langues, compétences et formations : un résultat vide veut dire « aucune fiche ne le mentionne », pas « personne ne sait ». Plus haut diplôme égal à X : niveau EQ X, et must_not niveau GT X. Condition d’ancienneté d’échelon remplie : date_anciennete_echelon TODAY_OR_BEFORE ; atteinte dans n mois : WITHIN_NEXT_MONTHS n. Ne parle jamais d’avancement accordé.\nSuivis : renvoie l’AST COMPLET mis à jour, sans la condition à retirer. Total : resultMode=COUNT avec l’AST actif ; ne compte jamais les agents affichés. Autre page ou autre nombre : ne change que limit et offset.\nRépartition ou statistique (« par direction », « combien … par … », « âge moyen ») : resultMode=GROUP, groupBy d’un ou deux champs (champ de liste : diplomes.niveau), measures au besoin, critères facultatifs. Présente les chiffres reçus tels quels, groupe vide = « non renseigné ».\nChaque agent porte « correspondance » : ce qui l’a fait retenir (valeurs des critères, diplômes ou affectations qui ont répondu). Appuie ta réponse dessus en une courte phrase, sans rien y ajouter.\n5 agents filtrés ou plus : ne les énumère pas ; annonce le total et les critères retenus, l’application propose d’ouvrir la liste. Jusqu’à 4, l’application les montre en cartes : ne parle pas de liste. Ne mentionne jamais ce seuil ni la raison de cette présentation.\nUn refus de l’API nomme ce qui est permis : corrige l’AST et réessaie une fois avant de répondre ; ne dis jamais qu’un critère n’est pas autorisé sans ce nouvel essai. Sinon un appel par demande ; pas de get_agent_profile sans demande explicite.",
+    "whenToUse": "Pour rechercher, lister, filtrer, identifier, compter ou répartir des agents, même avec un nom complet. Pas pour le profil détaillé d’un agent ni pour l’utilisateur lui-même (get_my_profile).\nCritères : pour une liste (LIST), au moins un critère positif (must, ou should avec minimum_should_match=1) ; sinon n’appelle pas l’outil et demande un nom, un service, une direction ou un poste. N’invente jamais de critère.\nIdentité (nom, prénom ou les deux) : un seul critère personne avec FUZZY_PERSON et limit 4. L’API renvoie les candidats les plus ressemblants, ou seulement les correspondances exactes s’il y en a. Le critère id (EQ) dans must_not exclut des agents déjà proposés.\nStructures : service, direction ou poste en CONTAINS avec un mot significatif du libellé (« budget », « informatique »), directement s’il est écrit en toutes lettres. service et corps contiennent aussi leur code : un sigle de service (SPERS…) se filtre tel quel sur service en CONTAINS ; get_organization_info (LIST_SERVICES) donne les codes des services en cas de doute. Les directions n’ont pas de sigle enregistré : pour un sigle de direction (DGB, DSI…), obtiens d’abord son libellé avec get_organization_info (LIST_DIRECTIONS) ; ne filtre jamais une direction sur son sigle.\nDates : ISO AAAA-MM-JJ. « Récemment embauché » = WITHIN_LAST_MONTHS 12, à annoncer. Début, mi ou fin de mois : bornes calendaires ; année incertaine : demande-la. « Jeune », « vieux » sans seuil : demande une précision.\nTout ce que montrent le profil et la carrière se filtre : diplômes, parcours, affectations passées, avancements, documents, langues, compétences et formations, par leur liste (collection). Exemple, diplôme d’informatique de niveau licence ou plus : {\"collection\":\"diplomes\",\"must\":[{\"field\":\"domaine\",\"operator\":\"CONTAINS\",\"value\":\"informatique\"},{\"field\":\"niveau\",\"operator\":\"GTE\",\"value\":\"Licence\"}]} ; langue anglaise de niveau courant ou plus : {\"collection\":\"langues\",\"must\":[{\"field\":\"langue\",\"operator\":\"CONTAINS\",\"value\":\"anglais\"},{\"field\":\"niveau\",\"operator\":\"GTE\",\"value\":\"Courant\"}]}. niveau d’une langue : rang, du plus bas au plus haut « Notions », « Intermédiaire », « Courant », « Langue maternelle ». Compétence ou formation : CONTAINS avec un mot significatif. Langues, compétences et formations ne sont renseignées que sur une partie des fiches. Plus haut diplôme égal à X : niveau EQ X, et must_not niveau GT X. Condition d’ancienneté d’échelon remplie : date_anciennete_echelon TODAY_OR_BEFORE ; atteinte dans n mois : WITHIN_NEXT_MONTHS n. Ne parle jamais d’avancement accordé.\nSuivis : renvoie l’AST COMPLET mis à jour, sans la condition à retirer. Total : resultMode=COUNT avec l’AST actif ; ne compte jamais les agents affichés. Autre page ou autre nombre : ne change que limit et offset.\nRépartition ou statistique (« par direction », « combien … par … », « âge moyen ») : resultMode=GROUP, groupBy d’un ou deux champs (champ de liste : diplomes.niveau), measures au besoin, critères facultatifs. Présente les chiffres reçus tels quels, groupe vide = « non renseigné ».\nChaque agent porte « correspondance » : ce qui l’a fait retenir (valeurs des critères, diplômes ou affectations qui ont répondu). Appuie ta réponse dessus en une courte phrase, sans rien y ajouter.\n5 agents filtrés ou plus : ne les énumère pas ; annonce le total et les critères retenus, l’application propose d’ouvrir la liste. Jusqu’à 4, l’application les montre en cartes : ne parle pas de liste. Ne mentionne jamais ce seuil.\nUn refus de l’API nomme ce qui est permis : corrige l’AST et réessaie une fois avant de répondre ; ne dis jamais qu’un critère n’est pas autorisé sans ce nouvel essai. Sinon un appel par demande ; pas de get_agent_profile sans demande explicite.",
     "method": "POST",
     "url": "{RH_API_URL}/api/recherche/agents/avancee",
     "enabled": true,
@@ -27,7 +27,7 @@
   },
   {
     "name": "get_agent_profile",
-    "description": "Récupère le profil détaillé d’un agent à partir de son nom ou de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle et affectation (avec descriptionPoste et descriptionService : ce que fait son poste et son service), parcours de carrière, diplômes, compétences et formations (competencesEtFormations : langues avec leur niveau NOTIONS, INTERMEDIAIRE, COURANT ou MATERNELLE, compétences, formations continues) et analyse d’évolution de carrière calculée par le backend. Une liste vide veut dire « non renseigné sur sa fiche », pas « ne sait pas ».",
+    "description": "Récupère le profil détaillé d’un agent à partir de son nom ou de son matricule : identité, informations personnelles disponibles, situation professionnelle actuelle et affectation (avec descriptionPoste et descriptionService : ce que fait son poste et son service), parcours de carrière, diplômes, compétences et formations (competencesEtFormations : langues avec leur niveau NOTIONS, INTERMEDIAIRE, COURANT ou MATERNELLE, compétences, formations continues) et analyse d’évolution de carrière calculée par le backend. Une liste vide : rien n’est renseigné sur la fiche.",
     "whenToUse": "Uniquement pour un agent déjà identifié, quand l’utilisateur demande explicitement son profil ou un détail : coordonnées, sexe, adresse, dates, affectation, carrière, diplômes ou évolution. Pour rechercher ou identifier une personne, utilise search_agents ; pour l’utilisateur lui-même, get_my_profile. Transmets dans query le matricule s’il est connu, sinon le nom complet. Si la réponse figure déjà dans la conversation, réutilise-la ; sinon rappelle l’outil, car les profils ne sont pas conservés d’un message à l’autre. Si plusieurs agents correspondent, demande un élément distinctif. N’invente aucune information absente du résultat.\nPièce jointe qui porte le nom complet d’un agent (CIN, diplôme…) : appelle directement get_agent_profile avec ce nom, sans search_agents avant ; son champ id sert d’agentId. Seulement s’il répond qu’aucun agent ou plusieurs agents correspondent, passe par search_agents.",
     "method": "GET",
     "url": "{RH_API_URL}/api/profil/agent",
@@ -554,9 +554,133 @@
     ]
   },
   {
+    "name": "prepare_new_agent",
+    "description": "Propose à l’interface le formulaire de création d’un agent, prérempli avec les champs transmis ; les champs transmis sont surlignés. Rien n’est créé tant que l’utilisateur n’a pas validé le formulaire, où il complète ce qui manque (matricule, affectation, type d’emploi, grade…).",
+    "whenToUse": "Création d’un agent qui n’existe pas encore dans SYGPERS, par exemple d’après une pièce jointe (CV, CIN, diplôme). Ne transmets que des valeurs connues ; dates au format AAAA-MM-JJ ; serviceId et posteId : identifiants de get_organization_info. L’API vérifie chaque champ à l’enregistrement (matricule unique, CIN, âge minimum à l’embauche…).",
+    "method": "GET",
+    "url": "/agents",
+    "enabled": true,
+    "sensitive": false,
+    "actionLevel": "PREPARE",
+    "parameters": [
+      {
+        "name": "matricule",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Matricule de l’agent."
+      },
+      {
+        "name": "nom",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Nom de famille."
+      },
+      {
+        "name": "prenom",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Prénom(s)."
+      },
+      {
+        "name": "sexe",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "F ou M uniquement."
+      },
+      {
+        "name": "cin",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Numéro de la carte d’identité nationale."
+      },
+      {
+        "name": "telephone",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Numéro de téléphone."
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Adresse e-mail de l’agent."
+      },
+      {
+        "name": "dateNaissance",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Date de naissance, AAAA-MM-JJ."
+      },
+      {
+        "name": "lieuNaissance",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Lieu de naissance."
+      },
+      {
+        "name": "dateEmbauche",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Date d’embauche, AAAA-MM-JJ."
+      },
+      {
+        "name": "lieuTravail",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Lieu de travail."
+      },
+      {
+        "name": "serviceId",
+        "type": "integer",
+        "location": "body",
+        "required": false,
+        "description": "Service d’affectation (id de get_organization_info, LIST_SERVICES)."
+      },
+      {
+        "name": "posteId",
+        "type": "integer",
+        "location": "body",
+        "required": false,
+        "description": "Poste dans ce service (id de get_organization_info, LIST_POSTES)."
+      },
+      {
+        "name": "langues",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Langues et niveau, séparées par « ; » : langue:NIVEAU, NIVEAU parmi NOTIONS, INTERMEDIAIRE, COURANT, MATERNELLE (exemple : Français:COURANT;Anglais:NOTIONS)."
+      },
+      {
+        "name": "competences",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Compétences, séparées par « ; » (exemple : Gestion de la paie;Rédaction juridique)."
+      },
+      {
+        "name": "formations",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Formations continues, séparées par « ; », chacune intitulé|organisme|année (organisme et année facultatifs)."
+      }
+    ]
+  },
+  {
     "name": "prepare_agent_update",
-    "description": "Propose à l’interface le formulaire de modification des informations personnelles d’un agent, prérempli avec les seules valeurs à changer. Rien n’est enregistré tant que l’utilisateur n’a pas validé.",
-    "whenToUse": "Quand l’utilisateur veut modifier une information personnelle d’un agent : nom, prénom, sexe, adresse, CIN, téléphone, date ou lieu de naissance. agentId est l’identifiant interne (champ id) renvoyé par search_agents ou get_agent_profile ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Ne transmets QUE les champs que l’utilisateur veut changer, avec leur nouvelle valeur ; ne recopie jamais les valeurs actuelles, car l’interface signale chaque champ transmis comme modifié. Dis que le formulaire est prérempli et que les champs modifiés sont à vérifier puis valider ; ne dis jamais que la modification est enregistrée.\nFiche à compléter d’après une pièce jointe (CIN…) : lis d’abord la fiche de l’agent avec get_agent_profile (directement avec le nom écrit sur la pièce), puis ne transmets que les champs que la fiche n’a pas ou où la pièce dit autre chose : un champ identique à la fiche (par exemple le même numéro de CIN) ne doit pas être transmis. Dans ta réponse, nomme chaque écart (par exemple « la CIN porte RAKOTO Jean, la fiche RAKOTO Jeannot ») et tes constats sur la pièce (lisibilité, tampon), sans trancher : le formulaire propose la valeur de la pièce et l’utilisateur décide. La pièce sera jointe à la fiche une fois enregistrée.",
+    "description": "Propose à l’interface la modification de la fiche d’un agent, préremplie avec les seules valeurs à changer : identité et coordonnées (nom, prénom, sexe, adresse, CIN, téléphone, e-mail, date et lieu de naissance), et langues, compétences, formations continues (la fenêtre « Compétences et formations » s’ouvre complétée ; une langue déjà présente prend le niveau transmis, une compétence ou une formation déjà présente n’est pas doublée). Rien n’est enregistré tant que l’utilisateur n’a pas validé.",
+    "whenToUse": "Modification d’un agent existant : nom, prénom, sexe, adresse, CIN, téléphone, e-mail, date ou lieu de naissance, langues, compétences, formations. agentId est l’identifiant interne (champ id) renvoyé par search_agents ou get_agent_profile ; s’il n’est pas connu, recherche d’abord l’agent et, si plusieurs correspondent, demande lequel. Ne transmets QUE les champs que l’utilisateur veut changer, avec leur nouvelle valeur ; ne recopie jamais les valeurs actuelles, car l’interface signale chaque champ transmis comme modifié. Dis que le formulaire est prérempli et que les champs modifiés sont à vérifier puis valider ; ne dis jamais que la modification est enregistrée.\nFiche à compléter d’après une pièce jointe (CIN…) : lis d’abord la fiche de l’agent avec get_agent_profile (directement avec le nom écrit sur la pièce), puis ne transmets que les champs que la fiche n’a pas ou où la pièce dit autre chose : un champ identique à la fiche (par exemple le même numéro de CIN) ne doit pas être transmis. Dans ta réponse, nomme chaque écart (par exemple « la CIN porte RAKOTO Jean, la fiche RAKOTO Jeannot ») et tes constats sur la pièce (lisibilité, tampon), sans trancher : le formulaire propose la valeur de la pièce et l’utilisateur décide. La pièce sera jointe à la fiche une fois enregistrée.",
     "method": "GET",
     "url": "/agents/{agentId}",
     "enabled": true,
@@ -625,6 +749,34 @@
         "description": "Nouveau lieu de naissance.",
         "required": false,
         "location": "body"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Nouvelle adresse e-mail."
+      },
+      {
+        "name": "langues",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Langues et niveau, séparées par « ; » : langue:NIVEAU, NIVEAU parmi NOTIONS, INTERMEDIAIRE, COURANT, MATERNELLE (exemple : Français:COURANT;Anglais:NOTIONS)."
+      },
+      {
+        "name": "competences",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Compétences, séparées par « ; » (exemple : Gestion de la paie;Rédaction juridique)."
+      },
+      {
+        "name": "formations",
+        "type": "string",
+        "location": "body",
+        "required": false,
+        "description": "Formations continues, séparées par « ; », chacune intitulé|organisme|année (organisme et année facultatifs)."
       }
     ]
   },
@@ -669,7 +821,7 @@
   {
     "name": "get_succession_plan",
     "description": "Gestion des postes : les postes libres aujourd’hui et ceux que des départs à la retraite vont libérer. Renvoie horizon_annees, jusquau, chiffres (postes_libres, places_libres, departs, postes_risque_eleve, postes_concernes, services_touches, risque_eleve_sans_releve), postes_libres (poste_id, poste, description, service, direction, places, occupes, libres, responsable, releve), postes qui se libèrent (poste_id, poste, description, service, direction, occupes, partants, premier_depart, se_vide, responsable, niveau ELEVE | A_SURVEILLER, titulaires_partants, releve), departs (id de l’agent, prenom, nom, poste, service, depart_prevu, motif_depart DEMANDE_RETRAITE | DROIT_RETRAITE, en_retard : droit au départ déjà atteint) et services (service, direction, total, par_annee). releve : l’agent choisi pour le poste {successeur_id, successeur_prenom, successeur_nom, statut A_PREPARER | EN_PREPARATION | PRET, note} ou null (aucun agent choisi). Niveau ELEVE : le poste se vide dans les deux ans, ou c’est un poste de responsable. Choisir un agent ne mute personne : la mutation se fait ensuite par une demande.",
-    "whenToUse": "Postes libres, postes qui vont se libérer, départs à la retraite à venir, services qui perdront du personnel, agent choisi pour un poste ou postes sans successeur. horizon : nombre d’années pour les départs (1 à 10) ; « d’ici AAAA » = AAAA moins l’année en cours (au moins 1) ; les postes libres sont ceux d’aujourd’hui, quel que soit l’horizon. Dis « agent choisi » ou « successeur choisi », jamais « pressenti ». Réservé au Service du Personnel. Pour proposer d’ouvrir la page, open_page avec page=postes.",
+    "whenToUse": "Postes libres, postes qui se libèrent, départs à venir, services touchés, agent choisi pour un poste. horizon : nombre d’années comptées à partir d’aujourd’hui pour les départs (1 à 10) ; les postes libres sont ceux d’aujourd’hui, quel que soit l’horizon. Réservé au Service du Personnel. La page correspondante s’ouvre avec open_page (page=postes).",
     "method": "GET",
     "url": "{RH_API_URL}/api/releve",
     "enabled": true,
@@ -687,8 +839,8 @@
   },
   {
     "name": "get_succession_candidates",
-    "description": "Les agents recommandés pour occuper un poste (libre ou qui se libère), classés par SYGPERS parmi tous les agents en activité, six au plus : id, prenom, nom, matricule, type_emploi, categorie, poste, service, direction, meme_service, meme_direction, grade_code, indice, retraite_possible, score, raisons (atouts en phrases : a déjà occupé ce poste, même service ou direction, catégorie, compétences et diplôme en commun avec le titulaire, formations, ancienneté, exigences remplies), attentions (points de vigilance : retraite proche, déjà choisi pour un autre poste, laisserait un poste de responsable sans titulaire, catégorie inférieure, exigence indispensable non remplie) et exigences (chaque exigence du poste : libelle, indispensable, etat REMPLIE / MANQUANTE / A_VERIFIER quand la fiche ne dit rien, detail). Une recommandation : l’utilisateur peut choisir n’importe quel agent.",
-    "whenToUse": "Qui pourrait reprendre ou remplacer un poste ou son titulaire. posteId : poste_id de get_succession_plan, ou id d’un poste de get_organization_info (LIST_POSTES). La réponse s’appuie sur raisons. Présente les trois premiers, chacun avec son principal atout et, s’il y en a, son point d’attention, puis indique combien d’autres sont recommandés ; rappelle en une courte phrase que l’utilisateur peut choisir n’importe quel agent. Le score sert seulement au classement : ne le cite jamais.",
+    "description": "Les agents recommandés pour occuper un poste (libre ou qui se libère), classés par SYGPERS parmi tous les agents en activité, six au plus : id, prenom, nom, matricule, type_emploi, categorie, poste, service, direction, meme_service, meme_direction, grade_code, indice, retraite_possible, score, raisons (atouts en phrases : a déjà occupé ce poste, même service ou direction, catégorie, compétences et diplôme en commun avec le titulaire, formations, ancienneté, exigences remplies), attentions (points de vigilance : retraite proche, déjà choisi pour un autre poste, laisserait un poste de responsable sans titulaire, catégorie inférieure, exigence indispensable non remplie) et exigences (chaque exigence du poste : libelle, indispensable, etat REMPLIE / MANQUANTE / A_VERIFIER quand la fiche ne dit rien, detail). Une recommandation : l’utilisateur peut choisir n’importe quel agent. score : valeur interne qui sert au classement, sans signification pour l’utilisateur.",
+    "whenToUse": "Qui pourrait occuper un poste, libre ou qui se libère. posteId : poste_id de get_succession_plan, ou id d’un poste de get_organization_info (LIST_POSTES). Ce sont des recommandations : l’utilisateur peut choisir n’importe quel agent, et evaluate_candidate analyse un agent hors de cette liste.",
     "method": "GET",
     "url": "{RH_API_URL}/api/postes/{posteId}/releve",
     "enabled": true,
@@ -706,8 +858,8 @@
   },
   {
     "name": "evaluate_candidate",
-    "description": "Évalue un agent précis pour un poste, avec les critères de la Gestion des postes : score, raisons (atouts : a déjà occupé ce poste, même service ou direction, catégorie, compétences et diplôme en commun avec le titulaire, formations, ancienneté, exigences remplies), attentions (points de vigilance : retraite proche, déjà choisi pour un autre poste, laisserait un poste de responsable sans titulaire, catégorie inférieure, exigence indispensable non remplie) et exigences (chaque exigence du poste : libelle, indispensable, etat REMPLIE, MANQUANTE ou A_VERIFIER quand sa fiche ne dit rien, detail). Une aide à la décision : l’utilisateur choisit qui il veut.",
-    "whenToUse": "Quand l’utilisateur demande si un agent conviendrait, serait adapté ou remplirait les conditions d’un poste (« Mialitiana conviendrait-elle au poste de Juriste ? »), ou compare deux agents pour un poste (un appel par agent). employeId : champ id de search_agents ; posteId : poste_id de get_succession_plan ou id de get_organization_info (LIST_POSTES). Réponds par les atouts, les exigences et les points d’attention, sans trancher à la place de l’utilisateur ; une exigence A_VERIFIER se dit « à vérifier, sa fiche ne le précise pas ». L’API refuse le titulaire actuel du poste ou un agent parti : dis-le simplement. Le score sert seulement au classement : ne le cite jamais.",
+    "description": "Évalue un agent précis pour un poste, avec les critères de la Gestion des postes : score, raisons (atouts : a déjà occupé ce poste, même service ou direction, catégorie, compétences et diplôme en commun avec le titulaire, formations, ancienneté, exigences remplies), attentions (points de vigilance : retraite proche, déjà choisi pour un autre poste, laisserait un poste de responsable sans titulaire, catégorie inférieure, exigence indispensable non remplie) et exigences (chaque exigence du poste : libelle, indispensable, etat REMPLIE, MANQUANTE ou A_VERIFIER quand sa fiche ne dit rien, detail). Une aide à la décision : l’utilisateur choisit qui il veut. score : valeur interne qui sert au classement, sans signification pour l’utilisateur.",
+    "whenToUse": "Un agent précis face à un poste : convenance, comparaison de plusieurs agents (un appel par agent). employeId : champ id de search_agents ; posteId : poste_id de get_succession_plan ou id de get_organization_info (LIST_POSTES). L’API refuse le titulaire actuel du poste et un agent qui n’est plus en activité.",
     "method": "GET",
     "url": "{RH_API_URL}/api/postes/{posteId}/releve/agents/{employeId}",
     "enabled": true,
@@ -752,7 +904,7 @@
   {
     "name": "get_my_notifications",
     "description": "Les notifications de l’utilisateur connecté, les plus récentes d’abord : les alertes de carrière (ANCIENNETE_ATTEINTE : condition d’ancienneté d’échelon remplie ; ANCIENNETE_UN_MOIS : remplie dans le mois ; RETRAITE_PROCHE : départ à la retraite possible dans moins de six mois ; NOUVEL_AGENT), et le suivi des demandes (DOCUMENT_ACCEPTE, DOCUMENT_REFUSE, DOCUMENT_APPLIQUE, DOCUMENT_APPLICABLE). Renvoie notifications (type, titre, message, employeNom : l’agent concerné, creeLe, lueLe : null si non lue, messageStatut : état de l’e-mail à l’agent pour cette situation, PROPOSE, ENVOYE, ECARTE ou absent) et nonLues (nombre).",
-    "whenToUse": "Quand l’utilisateur demande ses notifications, ses alertes, ce qui est arrivé ou ce qui est nouveau. nonLuesSeulement=true pour « mes nouvelles alertes » ou « non lues ». Résume par nature (par exemple « 3 anciennetés remplies, 1 retraite proche ») en citant les agents concernés si l’utilisateur le demande. Pour prévenir un agent par e-mail, l’utilisateur utilise le bouton « Prévenir » de la notification : dis-le s’il le demande, tu n’envoies pas d’e-mail. Pour lister tous les agents dont l’ancienneté est remplie, search_agents reste la référence.",
+    "whenToUse": "Les notifications (alertes) de l’utilisateur connecté. nonLuesSeulement : true pour ne garder que les non lues. Cet outil ne fait que lire : l’e-mail à l’agent se prépare dans l’interface, depuis le bouton « Prévenir » de chaque notification. La liste complète des agents dans une situation donnée (ancienneté remplie…) vient de search_agents.",
     "method": "GET",
     "url": "{RH_API_URL}/api/notifications",
     "enabled": true,
