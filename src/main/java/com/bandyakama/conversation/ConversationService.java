@@ -31,7 +31,7 @@ public class ConversationService {
             PerformanceTelemetry performanceTelemetry,
             ConfirmationService confirmationService,
             UserContextService userContextService,
-            @Value("${bandy.ai.turn-budget-millis:30000}")
+            @Value("${bandy.ai.turn-budget-millis:60000}")
             int turnBudgetMillis
     ) {
         this.repository = repository;
