@@ -93,7 +93,7 @@
   },
   {
     "name": "get_my_profile",
-    "description": "Récupère le profil de l’utilisateur connecté : matricule, nom, prénom, email, date d’embauche, type d’emploi, catégorie, corps, poste, service, direction et parcours de carrière (catégorie, classe et échelon par période).",
+    "description": "Récupère le profil de l’utilisateur connecté : matricule, nom, prénom, email, date d’embauche, type d’emploi, catégorie, corps, poste, service, direction, parcours de carrière (catégorie, classe et échelon par période), diplômes (niveau, domaine, établissement, date d’obtention, mention, principal) et competencesEtFormations (langues avec leur niveau NOTIONS, INTERMEDIAIRE, COURANT ou MATERNELLE, compétences, formations continues). Une liste vide : rien n’est renseigné sur la fiche.",
     "whenToUse": "Quand l’utilisateur parle de lui-même : « mon profil », « mon poste », « mon échelon », « ma carrière », « depuis quand je suis ici », « qui suis-je ». Son identité vient de sa connexion : n’envoie aucun paramètre, et n’utilise ni search_agents ni get_agent_profile pour lui. Si la réponse figure déjà dans la conversation, réutilise-la ; sinon rappelle l’outil, car les profils ne sont pas conservés d’un message à l’autre. Ne l’appelle jamais pour connaître le prénom de l’utilisateur : il t’est déjà donné.",
     "method": "GET",
     "url": "{RH_API_URL}/api/profil/agent/mon-profil",
